@@ -27,8 +27,10 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
 - Game code in **C++** (text you can edit and review), not Blueprint graphs. Blueprints only as thin data or asset wrappers.
 - Automate asset work with scripts: Blender Python run headless (`blender -b -P tools/....py`) to make `.blend`/`.fbx`/`.glb` files from the reference data, and Unreal Python editor scripts (`UnrealEditor-Cmd.exe <project> -run=pythonscript -script=...`) to import and place them. Keep the scripts in `tools/` so every asset can be rebuilt.
 - Build from the command line (UnrealBuildTool / RunUAT). Check your work with screenshots and logs before telling the user something works.
-- When something needs the user's hands (installing, clicking in the editor, testing the DualShock 4), ask for **one step at a time**.
-- Input: PS4 DualShock 4 over USB or Bluetooth is the main controller (Unreal does not see it as an Xbox pad by default: use the Windows RawInput plugin or Steam Input, and test it), plus keyboard and mouse.
+- **Work in one go** (user's wish, 26 Oct 2026): port and test the whole checklist before reporting back, then give one report with screenshots, frame rates and what still needs the user. Do not stop for approval between features.
+- Test everything yourself: automated tests for the logic plus scripted play-throughs with simulated input (like `reference/web-game/tests/browser-harness.js`), screenshots and logs, frame rate in the busiest places. Online features are built but **not tested** now.
+- Prefer scripts and the command line; computer use (controlling the screen) only for steps that exist only in a window (installers, first-time dialogs). Ask the user only when truly blocked, one question at a time.
+- Input: PS4 DualShock 4 over USB or Bluetooth is the main controller (Unreal does not see it as an Xbox pad by default: use the Windows RawInput plugin or Steam Input), plus keyboard and mouse. The controller works with the web version but is **not available right now**: build full support with the web version's mapping, test with keyboard, mouse and simulated controller input, and list the DualShock test as still to do.
 
 ## User preferences (carried over)
 - Ask **one question at a time**; when asking about something visual, show the image in the same message (absolute local path in Markdown).
