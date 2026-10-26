@@ -1,0 +1,9 @@
+# Build outputs (made by build.py and package-portable.py)
+dist/
+cloud/public/
+# Local tools and caches
+cloud/.wrangler/
+.claude/
+node_modules/
+__pycache__/
+*.log

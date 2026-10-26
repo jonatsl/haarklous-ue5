@@ -1,0 +1,142 @@
+/* Haarklous plass — open-world game */
+:root{color-scheme:dark;--ink:#f4f1e8;--accent:#d8b25a;--card:#11161ce8}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{margin:0;height:100%;background:#0d1114;color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+#game{position:fixed;inset:0;overflow:hidden;background:#9fb4c4}
+#game>canvas:first-child{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none}
+#ghost{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;mix-blend-mode:screen}
+#loading{position:absolute;inset:0;display:grid;place-items:center;font-size:20px;background:#0d1114;z-index:10}
+#crosshair{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:#fff;box-shadow:0 0 3px #000;pointer-events:none}
+#game[data-case] #crosshair{display:none}
+#prompt{position:absolute;left:50%;bottom:16%;transform:translateX(-50%);padding:8px 16px;border-radius:20px;background:#0009;font-weight:600;white-space:nowrap;pointer-events:none}
+#notice{position:absolute;left:50%;top:14%;transform:translateX(-50%);max-width:min(720px,90%);padding:8px 16px;border-radius:8px;background:#000a;text-align:center;pointer-events:none}
+#speedo{position:absolute;right:22px;bottom:18px;font:700 22px/1 ui-monospace,Consolas,monospace;text-shadow:0 1px 3px #000;pointer-events:none}
+#drunk{position:absolute;left:22px;top:18px;padding:5px 12px;border-radius:14px;background:#7a3b10cc;font-weight:700;pointer-events:none}
+.game-card{position:absolute;left:18px;bottom:18px;width:min(380px,calc(100% - 36px));display:grid;gap:3px;padding:12px 14px;border-radius:10px;background:var(--card);pointer-events:none;font-size:14px}
+.game-card b{font-size:16px;color:#fff}.game-card small{opacity:.8}
+.meter{display:block;height:8px;border-radius:4px;background:#ffffff1f;overflow:hidden;margin:4px 0}.meter u{display:block;height:100%;background:linear-gradient(90deg,#9ff0a8,#ffd27a,#ff7a6b)}
+#markers{position:absolute;inset:0;pointer-events:none}
+.marker{position:absolute;transform:translate(-50%,-100%);padding:1px 6px;border-radius:8px;background:#000a;font:600 11px/1.4 ui-monospace,Consolas,monospace;white-space:nowrap}
+.marker.you{color:#cfe3ff}.marker.npc{color:#ffd8a8}.marker.jack{color:#ffe36b}.marker.best{outline:2px solid #9ff0a8}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;background:#0b0f13b8;z-index:6}
+.overlay[hidden]{display:none}
+.panel{width:min(620px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;padding:24px 26px;border-radius:12px;background:#11161cf4;box-shadow:0 12px 40px #0008}
+.panel h1{margin:6px 0 10px;font-size:34px}.panel h2{margin:6px 0 12px}
+.eyebrow{font:600 11px/1 ui-monospace,Consolas,monospace;letter-spacing:.14em;color:var(--accent)}
+.controls{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;margin:14px 0}.controls dt{color:var(--accent);font-family:ui-monospace,Consolas,monospace}.controls dd{margin:0}
+.panel label{display:grid;gap:4px;margin:10px 0}.panel label.row{display:flex;align-items:center;gap:8px}.panel output{float:right;font-family:ui-monospace,Consolas,monospace}
+.panel input[type=range]{width:100%;accent-color:var(--accent)}.panel select{font:inherit;padding:6px;border-radius:6px}
+.panel button{margin-top:12px;background:var(--accent);color:#11161c;border:0;border-radius:6px;padding:10px 16px;font-weight:700;font-size:15px;cursor:pointer}
+.small{font-size:12px;opacity:.8}
+/* Photo camera */
+#photoCam{position:absolute;inset:0;pointer-events:none}
+#photoCam[hidden]{display:none}
+#photoCam .vf{position:absolute;inset:6%;display:none}
+#photoCam.raised .vf{display:block}
+#photoCam .vf i{position:absolute;width:40px;height:40px;border:2px solid #fffc}
+#photoCam .vf i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0}#photoCam .vf i:nth-child(2){right:0;top:0;border-left:0;border-bottom:0}
+#photoCam .vf i:nth-child(3){left:0;bottom:0;border-right:0;border-top:0}#photoCam .vf i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0}
+#photoCam .focus{position:absolute;left:50%;top:50%;width:70px;height:46px;margin:-23px 0 0 -35px;border:2px solid #9ff0a8cc;border-radius:4px}
+#photoCam .vf-info{position:absolute;right:8px;bottom:8px;font:600 14px ui-monospace,Consolas,monospace;text-shadow:0 1px 2px #000}
+#photoCam.raised{background:radial-gradient(ellipse at center,#0000 60%,#000c 100%)}
+#photoCam .flash{position:absolute;inset:0;background:#fff;opacity:0}
+#photoCam .flash.on{animation:flash .35s ease-out}
+@keyframes flash{from{opacity:.85}to{opacity:0}}
+#photoCam .preview{position:absolute;right:18px;top:18px;width:220px;border:3px solid #fff;border-radius:4px;opacity:0;box-shadow:0 6px 20px #000a}
+#photoCam .preview.show{animation:preview 2.6s ease-out}
+@keyframes preview{0%{opacity:0;transform:scale(1.2)}10%{opacity:1;transform:scale(1)}80%{opacity:1}100%{opacity:0}}
+#photoCam .gallery{position:absolute;inset:0;background:#000e;display:grid;grid-template-rows:1fr auto;place-items:center;padding:24px}
+#photoCam .gallery[hidden]{display:none}
+#photoCam .gallery img{max-width:100%;max-height:100%;border:4px solid #fff;border-radius:4px}
+#photoCam .g-bar{display:flex;gap:24px;font-weight:600}
+#photoCam .cam-help{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);font-size:13px;text-shadow:0 1px 2px #000;white-space:nowrap}
+/* Map */
+#mapOverlay{position:absolute;inset:0;z-index:5;background:#e8e4d8}
+#mapOverlay[hidden]{display:none}
+#mapOverlay canvas{width:100%;height:100%;display:block;cursor:grab}
+.map-legend{position:absolute;right:16px;top:16px;display:grid;gap:5px;padding:12px 14px;border-radius:10px;background:#fffffff0;color:#222;font-size:13px}
+.lg{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:7px;vertical-align:-1px}
+.lg.home{background:#e0703c}.lg.case{background:#b71c1c}.lg.disc{background:#6a1b9a}.lg.petanque{background:#00838f}.lg.you{background:#1565c0;border-radius:2px}
+.map-legend .attr{opacity:.6}
+/* Mission (hostage rescue): HUD, crosshair and panels — only shown while the mission runs. */
+#caseHud{position:absolute;inset:0;pointer-events:none;color:#f4f1e8;font:600 13px/1.3 ui-monospace,Consolas,monospace;text-shadow:0 1px 3px #000c}
+#caseHud[hidden]{display:none}
+.case-top{position:absolute;top:14px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:flex-start}
+.case-top div{display:grid;gap:3px}.case-top span{font-weight:500;opacity:.9}
+.case-ammo{position:absolute;right:22px;bottom:18px;display:flex;align-items:baseline;gap:6px}
+.case-ammo b{font-size:34px}.case-ammo b.low{color:#ff7a6b}.case-ammo span{font-size:16px;opacity:.85}.case-ammo small{position:absolute;right:0;bottom:44px;color:#ffd27a}
+#caseCrosshair{--gap:16px;position:absolute;left:50%;top:50%;width:0;height:0}
+#caseCrosshair i{position:absolute;background:#fff;box-shadow:0 0 2px #000}
+#caseCrosshair i:nth-child(1),#caseCrosshair i:nth-child(2){width:9px;height:2px;top:-1px}
+#caseCrosshair i:nth-child(1){right:var(--gap)}#caseCrosshair i:nth-child(2){left:var(--gap)}
+#caseCrosshair i:nth-child(3),#caseCrosshair i:nth-child(4){width:2px;height:9px;left:-1px}
+#caseCrosshair i:nth-child(3){bottom:var(--gap)}#caseCrosshair i:nth-child(4){top:var(--gap)}
+#caseCrosshair span{position:absolute;width:3px;height:3px;left:-1.5px;top:-1.5px;border-radius:50%;background:#fff}
+#caseHitMarker{position:absolute;left:50%;top:50%;transform:translate(-50%,-52%);font-size:26px;color:#fff;opacity:0;transition:opacity .08s}
+#caseFeed{position:absolute;left:50%;top:62%;transform:translateX(-50%);font-size:16px;letter-spacing:.06em}
+#caseFeed.ok{color:#9ff0a8}#caseFeed.fail{color:#ff6b5e;font-size:20px}
+#casePanel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100% - 32px));max-height:calc(100% - 40px);overflow:auto;padding:24px 26px;border-radius:8px;background:#11161cf2;color:#ece8dc;box-shadow:0 12px 40px #0008;font-size:14px;line-height:1.5;z-index:3}
+#casePanel[hidden]{display:none}
+.case-health{position:absolute;left:22px;bottom:18px;display:grid;grid-template-columns:auto auto;align-items:baseline;gap:2px 8px}
+.case-health span{font-size:11px;letter-spacing:.14em;opacity:.85}.case-health b{font-size:30px}.case-health b.low{color:#ff7a6b}
+.case-health i{grid-column:1/-1;display:block;width:150px;height:5px;background:#0007;border-radius:3px;overflow:hidden}.case-health u{display:block;height:100%;width:100%;background:#9ff0a8;transition:width .2s}
+#caseDamage{position:absolute;inset:0;opacity:0;background:radial-gradient(ellipse at center,#0000 45%,#c4100a88 80%,#a00c07dd 100%)}
+#caseDamageDir{position:absolute;left:50%;top:50%;width:0;height:0;opacity:0;border-left:16px solid transparent;border-right:16px solid transparent;border-bottom:22px solid #ff3b2fd9;filter:drop-shadow(0 0 4px #000a)}
+.case-sens{display:grid;gap:6px;margin:14px 0;padding:10px 12px;border-radius:6px;background:#ffffff0d}
+.case-sens label{display:grid;grid-template-columns:90px 1fr 52px;align-items:center;gap:10px;font-size:13px}.case-sens input{width:100%;accent-color:#d8b25a}.case-sens output{font-family:ui-monospace,Consolas,monospace;text-align:right}
+.case-sens small{opacity:.75;font-size:12px}
+#casePanel h2{margin:4px 0 12px;font-size:24px;color:#fff}#casePanel h2.success{color:#8fe39a}#casePanel h2.fail{color:#ff7a6b}
+#casePanel p{margin:0 0 10px}.case-eyebrow{font:600 11px/1 ui-monospace,Consolas,monospace;letter-spacing:.14em;color:#d8b25a}
+.case-rules span{font-weight:700;color:#8fe39a}.case-rules span.fail,#casePanel b.fail{color:#ff7a6b}
+.case-controls,.case-stats{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:14px 0;font-size:13px}
+.case-controls dt,.case-stats dt{color:#d8b25a;font-family:ui-monospace,Consolas,monospace}.case-controls dd,.case-stats dd{margin:0}
+.case-stats{font-size:15px}
+.case-buttons{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.case-buttons button{background:#d8b25a;color:#11161c;border:0;border-radius:5px;padding:9px 14px;font-weight:700;cursor:pointer}
+.case-buttons button+button{background:#2c343d;color:#ece8dc}
+@media(max-width:650px){.case-ammo b{font-size:26px}#casePanel{padding:18px}}
+#casePanel p{color:#d9d4c7}#casePanel p b{color:#fff}
+#game[data-case] #prompt{bottom:24%}
+
+/* Aircraft HUD, hold-△ gear menu, FPV drone OSD */
+#speedo.air{font-size:16px;line-height:1.3;max-width:70%;text-align:right}
+#gearMenu{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-wrap:wrap;gap:14px;justify-content:center;max-width:min(520px,92%);pointer-events:none}
+#gearMenu .gm-item{width:190px;padding:16px 14px;border-radius:14px;background:#0b0f14d9;border:2px solid #ffffff22;display:flex;flex-direction:column;align-items:center;gap:6px;color:#dfe6ec}
+#gearMenu .gm-item svg{width:52px;height:52px}
+#gearMenu .gm-item small{opacity:.7}
+#gearMenu .gm-item.sel{border-color:#ffd166;background:#1d2633e6;color:#fff;box-shadow:0 0 0 3px #ffd16633}
+#gearMenu p{width:100%;text-align:center;margin:4px 0 0;font-size:13px;text-shadow:0 1px 3px #000}
+#osd{position:absolute;inset:0;pointer-events:none;font:700 15px/1.25 ui-monospace,Consolas,monospace;color:#f4f7f0;text-shadow:0 0 2px #000,0 0 4px #000;background:radial-gradient(ellipse at center,transparent 62%,#0006 100%)}
+#osd .tl,#osd .tr,#osd .bl,#osd .br{position:absolute;padding:14px 18px}
+#osd .tl{left:0;top:0}#osd .tr{right:0;top:0;text-align:right}#osd .bl{left:0;bottom:0}#osd .br{right:0;bottom:0;text-align:right}
+#osd .mid{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:22px;opacity:.85}
+#osd .warn{position:absolute;left:50%;top:30%;transform:translateX(-50%);color:#ff5a4f;font-size:20px;text-align:center}
+#osd .bar{display:inline-block;width:70px;height:8px;border:1px solid #f4f7f0;vertical-align:middle;margin-left:6px}
+#osd .bar i{display:block;height:100%;background:#9be37a}
+#game[data-drone] #crosshair{display:none}
+
+/* Multiplayer: chat, quick chat, lobby section, code pad */
+#chat{position:absolute;left:18px;bottom:64px;width:min(440px,72%);pointer-events:none;font-size:14px}
+#chatLog{display:flex;flex-direction:column;gap:3px;max-height:40vh;overflow:hidden;justify-content:flex-end}
+#chatLog .line{padding:3px 9px;border-radius:7px;background:#0008;text-shadow:0 1px 2px #000;opacity:0;transition:opacity .6s}
+#chatLog .line:nth-last-child(-n+6){opacity:0}
+#chatLog.recent .line:nth-last-child(-n+6),#chatLog.open .line{opacity:1}
+#chatLog .line.sys{font-style:italic;color:#cfd8dc}
+#chatInput{pointer-events:auto;width:100%;margin-top:6px;padding:8px 10px;border-radius:8px;border:1px solid #fff5;background:#0b0f14e6;color:#fff;font:inherit}
+#quickChat{position:absolute;left:18px;top:50%;transform:translateY(-50%);min-width:210px;padding:12px;border-radius:12px;background:#0b0f14e0;border:1px solid #ffffff2a;pointer-events:none;display:flex;flex-direction:column;gap:3px}
+#quickChat div{padding:5px 10px;border-radius:7px}
+#quickChat div.sel{background:#ffd166;color:#111;font-weight:700}
+#quickChat small{opacity:.7;margin-top:4px}
+.mp{border:1px solid #ffffff22;border-radius:12px;padding:10px 14px;margin:8px 0}
+.mp h3{margin:0 0 4px;font-size:16px}
+.mp-own{font-size:15px}.mp-own b{font:800 28px/1 ui-monospace,Consolas,monospace;letter-spacing:4px;margin-left:8px;color:#ffd166}
+.mp-join{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
+.mp-join input{width:90px;text-transform:uppercase;font:700 18px ui-monospace,Consolas,monospace;letter-spacing:3px;padding:4px 8px}
+#mpPlayers{list-style:none;margin:6px 0;padding:0;display:flex;flex-wrap:wrap;gap:6px 14px}
+#mpPlayers i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.link{user-select:all;word-break:break-all;color:#9fd3ff}
+#codePad{margin:8px 0;padding:10px;border-radius:10px;background:#0006;text-align:center}
+#codePad .slots{display:flex;gap:10px;justify-content:center;margin:8px 0}
+#codePad .slots span{width:40px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:2px solid #ffffff33;font:800 28px ui-monospace,Consolas,monospace}
+#codePad .slots span.sel{border-color:#ffd166;color:#ffd166}

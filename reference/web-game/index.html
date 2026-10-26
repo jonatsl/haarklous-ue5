@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Haarklous online</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="game">
+    <div id="loading" role="status">Building Torshov…</div>
+    <canvas id="ghost" hidden aria-hidden="true"></canvas>
+    <div id="markers" aria-hidden="true"></div>
+    <div id="crosshair" aria-hidden="true"></div>
+    <div id="prompt" role="status" hidden></div>
+    <div id="notice" role="status" aria-live="polite" hidden></div>
+    <div id="speedo" hidden></div>
+    <div id="drunk" hidden></div>
+    <div id="discHud" class="game-card" hidden></div>
+    <div id="petanqueHud" class="game-card" hidden></div>
+    <div id="gearMenu" hidden><div class="gm-item" data-i="0"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M6 15h9l4-6h10l4 6h9v24H6z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><circle cx="24" cy="27" r="8" fill="none" stroke="currentColor" stroke-width="3"/></svg><b>Camera</b><small>Take photos · gallery</small></div><div class="gm-item" data-i="1"><svg viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3"><circle cx="11" cy="11" r="7"/><circle cx="37" cy="11" r="7"/><circle cx="11" cy="37" r="7"/><circle cx="37" cy="37" r="7"/><path d="M16 16l16 16M32 16L16 32"/></g><rect x="19" y="19" width="10" height="10" rx="2" fill="currentColor"/></svg><b>FPV drone</b><small>Fly it in first person</small></div><p>Keep holding △ · ←/→ (or ↑/↓) to choose · release to take it out</p></div>
+    <div id="osd" hidden></div>
+    <div id="chat"><div id="chatLog" aria-live="polite"></div><input id="chatInput" maxlength="200" autocomplete="off" placeholder="Say something… (Enter sends, Esc cancels)" hidden></div>
+    <div id="quickChat" hidden></div>
+    <section id="start" class="overlay" hidden>
+      <div class="panel">
+        <span class="eyebrow">HAARKLOUS PLASS 17A · TORSHOV · OSLO</span>
+        <h1>Haarklous online</h1>
+        <p>Walk the neighbourhood, go home to your 4th-floor apartment (street door of 17A, up the stairs), go into the stairwells, ride the Honda CBF600, drive the parked cars or the excavator, play disc golf in Torshovdalen and petanque in the park, take photos, and start the hostage-rescue mission at the red marker beside the entrance of number 17A. Play together: up to five players per lobby – your lobby code is in the pause menu.</p>
+        <dl class="controls">
+          <dt>Move / look</dt><dd>Left stick / WASD · Right stick / mouse</dd>
+          <dt>✕ / Space</dt><dd>Jump</dd>
+          <dt>○ / C · hold ○ / Z</dt><dd>Crouch · lie prone</dd>
+          <dt>□ / E</dt><dd>Use: doors, drinks, vehicles, games, mission</dd>
+          <dt>△ / F</dt><dd>Tap: photo camera (R2 / left mouse takes a photo, □ / G gallery) · hold: choose camera or FPV drone</dd>
+          <dt>D-pad ↑ / ↑</dt><dd>Check the time on your wristwatch</dd>
+          <dt>Touchpad / M</dt><dd>Map</dd>
+          <dt>Share / Enter or T</dt><dd>Chat with the other players (quick chat on the controller)</dd>
+          <dt>R2 / L3 / Shift</dt><dd>Run</dd>
+          <dt>Options / Esc</dt><dd>Pause and settings</dd>
+        </dl>
+        <button id="startButton">Click or press ✕ to start</button>
+      </div>
+    </section>
+    <section id="pause" class="overlay" hidden>
+      <div class="panel">
+        <span class="eyebrow">PAUSED</span><h2>Settings</h2>
+        <label>Controller look sensitivity <output id="sensPadOut"></output><input id="sensPad" type="range" min="0.25" max="3" step="0.05"></label>
+        <label>Mouse look sensitivity <output id="sensMouseOut"></output><input id="sensMouse" type="range" min="0.25" max="3" step="0.05"></label>
+        <label>Music volume <output id="musicOut"></output><input id="musicVol" type="range" min="0" max="1" step="0.05"></label>
+        <p class="small">Controller: D-pad ←/→ changes the music volume. Now playing: <span id="nowPlaying">–</span></p>
+        <section class="mp">
+          <h3>Multiplayer <small>(up to 5 players)</small></h3>
+          <p id="mpStatus" class="small">Offline</p>
+          <div class="mp-own">Your lobby code <b id="mpOwnCode">----</b></div>
+          <p id="mpWhere" class="small"></p>
+          <p class="small">Share link: <span id="mpLink" class="link"></span></p>
+          <div class="mp-join"><input id="mpJoinCode" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false"><button id="mpJoin">Join lobby</button><button id="mpHome" hidden>Back to my own lobby</button></div>
+          <div id="codePad" hidden></div>
+          <label>Your name <input id="mpName" maxlength="24" autocomplete="off"></label>
+          <label class="row"><input id="mpMic" type="checkbox"> Voice chat – microphone on (everyone in the lobby hears you)</label>
+          <ul id="mpPlayers"></ul>
+          <p class="small">Controller: △ enter a lobby code · □ back to your own lobby · Share: quick chat in the game · Keyboard: Enter or T to chat</p>
+        </section>
+        <label class="row"><input id="imagery" type="checkbox"> Aerial imagery on the ground (loads live when online)</label>
+        <p id="imageryStatus" class="small"></p>
+        <label>Graphics <select id="quality"><option value="0">Fast (no shadows)</option><option value="1">Balanced</option><option value="2">Sharp</option></select></label>
+        <dl class="controls small">
+          <dt>Motorcycle / car</dt><dd>□ get on/in · R2 throttle · L2 brake/reverse · left stick steer · right stick look</dd>
+          <dt>Excavator</dt><dd>L1/L2 left track forward/back · R1/R2 right track · left stick: swing and stick · right stick: boom and bucket</dd>
+          <dt>Disc golf / petanque</dt><dd>Aim with the camera · hold R2, release to throw · ○ quit</dd>
+          <dt>Helicopter</dt><dd>Mode 2: left stick ↑↓ collective (centre = hover), ←→ pedals · right stick pitch and roll · R3 / V chase camera · □ get out after landing</dd>
+          <dt>Plane</dt><dd>Mode 2: left stick ↑↓ throttle (stays where you leave it), ←→ rudder and nose wheel · right stick pitch and roll (pull back to lift off at about 95 km/h) · L2 brakes · R3 / V view</dd>
+          <dt>FPV drone</dt><dd>Hold △, pick the drone · left stick ↑↓ thrust, ←→ yaw · right stick tilt (angle) or rates (acro) · L1 / Q angle ↔ acro · ✕ reset after a crash · ○ pack away</dd>
+          <dt>Multiplayer</dt><dd>Up to five players per lobby (code above) · □ next to a vehicle someone is driving: ride along as passenger (motorcycle, cars, helicopter, plane) · Share / Enter: chat</dd>
+          <dt>Firepit</dt><dd>In the park in front of the building: □ sit on a bench, R2 have a beer, □ at the woodpile throws a log on the fire</dd>
+          <dt>Drinks</dt><dd>Beer and aquavit in the apartment: each beer or sip = 30 s drunk</dd>
+        </dl>
+        <p class="small">Map data © OpenStreetMap contributors (ODbL) · Height data © Kartverket (CC BY 4.0) · Aerial imagery, when online: Esri World Imagery.</p>
+        <button id="resume">Resume</button>
+      </div>
+    </section>
+  </main>
+  <script src="vendor/three.min.js"></script><script src="apartment-data.js"></script><script src="walk-collision.js"></script><script src="gamepad-controls.js"></script><script src="materials.js"></script><script src="furnishings.js"></script><script src="stairwell.js"></script><script src="surroundings-data.js"></script><script src="surroundings.js"></script><script src="viewmodel.js"></script><script src="game-apartment.js"></script><script src="game-audio.js"></script><script src="game-music.js"></script><script src="game-vehicles.js"></script><script src="game-net.js"></script><script src="game-voice.js"></script><script src="game-avatars.js"></script><script src="game-multiplayer.js"></script><script src="game-fire.js"></script><script src="game-aircraft.js"></script><script src="game-watch.js"></script><script src="game-minigames.js"></script><script src="game-camera.js"></script><script src="game-map.js"></script><script src="case-game.js"></script><script src="game-main.js"></script>
+</body>
+</html>

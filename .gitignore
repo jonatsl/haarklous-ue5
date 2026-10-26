@@ -1,0 +1,20 @@
+# Unreal Engine (generated, rebuildable)
+unreal/**/Binaries/
+unreal/**/Build/
+unreal/**/DerivedDataCache/
+unreal/**/Intermediate/
+unreal/**/Saved/
+unreal/**/.vs/
+unreal/**/*.sln
+unreal/**/*.VC.db
+unreal/**/*.opensdf
+unreal/**/*.sdf
+unreal/**/*.suo
+# Blender backups
+*.blend1
+*.blend2
+# Exports and scratch
+tools/out/
+*.log
+.vscode/
+Thumbs.db

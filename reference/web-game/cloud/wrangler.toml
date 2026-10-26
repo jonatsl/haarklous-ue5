@@ -1,0 +1,19 @@
+# Haarklous online: the game (static files in ./public, copied there by ../build.py) and the multiplayer lobbies.
+# Deploy from this folder with:  npx wrangler deploy
+name = "haarklous-online"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+account_id = "46fd597da1c5fe9de4c3ebbaae86f906"
+workers_dev = true
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[durable_objects.bindings]]
+name = "LOBBY"
+class_name = "Lobby"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Lobby"]
