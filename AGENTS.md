@@ -22,7 +22,7 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
 ## This PC
 - AMD Ryzen 5 5600H with integrated Radeon graphics (2 GB shared video memory), 14 GB RAM, Windows 11. Performance target: 20–30 fps or better on this laptop.
 - So: no Lumen, no Nanite, no virtual shadow maps, no hardware ray tracing. Use static or stationary lighting, cascaded shadow maps, scalability Medium/Low, screen percentage around 70–80 %, and LODs plus HLOD/merged actors for the city.
-- Installed: Blender 5.2 (`C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`), Git LFS 3.7, Epic Games Launcher. Not yet installed: Unreal Engine 5 and Visual Studio 2022 with the "Game development with C++" workload. Record the Unreal version here once it is chosen.
+- Installed: Blender 5.2 (`C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`), Git LFS 3.7, Epic Games Launcher. **Unreal Engine 5.8.4** chosen (installed from the Epic launcher on 26 Oct 2026: Windows only, no other target platforms). Still to install: Visual Studio 2022 with the "Game development with C++" workload.
 
 ## How to work (an agent cannot click through the editor reliably)
 - Game code in **C++** (text you can edit and review), not Blueprint graphs. Blueprints only as thin data or asset wrappers.
