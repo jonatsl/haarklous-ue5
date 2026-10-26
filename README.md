@@ -1,13 +1,13 @@
 # Haarklous UE5 (local exploration)
 
-Rebuilding the look of **Haarklous online** – the open-world game around Haarklous plass 17A, Torshov, Oslo – in Unreal Engine 5 with assets made in Blender. Gameplay, controls and online features stay exactly as in the web game; only the graphics are reworked. Offline for now.
+Rebuilding the look of **Haarklous online** – the open-world game around Haarklous plass 17A, Torshov, Oslo – in Unreal Engine 5 with assets made in Blender. Gameplay, controls and online features stay exactly as in the web game; only the graphics are reworked. The live online game is never touched; online features are tested on a separate test server (`haarklous-ue5-test`).
 
 ## Folders
-- `reference/web-game/` – read-only snapshot of the web game (the specification): all its code, data (`assets/osm/` OpenStreetMap + Kartverket heights), the playable offline build (`haarklous-game.html`), docs and the multiplayer server (`cloud/`, kept for a later launch, not deployed from here). Snapshot of `main` at commit `d3d40ad` (26 Oct 2026).
+- `reference/web-game/` – read-only snapshot of the web game (the specification): all its code, data (`assets/osm/` OpenStreetMap + Kartverket heights), the playable offline build (`haarklous-game.html`), docs and the multiplayer server (`cloud/`, kept for a later launch). Snapshot of `main` at commit `d3d40ad` (26 Oct 2026).
 - `blender/` – Blender source files (`.blend`) for models: apartment, stairwell, buildings, vehicles, characters, props.
 - `unreal/` – the Unreal Engine 5 project (C++).
 - `tools/` – scripts that rebuild assets from the reference data (Blender Python, Unreal Python) and `refresh-reference.ps1`.
-- `docs/` – `PORTING-CHECKLIST.md` (everything the game must do, with where it lives in the web code) and `START-PROMPT.md` (the prompt that started this project).
+- `docs/` – `PORTING-CHECKLIST.md` (everything the game must do, with where it lives in the web code) and `START-PROMPT.md` (the /goal prompt that runs this project).
 
 ## Not in the snapshot yet
 Open pull requests in the web game at snapshot time (port them once merged, after refreshing the snapshot):

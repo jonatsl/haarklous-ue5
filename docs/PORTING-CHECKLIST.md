@@ -39,7 +39,7 @@ Everything below exists in the web game (`reference/web-game/`) and must work th
 - [ ] Photo camera with gallery (tap △), hold-△ menu (camera or FPV drone), wristwatch on D-pad ↑ showing the PC time, map on the touchpad (no vehicles on it).
 - [ ] Music (`game-music.js`): calm 2:30 open-world loop plus one loop each for disc golf, petanque and the mission; ambience and sounds (`game-audio.js`). Keep how they sound unless the user wants new ones.
 
-## Online (built, off by default, not deployed, not tested now)
+## Online (built, off by default; tested only against the separate test server `haarklous-ue5-test`)
 - [ ] Lobby client speaking the protocol in `cloud/src/index.js` (`hello`, `welcome`, `st`, `vs`, `claim`, `release`, `chat`, `door`, `fire`, `name`, `mic`, `rtc`, `ping`) over WebSockets; own 4-character lobby code, join by code, up to 5 players (`game-net.js`).
 - [ ] Remote players as avatars with name tags and chat bubbles, remote-driven vehicles smoothed, one driver and one passenger per vehicle, shared doors and fire (`game-multiplayer.js`, `game-avatars.js`).
 - [ ] Chat (Enter/T, Share for quick chat) and lobby-wide voice chat (`game-voice.js`; voice may need a different technique in Unreal – ask before choosing).
