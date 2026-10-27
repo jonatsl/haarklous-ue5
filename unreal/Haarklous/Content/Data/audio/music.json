@@ -1,0 +1,113 @@
+{
+ "note": "Rendered by tools/web-export/render-music.mjs from reference/web-game/game-music.js (GameMusic.renderOffline), before the compressor, at master gain 0.8 (volume 1). Sample = int16 / 32767 * gain.",
+ "sampleRate": 48000,
+ "tracks": {
+  "mission": {
+   "file": "music-mission.wav",
+   "title": "Stairwell",
+   "seconds": 76.8,
+   "bars": 32,
+   "bpm": 100,
+   "beats": 4,
+   "frames": 3686400,
+   "gain": 1,
+   "peak": 0.4544,
+   "seamMax": 2.9802322387695312e-8,
+   "segments": 8,
+   "segBars": 4,
+   "preBars": 5,
+   "segmentDbBeforeCompressor": [
+    -26.1,
+    -25.2,
+    -22,
+    -21.7,
+    -21.6,
+    -21.4,
+    -21,
+    -21.7
+   ]
+  },
+  "main": {
+   "file": "music-main.wav",
+   "title": "Torshov Evening",
+   "seconds": 150,
+   "bars": 45,
+   "bpm": 72,
+   "beats": 4,
+   "frames": 7200000,
+   "gain": 1,
+   "peak": 0.4837,
+   "seamMax": 2.2351741790771484e-8,
+   "segments": 15,
+   "segBars": 3,
+   "preBars": 4,
+   "segmentDbBeforeCompressor": [
+    -28.9,
+    -25.2,
+    -22.8,
+    -22.7,
+    -22.8,
+    -22.7,
+    -22.7,
+    -22.8,
+    -22.8,
+    -22.6,
+    -22.7,
+    -22.6,
+    -22.7,
+    -22.7,
+    -23.6
+   ]
+  },
+  "discgolf": {
+   "file": "music-discgolf.wav",
+   "title": "Fairway Breeze",
+   "seconds": 80,
+   "bars": 32,
+   "bpm": 96,
+   "beats": 4,
+   "frames": 3840000,
+   "gain": 1,
+   "peak": 0.4162,
+   "seamMax": 2.2351741790771484e-8,
+   "segments": 8,
+   "segBars": 4,
+   "preBars": 5,
+   "segmentDbBeforeCompressor": [
+    -30,
+    -30,
+    -22.5,
+    -22.5,
+    -22.1,
+    -22.1,
+    -22,
+    -22
+   ]
+  },
+  "petanque": {
+   "file": "music-petanque.wav",
+   "title": "Café du parc",
+   "seconds": 72,
+   "bars": 64,
+   "bpm": 160,
+   "beats": 3,
+   "frames": 3456000,
+   "gain": 1,
+   "peak": 0.2529,
+   "seamMax": 5.21540641784668e-8,
+   "segments": 8,
+   "segBars": 9,
+   "preBars": 10,
+   "segmentDbBeforeCompressor": [
+    -24.9,
+    -24.8,
+    -24.8,
+    -24.8,
+    -24.9,
+    -24.9,
+    -25,
+    -26.3
+   ]
+  }
+ }
+}
