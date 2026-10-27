@@ -5,6 +5,7 @@
 #include "HKGame.h"
 #include "HKInput.h"
 #include "HKMath.h"
+#include "HKVehicles.h"
 
 namespace
 {
@@ -83,6 +84,166 @@ namespace
 				Sweep(TEXT("street"), 2, -8.3, 22, 0);
 				Sweep(TEXT("flying"), 30, 110, 60, -.35);
 				T.FreeCamera();
+			});
+
+			// Every vehicle: get in with square, drive with the simulated controller, read the HUD, get out.
+			FHKTestScripts::All().Add(TEXT("vehicles"), [](AHKTestDriver& T)
+			{
+				T.Wait(3);
+				T.Press(0);
+				T.Wait(1);
+				auto Approach = [&T](const FString& Kind)
+				{
+					T.Do([&T, Kind]()
+					{
+						AHKGame* G = T.Game();
+						for (FHKVehicle* V : G->VehicleList)
+							if (V->Kind == Kind)
+							{
+								const FVector2D F = V->Forward(), R(-F.Y, F.X);
+								const double D = V->Width / 2 + .9;
+								G->Place(V->X + R.X * D, V->Z + R.Y * D, FMath::Atan2(R.X, R.Y));
+								UE_LOG(LogTemp, Display, TEXT("HK-TEST at the %s: %s"), *V->Name, *T.P());
+								break;
+							}
+					});
+					T.Wait(.6);
+					T.Log([&T]() { return TEXT("prompt: ") + T.Game()->LastPromptText(); });
+					T.Press(2);
+					T.Wait(.8);
+					T.Expect(Kind + TEXT(": in the driver's seat"), [&T]() { return T.Game()->Player.Mode == TEXT("vehicle"); });
+				};
+				auto Speedo = [&T](const FString& What) { T.Log([&T, What]() { return What + TEXT(": ") + T.Game()->SpeedoText + TEXT("  ") + T.P(); }); };
+				auto GetOut = [&T](const FString& Kind)
+				{
+					T.Wait(.5);
+					T.Press(2);
+					T.Wait(.6);
+					T.Expect(Kind + TEXT(": back on foot"), [&T]() { return T.Game()->Player.Mode == TEXT("foot"); });
+				};
+				// Motorcycle: full throttle for 6 s through the gears, a lean in a turn, brake to a stop.
+				Approach(TEXT("motorcycle"));
+				T.Hold(7, 1); T.Wait(3); Speedo(TEXT("bike after 3 s")); T.Shot(TEXT("01-motorcycle"));
+				T.Wait(3); Speedo(TEXT("bike after 6 s"));
+				T.Do([]() { if (auto In = FHKInputProcessor::Get()) In->SimulatedPad.Axes[0] = .8f; });
+				T.Wait(1.2); T.Log([&T]() { const FHKMotorcycle* M = static_cast<FHKMotorcycle*>(T.Game()->Player.Vehicle); return FString::Printf(TEXT("bike lean in the turn %.3f rad at %.1f km/h"), M->Lean, FMath::Abs(M->Speed) * 3.6); });
+				T.Shot(TEXT("02-motorcycle-lean"));
+				T.Do([]() { if (auto In = FHKInputProcessor::Get()) { In->SimulatedPad.Axes[0] = 0; In->SimulatedPad.Buttons[7] = 0; In->SimulatedPad.Buttons[6] = 1; } });
+				T.Steps.Add([&T](double) { return FMath::Abs(T.Game()->Player.Vehicle->Speed) < .5; });
+				T.Hold(6, 0);
+				Speedo(TEXT("bike stopped"));
+				GetOut(TEXT("motorcycle"));
+				// Car.
+				Approach(TEXT("car"));
+				T.Hold(7, 1); T.Wait(3); Speedo(TEXT("car after 3 s")); T.Shot(TEXT("03-car"));
+				T.Hold(7, 0); T.Hold(6, 1);
+				T.Steps.Add([&T](double) { return FMath::Abs(T.Game()->Player.Vehicle->Speed) < .5; });
+				T.Hold(6, 0);
+				GetOut(TEXT("car"));
+				// Excavator: both tracks forward, then swing and boom.
+				Approach(TEXT("excavator"));
+				T.Hold(4, 1); T.Hold(5, 1); T.Wait(2); T.Hold(4, 0); T.Hold(5, 0);
+				Speedo(TEXT("excavator after 2 s on both tracks"));
+				T.Stick(.8, 0, 1.5, 0, .8);
+				T.Shot(TEXT("04-excavator"));
+				GetOut(TEXT("excavator"));
+				// Helicopter: collective up for 9 s (spool-up, lift-off), chase camera, then down and out.
+				Approach(TEXT("helicopter"));
+				T.Do([]() { if (auto In = FHKInputProcessor::Get()) In->SimulatedPad.Axes[1] = -.6f; });
+				T.Wait(9); Speedo(TEXT("helicopter after 9 s collective up")); T.Shot(TEXT("05-helicopter"));
+				T.Press(11); T.Wait(1); T.Shot(TEXT("06-helicopter-chase")); T.Press(11);
+				T.Do([]() { if (auto In = FHKInputProcessor::Get()) In->SimulatedPad.Axes[1] = .4f; });
+				T.Steps.Add([&T](double) { return T.Game()->Player.Vehicle->bGrounded; });
+				T.Do([]() { if (auto In = FHKInputProcessor::Get()) In->SimulatedPad.Axes[1] = 0; });
+				T.Wait(3); Speedo(TEXT("helicopter landed"));
+				GetOut(TEXT("helicopter"));
+				// Plane: full throttle, pull back at about 85 km/h, lift-off distance.
+				Approach(TEXT("plane"));
+				TSharedPtr<FVector> Start = MakeShared<FVector>();
+				T.Do([&T, Start]() { const FHKVehicle* V = T.Game()->Player.Vehicle; *Start = FVector(V->X, V->Y, V->Z); if (auto In = FHKInputProcessor::Get()) In->SimulatedPad.Axes[1] = -1; });
+				T.Wait(4);
+				T.Do([]() { if (auto In = FHKInputProcessor::Get()) In->SimulatedPad.Axes[1] = 0; });
+				T.Steps.Add([&T](double) { return T.Game()->Player.Vehicle->Speed * 3.6 > 85; });
+				T.Do([]() { if (auto In = FHKInputProcessor::Get()) In->SimulatedPad.Axes[3] = .7f; });
+				T.Steps.Add([&T](double) { return !T.Game()->Player.Vehicle->bGrounded; });
+				T.Log([&T, Start]() { const FHKVehicle* V = T.Game()->Player.Vehicle; return FString::Printf(TEXT("plane lifted off at %.0f km/h after %.1f m (web: about 87 km/h after 76-87 m)"), V->Speed * 3.6, HK::Hypot(V->X - Start->X, V->Z - Start->Z)); });
+				T.Wait(4);
+				T.Do([]() { if (auto In = FHKInputProcessor::Get()) In->SimulatedPad.Axes[3] = 0; });
+				Speedo(TEXT("plane climbing")); T.Shot(TEXT("07-plane"));
+				T.Press(11); T.Wait(1.5); T.Shot(TEXT("08-plane-chase"));
+			});
+
+			// Activities on foot: drone, photo camera, watch, map, quick chat, firepit, disc golf, petanque.
+			FHKTestScripts::All().Add(TEXT("activities"), [](AHKTestDriver& T)
+			{
+				T.Wait(3);
+				T.Press(0);
+				T.Wait(1);
+				// Wristwatch (D-pad up).
+				T.Press(12); T.Wait(1); T.Shot(TEXT("01-watch"));
+				T.Expect(TEXT("watch raised"), [&T]() { return T.Game()->Watch.Target > 0; });
+				T.Press(12); T.Wait(.6);
+				// Photo camera: tap triangle, raise with L2, take a photo with R2, open the gallery with square.
+				T.Press(3); T.Wait(.6); T.Shot(TEXT("02-camera-out"));
+				T.Expect(TEXT("photo camera out"), [&T]() { return T.Game()->Photo.bActive; });
+				T.Hold(6, 1); T.Wait(.5); T.Shot(TEXT("03-viewfinder"));
+				TSharedPtr<int32> Before = MakeShared<int32>(0);
+				T.Do([&T, Before]() { *Before = T.Game()->Photo.Photos.Num(); });
+				T.Hold(7, 1); T.Wait(.4); T.Hold(7, 0); T.Wait(1.5);
+				T.Expect(TEXT("a photo was saved"), [&T, Before]() { return T.Game()->Photo.Photos.Num() == *Before + 1; });
+				T.Hold(6, 0);
+				T.Press(2); T.Wait(1); T.Shot(TEXT("04-gallery"));
+				T.Press(1); T.Wait(.3); T.Press(1); T.Wait(.3);
+				T.Expect(TEXT("camera put away"), [&T]() { return !T.Game()->Photo.bActive; });
+				// Gear menu: hold triangle, choose the drone, release.
+				T.Hold(3, 1); T.Wait(.5); T.Press(15); T.Wait(.3); T.Shot(TEXT("05-gear-menu"));
+				T.Hold(3, 0); T.Wait(.5);
+				T.Expect(TEXT("flying the FPV drone"), [&T]() { return T.Game()->Player.Mode == TEXT("drone"); });
+				T.Do([]() { if (auto In = FHKInputProcessor::Get()) In->SimulatedPad.Axes[1] = -.5f; });
+				T.Wait(2.5);
+				T.Do([]() { if (auto In = FHKInputProcessor::Get()) { In->SimulatedPad.Axes[1] = 0; In->SimulatedPad.Axes[3] = -.3f; } });
+				T.Wait(1.5); T.Shot(TEXT("06-drone"));
+				T.Do([]() { if (auto In = FHKInputProcessor::Get()) In->SimulatedPad.Axes[3] = 0; });
+				T.Press(1); T.Wait(.5);
+				T.Expect(TEXT("drone packed away"), [&T]() { return T.Game()->Player.Mode == TEXT("foot"); });
+				// Map (touchpad).
+				T.Press(17); T.Wait(.8); T.Shot(TEXT("07-map"));
+				T.Press(1); T.Wait(.3);
+				// Quick chat (share): send "Hei!" offline.
+				T.Press(8); T.Wait(.4); T.Shot(TEXT("08-quick-chat")); T.Press(0); T.Wait(.6);
+				T.Expect(TEXT("chat line shown"), [&T]() { return T.Game()->ChatLog.Num() > 0; });
+				// Firepit: throw a log, sit on a bench, have a beer, stand up.
+				T.Do([&T]() { AHKGame* G = T.Game(); G->Place(G->FireWoodpile.X + 1, G->FireWoodpile.Y, 0); G->Player.Yaw = FMath::Atan2(-(G->FireWoodpile.X - G->Player.X), -(G->FireWoodpile.Y - G->Player.Z)); });
+				T.Wait(.5);
+				TSharedPtr<double> Lv = MakeShared<double>(0);
+				T.Do([&T, Lv]() { *Lv = T.Game()->FireLevel(); });
+				T.Log([&T]() { return TEXT("prompt: ") + T.Game()->LastPromptText(); });
+				T.Press(2); T.Wait(1.5);
+				T.Expect(TEXT("fire one level higher after a log"), [&T, Lv]() { return T.Game()->FireLevel() > *Lv + .9; });
+				T.Do([&T]() { AHKGame* G = T.Game(); const FHKSitSpot& S = G->FireSpots[0]; G->Place(S.X + .3, S.Z + .3, 0); });
+				T.Wait(.5); T.Press(2); T.Wait(.5);
+				T.Expect(TEXT("sitting by the fire"), [&T]() { return T.Game()->Player.Mode == TEXT("sit"); });
+				T.Hold(7, 1); T.Wait(.3); T.Hold(7, 0); T.Wait(1);
+				T.Shot(TEXT("09-firepit-sitting"));
+				T.Expect(TEXT("beer from the crate: drunk"), [&T]() { return T.Game()->Drunk > 25; });
+				T.Press(2); T.Wait(.5);
+				// Disc golf: walk onto the first tee, start, throw.
+				T.Do([&T]() { AHKGame* G = T.Game(); const TArray<double> Tee = HKJson::Nums(HKJson::Arr(FHKData::Get().D, TEXT("discgolf"))[0]->AsObject(), TEXT("tee")); const FVector2D W = FHKData::Get().ToWorld(Tee[0], Tee[1]); G->Place(W.X, W.Y, 0); });
+				T.Wait(.6);
+				T.Log([&T]() { return TEXT("prompt: ") + T.Game()->LastPromptText(); });
+				T.Press(2); T.Wait(.8);
+				T.Expect(TEXT("disc golf started"), [&T]() { return T.Game()->Player.Mode == TEXT("minigame"); });
+				T.Hold(7, 1); T.Wait(1.0); T.Shot(TEXT("10-discgolf-charge")); T.Hold(7, 0);
+				T.Wait(3); T.Shot(TEXT("11-discgolf-flight"));
+				T.Wait(4);
+				T.Press(1); T.Wait(1);
+				// Petanque.
+				T.Do([&T]() { AHKGame* G = T.Game(); const TSharedPtr<FJsonObject> Pq = HKJson::Obj(FHKData::Get().D, TEXT("petanque")); const FVector2D W = FHKData::Get().ToWorld(HKJson::Num(Pq, TEXT("x")), HKJson::Num(Pq, TEXT("s"))); G->Place(W.X, W.Y, 0); });
+				T.Wait(.6);
+				T.Log([&T]() { return TEXT("prompt: ") + T.Game()->LastPromptText(); });
+				T.Press(2); T.Wait(1);
+				T.Hold(7, 1); T.Wait(.7); T.Hold(7, 0); T.Wait(4); T.Shot(TEXT("12-petanque"));
+				T.Press(1); T.Wait(1);
 			});
 
 			// On foot: street door -> stairs -> 4th floor -> entrance door -> the flat -> a beer (the web's verified route).

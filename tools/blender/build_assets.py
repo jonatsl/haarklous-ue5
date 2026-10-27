@@ -189,7 +189,8 @@ def gather(exp, bin_data, mesh_indices, slots):
         if g.get('flip'):
             tris = tris[:, [0, 2, 1]]
         tmat = np.zeros(len(tris), dtype=np.int64)   # index into mats
-        groups = g.get('groups')
+        # three.js uses geometry groups only when the mesh has an array of materials.
+        groups = g.get('groups') if isinstance(m['mat'], list) else None
         if groups:
             keep = np.zeros(len(tris), dtype=bool)
             for gr in groups:

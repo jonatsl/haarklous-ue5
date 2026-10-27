@@ -77,7 +77,8 @@ def master():
         layers[name] = (d, nn, r)
     # Grass tinted by the web's map painting (relative to its plain grass colour #62783f).
     ref = n(unreal.MaterialExpressionVectorParameter, -1500, -350); ref.set_editor_property('parameter_name', 'GrassRef'); ref.set_editor_property('default_value', unreal.LinearColor(0.122, 0.188, 0.050, 1))
-    ratio = op(unreal.MaterialExpressionDivide, paint, ref, -1300, -350, 'RGB', '')
+    ref3 = n(unreal.MaterialExpressionComponentMask, -1450, -250); ref3.set_editor_property('r', True); ref3.set_editor_property('g', True); ref3.set_editor_property('b', True); con(ref, '', ref3, '')
+    ratio = op(unreal.MaterialExpressionDivide, paint, ref3, -1300, -350, 'RGB', '')
     half = n(unreal.MaterialExpressionConstant, -1300, -200); half.set_editor_property('r', 0.45)
     one = n(unreal.MaterialExpressionConstant, -1300, -120); one.set_editor_property('r', 1.0)
     tint = lerp(one, ratio, half, -1100, -300)
@@ -141,9 +142,9 @@ def main():
                 continue
             changed = False
             for i, sl in enumerate(sm.get_editor_property('static_materials')):
-                mat = sl.get_editor_property('material_interface')
-                if mat and mat.get_name() in made:
-                    sm.set_material(i, made[mat.get_name()]); changed = True
+                key = str(sl.get_editor_property('material_slot_name'))   # slot names are the web material keys
+                if key in made:
+                    sm.set_material(i, made[key]); changed = True
             if changed:
                 EAL.save_loaded_asset(sm); count += 1
     log(f'ground material on {count} meshes')

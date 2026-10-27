@@ -82,9 +82,11 @@ def place_static():
                 continue
             act = spawn(unreal.StaticMeshActor, a['asset'], xf, f'Generated/{rig}')
             comp = act.static_mesh_component
-            comp.set_mobility(unreal.ComponentMobility.STATIC)
-            comp.set_static_mesh(sm)
             far = rig == 'world_far'
+            # The far landscape (district beyond 300 m, hills up to 11 km) is lit without lightmaps, so Lightmass only
+            # works on the walkable neighbourhood.
+            comp.set_mobility(unreal.ComponentMobility.MOVABLE if far else unreal.ComponentMobility.STATIC)
+            comp.set_static_mesh(sm)
             if far:
                 comp.set_editor_property('cast_shadow', False)
             count += 1

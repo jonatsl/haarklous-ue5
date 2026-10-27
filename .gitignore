@@ -21,3 +21,6 @@ Thumbs.db
 
 # Claude Code worktrees of helper sessions
 .claude/
+
+# Packaged builds
+dist/

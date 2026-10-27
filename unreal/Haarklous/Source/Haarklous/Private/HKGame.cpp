@@ -190,8 +190,18 @@ void AHKGame::BuildWorld()
 		const double Yaw = FMath::Atan2(-(StairDoorOutside.X - P.X), -(StairDoorOutside.Y - P.Y));
 		Place(P.X + FMath::Sin(Yaw) * 4, P.Y + FMath::Cos(Yaw) * 4, Yaw);
 	}
-	Player.Feet = Player.Feet;   // set by Place
 	UpdateDynamic();
+	// DEBUG: where the street door is (web frame and Unreal).
+	for (const FHKDoor& D : Doors)
+		if (D.Id == TEXT("own-street-door") && D.Hinge)
+		{
+			const FVector W = D.Hinge->GetWorldPosition();
+			UE_LOG(LogHaarklous, Display, TEXT("DEBUG door hinge web (%.3f, %.3f, %.3f) local (%.3f, %.3f, %.3f) parent %s"), W.X, W.Y, W.Z, D.Hinge->Position.X, D.Hinge->Position.Y, D.Hinge->Position.Z, D.Hinge->Parent ? *D.Hinge->Parent->Name : TEXT("-"));
+			AHKRigActor* A = ActorOfRig.FindRef(TEXT("stair_own"));
+			for (FHKNode* C : D.Hinge->Children)
+				if (UStaticMeshComponent* M = A ? A->MeshOf(C) : nullptr)
+					UE_LOG(LogHaarklous, Display, TEXT("DEBUG part %s at %s bounds %s visible %d mesh %s"), *C->Name, *M->GetComponentLocation().ToString(), *M->Bounds.GetBox().ToString(), M->IsVisible(), M->GetStaticMesh() ? *M->GetStaticMesh()->GetName() : TEXT("none"));
+		}
 	UpdateCamera();
 }
 
@@ -693,7 +703,7 @@ void AHKGame::UpdateFoot(double Dt, double Dl)
 		}
 		if (Frame.WasPressed("prone")) SetStance(Player.Stance == TEXT("prone") ? TEXT("stand") : TEXT("prone"));
 		if (Frame.WasPressed("l3")) Player.bRun = !Player.bRun;
-		if (Frame.WasPressed("square") && !(PhotoActive && PhotoActive()) && !bMission) Interact();
+		if (Frame.WasPressed("square") && !Photo.bActive && !bMission) Interact();
 	}
 	// Move.
 	const bool bCanMove = !bMission || (MissionCanMove && MissionCanMove());
@@ -702,7 +712,7 @@ void AHKGame::UpdateFoot(double Dt, double Dl)
 	const double Mag = FMath::Min(1.0, HK::Hypot(Mx, My));
 	if (bCanMove && Mag > .05)
 	{
-		const bool bRunning = Player.Stance == TEXT("stand") && (Player.bRun || (!bMission && !(PhotoActive && PhotoActive()) && Frame.R2 > .3) || Frame.IsHeld("l3"));
+		const bool bRunning = Player.Stance == TEXT("stand") && (Player.bRun || (!bMission && !Photo.bActive && Frame.R2 > .3) || Frame.IsHeld("l3"));
 		const double Speed = (bRunning ? 3.6 : 1.45) * StanceSpeed() * (bMission && MissionMoveScale ? MissionMoveScale() : 1) * (1 - Dl * .25), Fwd = -My, Right = Mx;
 		const double Dx = (-FMath::Sin(Player.Yaw) * Fwd + FMath::Cos(Player.Yaw) * Right) * Speed * Dt, Dz = (-FMath::Cos(Player.Yaw) * Fwd - FMath::Sin(Player.Yaw) * Right) * Speed * Dt;
 		const double Bx = Player.X, Bz = Player.Z;
