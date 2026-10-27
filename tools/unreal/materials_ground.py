@@ -51,9 +51,11 @@ def master():
     def op(cls, a, b, x, y, ai='', bi=''):
         e = n(cls, x, y); con(a, ai, e, 'A'); con(b, bi, e, 'B'); return e
 
-    def tparam(name, x, y, sampler, default):
+    def tparam(name, x, y, sampler, default, clamp=False):
         e = n(unreal.MaterialExpressionTextureSampleParameter2D, x, y)
         e.set_editor_property('parameter_name', name); e.set_editor_property('sampler_type', sampler)
+        # Shared samplers: 14 textures plus lightmaps and shadow maps would pass Direct3D 11's 16-sampler limit.
+        e.set_editor_property('sampler_source', unreal.SamplerSourceMode.SSM_CLAMP_WORLD_GROUP_SETTINGS if clamp else unreal.SamplerSourceMode.SSM_WRAP_WORLD_GROUP_SETTINGS)
         e.set_editor_property('texture', unreal.load_asset(default)); return e
 
     def lerp(a, b, t, x, y, ti=''):
@@ -61,8 +63,8 @@ def master():
 
     wp = n(unreal.MaterialExpressionWorldPosition, -2400, 0)
     wxy = n(unreal.MaterialExpressionComponentMask, -2200, 0); wxy.set_editor_property('r', True); wxy.set_editor_property('g', True); con(wp, '', wxy, '')
-    mask = tparam('Mask', -2200, -600, unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR, '/Engine/EngineResources/Black')
-    paint = tparam('MapPaint', -2200, -350, unreal.MaterialSamplerType.SAMPLERTYPE_COLOR, '/Engine/EngineResources/WhiteSquareTexture')
+    mask = tparam('Mask', -2200, -600, unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR, '/Engine/EngineResources/Black', True)
+    paint = tparam('MapPaint', -2200, -350, unreal.MaterialSamplerType.SAMPLERTYPE_COLOR, '/Engine/EngineResources/WhiteSquareTexture', True)
     white = '/Engine/EngineResources/WhiteSquareTexture'
     layers = {}
     for i, (name, tile) in enumerate(LAYERS):

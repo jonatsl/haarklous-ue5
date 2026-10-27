@@ -172,10 +172,25 @@ def lights():
         c = pl.point_light_component
         c.set_mobility(unreal.ComponentMobility.STATIC)
         c.set_editor_property('intensity_units', unreal.LightUnits.CANDELAS)
-        c.set_editor_property('intensity', float(l['intensity']) * 1.6)
+        c.set_editor_property('intensity', float(l['intensity']) * 3.0)
         c.set_editor_property('light_color', unreal.Color((l['color'] >> 16) & 255, (l['color'] >> 8) & 255, l['color'] & 255, 255))
         c.set_editor_property('attenuation_radius', float(l['distance']) * 100.0)
         c.set_editor_property('source_radius', 6.0)
+    # The web lit the rooms mostly with its hemisphere light (1.7, no walls in the way). Baked light has walls, so each
+    # room gets a soft ceiling fill light at its label point (apartment-data.js plan units -> metres).
+    apt = json.load(open(os.path.join(DATA, 'apartment.json'), encoding='utf-8'))
+    cal = apt['calibration']
+    for r in apt['rooms']:
+        x = (r['label'][0] - cal['origin'][0]) / cal['imageUnitsPerMetre']
+        z = (r['label'][1] - cal['origin'][1]) / cal['imageUnitsPerMetre']
+        pl = spawn(unreal.PointLight, f'Room fill {r["id"]}', unreal.Transform(ue_loc([x, 2.15, z]), unreal.Rotator(0, 0, 0), unreal.Vector(1, 1, 1)), 'Generated/Lighting')
+        c = pl.point_light_component
+        c.set_mobility(unreal.ComponentMobility.STATIC)
+        c.set_editor_property('intensity_units', unreal.LightUnits.CANDELAS)
+        c.set_editor_property('intensity', 6.0 if r['id'] == 'living' else 4.0)
+        c.set_editor_property('light_color', unreal.Color(255, 244, 228, 255))
+        c.set_editor_property('attenuation_radius', 550.0)
+        c.set_editor_property('source_radius', 40.0)
     # Stairwell lamps: the web moves one lamp (5.5 cd, 7 m) to the landing you are on; baked lighting lights them all.
     st = game['stair']
     level_y = lambda n: (n - 4) * st['STOREY']
@@ -191,7 +206,7 @@ def lights():
             c = pl.point_light_component
             c.set_mobility(unreal.ComponentMobility.STATIC)
             c.set_editor_property('intensity_units', unreal.LightUnits.CANDELAS)
-            c.set_editor_property('intensity', 5.5)
+            c.set_editor_property('intensity', 12.0)   # web 5.5 cd plus its hemisphere light, which baked light does not have
             c.set_editor_property('light_color', unreal.Color(255, 233, 200, 255))
             c.set_editor_property('attenuation_radius', 700.0)
             c.set_editor_property('source_radius', 11.0)

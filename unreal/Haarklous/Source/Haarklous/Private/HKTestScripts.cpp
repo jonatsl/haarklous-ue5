@@ -6,9 +6,13 @@
 #include "HKInput.h"
 #include "HKMath.h"
 #include "HKVehicles.h"
+#include "Engine/Engine.h"
+#include "Engine/GameViewportClient.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
 #include "EngineUtils.h"
+#include "HAL/IConsoleManager.h"
+#include "UnrealClient.h"
 
 namespace
 {
@@ -60,6 +64,12 @@ namespace
 				T.Wait(3);
 				T.Press(0);
 				T.Wait(4);
+				T.Log([&T]()
+				{
+					const FIntPoint S = GEngine->GameViewport && GEngine->GameViewport->Viewport ? GEngine->GameViewport->Viewport->GetSizeXY() : FIntPoint::ZeroValue;
+					const IConsoleVariable* Sp = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ScreenPercentage"));
+					return FString::Printf(TEXT("fps viewport %dx%d, screen percentage %.0f, quality %d"), S.X, S.Y, Sp ? Sp->GetFloat() : 0.f, T.Game()->Quality);
+				});
 				auto Sweep = [&T](const FString& Label, double X, double Y, double Z, double Pitch)
 				{
 					// Look around slowly (one full turn over the measurement) so every direction counts.

@@ -8,6 +8,9 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
 #include "UnrealClient.h"
+#if WITH_EDITOR
+#include "ShaderCompiler.h"
+#endif
 
 TMap<FString, TFunction<void(AHKTestDriver&)>>& FHKTestScripts::All()
 {
@@ -40,6 +43,22 @@ void AHKTestDriver::BeginPlay()
 	UE_LOG(LogHaarklous, Display, TEXT("HK-TEST start %s -> %s"), *TestName, *OutDir);
 	if (TSharedPtr<FHKInputProcessor> In = FHKInputProcessor::Get()) { In->bUseSimulatedPad = true; In->SimulatedPad = FHKPadState(); }
 	if (!Script) { UE_LOG(LogHaarklous, Error, TEXT("HK-TEST unknown script %s"), *TestName); Quit(); return; }
+#if WITH_EDITOR
+	// An uncooked run compiles missing shaders in the background and draws the grey default material meanwhile: wait
+	// for them (at most 15 minutes) so screenshots and frame rates show the real materials.
+	TSharedPtr<double> Waited = MakeShared<double>(0);
+	Steps.Add([Waited](double Dt)
+	{
+		*Waited += Dt;
+		const int32 Left = GShaderCompilingManager ? GShaderCompilingManager->GetNumRemainingJobs() : 0;
+		if ((Left == 0 && *Waited > 1) || *Waited > 900)
+		{
+			UE_LOG(LogHaarklous, Display, TEXT("HK-TEST shaders ready after %.0f s (%d jobs left)"), *Waited, Left);
+			return true;
+		}
+		return false;
+	});
+#endif
 	(*Script)(*this);
 	Quit();
 }

@@ -37,6 +37,13 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
 - Architecture and conventions: `docs/ARCHITECTURE.md` (port 1:1 in the web frame, one conversion in `HKMath.h`, rigs, module rules).
 - Commands: see README "How it is built". Builds, tests and Unreal Python runs share one lock file (several helpers may run).
 - Helper sessions worked in git worktrees under `.claude/worktrees/` (ignored by git); their branches are merged into `main`.
+- Play-throughs (`tools\run-game.ps1 -Test <name>`, scripts in `HKTestScripts.cpp` / `HKOnlineTestScript.cpp`): `shots`
+  (tour of the world), `walkhome`, `vehicles`, `activities`, `mission`, `drunk`, `fps` (frame rate in the busiest
+  places), `online` (via `tools\net-test\run-live.ps1`, test server only).
+- Look decisions (sky, horizon, lamp globes without shadows, ground, trees): `docs/ARCHITECTURE.md` "Look of the world".
+- Bugs found in the web game and ideas (not changed without the user's OK): `docs/GAMEPLAY-IDEAS.md`.
+- Final report: `docs/REPORT.md`; `python tools\make-report.py` turns it into `docs/report/Haarklous-UE5-report.html`
+  with the screenshots embedded.
 
 ## User preferences (carried over)
 - Ask **one question at a time**; when asking about something visual, show the image in the same message (absolute local path in Markdown).
