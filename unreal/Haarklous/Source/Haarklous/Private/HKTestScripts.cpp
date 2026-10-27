@@ -220,7 +220,22 @@ namespace
 				T.Log([&T]() { return TEXT("prompt: ") + T.Game()->LastPromptText(); });
 				T.Press(2); T.Wait(1.5);
 				T.Expect(TEXT("fire one level higher after a log"), [&T, Lv]() { return T.Game()->FireLevel() > *Lv + .9; });
-				T.Do([&T]() { AHKGame* G = T.Game(); const FHKSitSpot& S = G->FireSpots[0]; G->Place(S.X + .3, S.Z + .3, 0); });
+				// A seat away from the woodpile and the crate (their prompts come first, as in the web).
+				T.Do([&T]()
+				{
+					AHKGame* G = T.Game();
+					const FHKSitSpot* Best = &G->FireSpots[0];
+					double Bd = -1;
+					for (const FHKSitSpot& S : G->FireSpots)
+					{
+						const double D = FMath::Min(HK::Hypot(S.X - G->FireWoodpile.X, S.Z - G->FireWoodpile.Y), HK::Hypot(S.X - G->FireCrate.X, S.Z - G->FireCrate.Y));
+						if (D > Bd) { Bd = D; Best = &S; }
+					}
+					// Stand just behind the seat (away from the fire), facing the fire.
+					const double Dx = Best->X - G->FireCenter.X, Dz = Best->Z - G->FireCenter.Z, L = HK::Hypot(Dx, Dz);
+					G->Place(Best->X + Dx / L * .45, Best->Z + Dz / L * .45, FMath::Atan2(Dx, Dz));
+				});
+				T.Log([&T]() { return TEXT("prompt: ") + T.Game()->LastPromptText(); });
 				T.Wait(.5); T.Press(2); T.Wait(.5);
 				T.Expect(TEXT("sitting by the fire"), [&T]() { return T.Game()->Player.Mode == TEXT("sit"); });
 				T.Hold(7, 1); T.Wait(.3); T.Hold(7, 0); T.Wait(1);
@@ -244,6 +259,40 @@ namespace
 				T.Press(2); T.Wait(1);
 				T.Hold(7, 1); T.Wait(.7); T.Hold(7, 0); T.Wait(4); T.Shot(TEXT("12-petanque"));
 				T.Press(1); T.Wait(1);
+			});
+
+			// Hostage rescue: the red ring beside the entrance, the briefing, the pistol HUD, aim and fire, leave.
+			FHKTestScripts::All().Add(TEXT("mission"), [](AHKTestDriver& T)
+			{
+				T.Wait(3);
+				T.Press(0);
+				T.Wait(1);
+				T.Do([&T]() { AHKGame* G = T.Game(); G->Place(G->MissionMark.X, G->MissionMark.Y + .3, 0); });
+				T.Wait(.6);
+				T.Log([&T]() { return TEXT("prompt: ") + T.Game()->LastPromptText(); });
+				T.Expect(TEXT("mission prompt in the ring"), [&T]() { return T.Game()->LastPromptText().Contains(TEXT("Start mission")); });
+				T.Press(2);
+				T.Wait(1.5);
+				T.Expect(TEXT("mission active"), [&T]() { return T.Game()->Mission && T.Game()->Mission->IsActive(); });
+				T.Shot(TEXT("01-briefing"));
+				T.Log([&T]() { return TEXT("state ") + T.Game()->Mission->GetState(); });
+				T.Press(0);   // begin
+				T.Wait(2);
+				T.Log([&T]() { return TEXT("state ") + T.Game()->Mission->GetState() + TEXT(" ") + T.P(); });
+				T.Shot(TEXT("02-play"));
+				T.Hold(6, 1); T.Wait(.8); T.Shot(TEXT("03-aim"));
+				T.Hold(7, 1); T.Wait(.15); T.Hold(7, 0); T.Wait(.4);
+				T.Hold(7, 1); T.Wait(.15); T.Hold(7, 0); T.Wait(.4);
+				T.Shot(TEXT("04-fired"));
+				T.Hold(6, 0);
+				T.Wait(1);
+				T.Press(9);   // pause panel
+				T.Wait(.8);
+				T.Shot(TEXT("05-paused"));
+				T.Press(1);   // leave
+				T.Wait(1.5);
+				T.Expect(TEXT("mission left, on foot"), [&T]() { return !T.Game()->Mission->IsActive() && T.Game()->Player.Mode == TEXT("foot"); });
+				T.Shot(TEXT("06-after"));
 			});
 
 			// On foot: street door -> stairs -> 4th floor -> entrance door -> the flat -> a beer (the web's verified route).

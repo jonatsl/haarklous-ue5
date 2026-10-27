@@ -20,7 +20,7 @@ const rigs = [
   ['car', 'vehicle_0'], ['motorcycle', 'vehicle_5'], ['excavator', 'vehicle_6'], ['helicopter', 'vehicle_7'], ['plane', 'vehicle_8'],
   ['fire', 'fire'], ['discgolf', 'discgolf'], ['petanque', 'petanque'], ['photo_camera', 'photo_camera'], ['watch', 'watch'], ['misc', 'misc'],
   ['apartment', 'apartment', true], ['stair_own', 'stair_own', true], ...Array.from({length: 8}, (_, i) => [`stair_b${i}`, `stair_b${i}`, true]),
-  ['world_near', 'world_near', true], ['world_far', 'world_far', true], ['drone', 'drone']
+  ['world_near', 'world_near', true], ['world_far', 'world_far', true]
 ];
 // Extra rigs added by module ports: tools/web-export/rigs.d/*.json = [[rig, exportFile, levelStatic?], ...]
 const extraDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'rigs.d');

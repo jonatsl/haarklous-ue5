@@ -130,8 +130,10 @@ def lights():
     sc.set_editor_property('lower_hemisphere_color', unreal.LinearColor(0.42, 0.40, 0.33, 1))   # web hemisphere ground 0xb9b09c
     fog = spawn(unreal.ExponentialHeightFog, 'Height fog', unreal.Transform(unreal.Vector(0, 0, -1000), unreal.Rotator(0, 0, 0), unreal.Vector(1, 1, 1)), 'Generated/Lighting')
     fc = fog.component
-    fc.set_editor_property('fog_density', 0.012)
-    fc.set_editor_property('fog_height_falloff', 0.05)
+    # The web: FogExp2(0xc6d3dc, .0011) near, .00011 far. A light haze that keeps the sky blue.
+    fc.set_editor_property('fog_density', 0.0025)
+    fc.set_editor_property('fog_height_falloff', 0.08)
+    fc.set_editor_property('fog_max_opacity', 0.75)
     fc.set_editor_property('fog_inscattering_luminance', srgb_hex(0xc6d3dc))   # web fog colour
     fc.set_editor_property('start_distance', 3000.0)
     pp = spawn(unreal.PostProcessVolume, 'Post process', None, 'Generated/Lighting')

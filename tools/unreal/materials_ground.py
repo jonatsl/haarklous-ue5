@@ -83,7 +83,15 @@ def master():
     one = n(unreal.MaterialExpressionConstant, -1300, -120); one.set_editor_property('r', 1.0)
     tint = lerp(one, ratio, half, -1100, -300)
     clampt = n(unreal.MaterialExpressionClamp, -950, -300); con(tint, '', clampt, ''); clampt.set_editor_property('min_default', 0.4); clampt.set_editor_property('max_default', 1.6)
-    grass_d = op(unreal.MaterialExpressionMultiply, layers['Grass'][0], clampt, -900, 300, 'RGB', '')
+    # Anti-tiling: the grass colour again at 4.37x the tile size, mixed in by a large-scale version of itself.
+    gt = n(unreal.MaterialExpressionScalarParameter, -2200, -900); gt.set_editor_property('parameter_name', 'GrassMacroTile'); gt.set_editor_property('default_value', 1311.0)
+    guv = op(unreal.MaterialExpressionDivide, wxy, gt, -2000, -900)
+    gmacro = tparam('GrassD', -1700, -900, unreal.MaterialSamplerType.SAMPLERTYPE_COLOR, white)
+    con(guv, '', gmacro, 'UVs')
+    gmix = n(unreal.MaterialExpressionLinearInterpolate, -1300, -800)
+    con(layers['Grass'][0], 'RGB', gmix, 'A'); con(gmacro, 'RGB', gmix, 'B')
+    half2 = n(unreal.MaterialExpressionConstant, -1400, -700); half2.set_editor_property('r', 0.5); con(half2, '', gmix, 'Alpha')
+    grass_d = op(unreal.MaterialExpressionMultiply, gmix, clampt, -900, 300, '', '')
     # Blend: grass -> asphalt (R) -> gravel (G) -> sand (B).
     chans = [('Asphalt', 'R'), ('Gravel', 'G'), ('Sand', 'B')]
     c, nrm, rough = grass_d, layers['Grass'][1], layers['Grass'][2]

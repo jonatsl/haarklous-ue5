@@ -200,17 +200,6 @@ void AHKGame::BuildWorld()
 		Place(P.X + FMath::Sin(Yaw) * 4, P.Y + FMath::Cos(Yaw) * 4, Yaw);
 	}
 	UpdateDynamic();
-	// DEBUG: where the street door is (web frame and Unreal).
-	for (const FHKDoor& D : Doors)
-		if (D.Id == TEXT("own-street-door") && D.Hinge)
-		{
-			const FVector W = D.Hinge->GetWorldPosition();
-			UE_LOG(LogHaarklous, Display, TEXT("DEBUG door hinge web (%.3f, %.3f, %.3f) local (%.3f, %.3f, %.3f) parent %s"), W.X, W.Y, W.Z, D.Hinge->Position.X, D.Hinge->Position.Y, D.Hinge->Position.Z, D.Hinge->Parent ? *D.Hinge->Parent->Name : TEXT("-"));
-			AHKRigActor* A = ActorOfRig.FindRef(TEXT("stair_own"));
-			for (FHKNode* C : D.Hinge->Children)
-				if (UStaticMeshComponent* M = A ? A->MeshOf(C) : nullptr)
-					UE_LOG(LogHaarklous, Display, TEXT("DEBUG part %s at %s bounds %s visible %d mesh %s"), *C->Name, *M->GetComponentLocation().ToString(), *M->Bounds.GetBox().ToString(), M->IsVisible(), M->GetStaticMesh() ? *M->GetStaticMesh()->GetName() : TEXT("none"));
-		}
 	UpdateCamera();
 }
 
@@ -613,6 +602,8 @@ void AHKGame::Tick(float DeltaSeconds)
 	// "const dt = Math.min(clock.getDelta(), .05)"
 	const double Dt = FMath::Min((double)DeltaSeconds, FixedDt > 0 ? FixedDt : .05);
 	bDynamicEveryFrame = Mission && Mission->IsActive();
+	// camera.near: the web's .05 m on foot; its pistol had its own overlay camera, so the mission uses 1 cm here.
+	if (Player.Mode == TEXT("foot") || Player.Mode == TEXT("sit") || Player.Mode == TEXT("minigame")) SetClip(bDynamicEveryFrame ? .01 : .05);
 	Frame_(FixedDt > 0 ? FixedDt : Dt);
 	// The mission runs its own requestAnimationFrame loop in the web, on real time.
 	if (Mission) Mission->Tick(FixedDt > 0 ? FixedDt : DeltaSeconds);
