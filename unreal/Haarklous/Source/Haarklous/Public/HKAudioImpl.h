@@ -29,7 +29,7 @@
  *   Opts.Gain multiplies every sound (web opts.gain); Opts.Reverb >= 0 sets the reverb send (web opts.reverb).
  * Engine kinds (FHKAudio::Get().Engine(Kind)): bike, car, excavator, plane, heli, drone (also motorcycle, helicopter),
  *   and "hydraulics" (the excavator's engine.hydraulics(flow) as its own handle: Set(Flow); Stop()).
- *   The handle returned for an engine kind also has Hydraulics(Flow) (FHKEngineSoundImpl).
+ *   IHKEngineSound::Hydraulics(Flow) on the 'excavator' handle is the web's engine.hydraulics(flow).
  */
 
 // A running engine sound on the audio thread (engine(kind) -> {set, stop, hydraulics}).
@@ -117,6 +117,8 @@ public:
 	// Statistics (audio thread): seconds spent rendering, frames rendered.
 	double CpuSeconds = 0;
 	int64 FramesRendered = 0;
+	float PeakOutput = 0;           // loudest output sample so far
+	double SumSquares = 0;          // for the average output level
 	// Output gain (compensates Unreal's platform headroom so levels match the browser).
 	float OutputGain = 1;
 private:
@@ -136,7 +138,7 @@ public:
 	virtual ~FHKEngineSoundImpl();
 	virtual void Set(double A, double B = 0) override;
 	virtual void Stop() override;
-	virtual void Hydraulics(double Flow);   // excavator: engine.hydraulics(flow)
+	virtual void Hydraulics(double Flow) override;   // excavator: engine.hydraulics(flow)
 private:
 	TWeakPtr<FHKAudioEngine, ESPMode::ThreadSafe> Engine;
 	TSharedPtr<FSlot, ESPMode::ThreadSafe> Slot;

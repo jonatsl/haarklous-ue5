@@ -24,6 +24,9 @@ Goal: the sounds and music sound the same as in the web version. Decisions (27 O
   `FHKAudioEngine` (audio thread: game audio + music), a `UHKAudioSynthComponent` (USynthComponent, stereo,
   not spatialised, keeps playing when paused) and registers `FHKAudio` / `FHKMusic`. Game-thread calls are queued
   commands. Unreal's platform headroom (-3 dB on Windows) is undone so levels match the browser.
+- Engines: `FHKAudio::Get().Engine(kind)` -> `IHKEngineSound` with `Set(a, b)`, `Stop()` and `Hydraulics(flow)`
+  (the excavator's `engine.hydraulics(flow)`, a no-op for other kinds). When the audio actor ends it logs
+  `Audio: rendered ... s, ... ms audio-thread time per second, output peak, average dBFS, music <track>`.
 - Music volume is saved in `GameUserSettings.ini` `[Haarklous.Music] haarklous-music-volume-v1` (default 0.5).
 
 ## Small deviations (inaudible)

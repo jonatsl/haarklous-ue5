@@ -692,6 +692,8 @@ void FHKAudioEngine::Render(float* Out, int32 Frames, int32 Channels)
 		if (BlockPos >= Block) RenderBlock();
 		const float Lv = BlockL[BlockPos] * OutputGain, Rv = BlockR[BlockPos] * OutputGain;
 		BlockPos++;
+		PeakOutput = FMath::Max(PeakOutput, FMath::Max(FMath::Abs(Lv), FMath::Abs(Rv)));
+		SumSquares += double(Lv) * Lv + double(Rv) * Rv;
 		if (Channels == 1) Out[f] = .5f * (Lv + Rv);
 		else
 		{
@@ -919,6 +921,10 @@ void AHKAudioActor::BeginPlay()
 
 void AHKAudioActor::EndPlay(const EEndPlayReason::Type Reason)
 {
+	if (Engine)
+		UE_LOG(LogHaarklous, Log, TEXT("Audio: rendered %.1f s of sound, %.2f ms audio-thread time per second of sound, output peak %.3f, average %.1f dBFS, music %s"),
+			Engine->FramesRendered / Engine->SampleRate, CpuMillisecondsPerSecond(), Engine->PeakOutput,
+			10 * log10(Engine->SumSquares / FMath::Max<double>(1, 2.0 * Engine->FramesRendered) + 1e-30), *Engine->Music.Current);
 	if (AudioImpl && &FHKAudio::Get() == AudioImpl.Get()) FHKAudio::SetInstance(nullptr);
 	if (MusicImpl && &FHKMusic::Get() == MusicImpl.Get()) FHKMusic::SetInstance(nullptr);
 	if (Synth) { Synth->Stop(); }
