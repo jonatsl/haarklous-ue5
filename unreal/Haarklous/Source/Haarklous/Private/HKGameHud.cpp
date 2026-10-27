@@ -76,6 +76,7 @@ void AHKGame::DrawHud(UCanvas* C)
 	if (!C) return;
 	GHits.Reset();
 	DrawWorldHud(C);
+	if (bStarted) DrawModuleHud(C);
 	if (HudExtra) HudExtra(C);
 	if (bStarted) DrawExtras(C);
 	if (!bStarted) DrawStart(C);

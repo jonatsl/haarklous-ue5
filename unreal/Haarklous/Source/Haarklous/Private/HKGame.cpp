@@ -151,6 +151,7 @@ void AHKGame::BuildWorld()
 	SpawnRigs();
 	SpawnTrees();
 	SpawnOverlay();
+	SetupModules();
 	// Drunk effect: a post-process material (blur, double image, saturation) on the camera.
 	if (UMaterialInterface* M = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Haarklous/Materials/M_HK_Drunk.M_HK_Drunk")))
 	{
@@ -216,10 +217,7 @@ void AHKGame::SpawnRigs()
 	AptRig = Load(TEXT("apartment"), true);
 	StairRigs.Add(Load(TEXT("stair_own"), true));
 	for (int32 i = 0; i < 8; i++) StairRigs.Add(Load(FString::Printf(TEXT("stair_b%d"), i), true));
-	Load(TEXT("fire"), false);
-	Load(TEXT("discgolf"), false);
-	Load(TEXT("petanque"), false);
-	Load(TEXT("misc"), false);
+	Load(TEXT("misc"), false);   // mission marker, the excavator's first dirt pile (fire and minigames: HKGameModules.cpp)
 }
 
 void AHKGame::SpawnTrees()
@@ -416,7 +414,8 @@ void AHKGame::UpdateDynamic()
 	if (ExtraDynamic) List.Append(ExtraDynamic());
 	Data.WalkWorld.SetDynamic(List);
 	// "Other vehicles block the one being driven; it must never collide with its own (parked) footprint."
-	for (double R : VehicleWorldRadii) Data.VehicleWorld(R).SetDynamic(VList);
+	// (Only the vehicle worlds that exist already, like the web's vehicleWorlds.forEach.)
+	Data.ForEachVehicleWorld([&VList](FHKWalkWorld& W) { W.SetDynamic(VList); });
 }
 
 // ---------- Notices, prompts, interaction ----------
@@ -766,6 +765,7 @@ void AHKGame::UpdateCamera()
 	const double Aspect = Vp.Y > 0 ? Vp.X / Vp.Y : 16.0 / 9.0;
 	const double H = 2 * FMath::Atan(FMath::Tan(FMath::DegreesToRadians(Fov) / 2) * Aspect);
 	Camera->SetFieldOfView(FMath::RadiansToDegrees(H));
+	FHKUi::SetView(Camera->GetComponentLocation(), Camera->GetComponentRotation(), FMath::RadiansToDegrees(H), Vp);
 	FHKAudio::Get().SetListener(CamPos, FMath::Atan2(-CamQuat.RotateVector(FVector(0, 0, -1)).X, -CamQuat.RotateVector(FVector(0, 0, -1)).Z));
 }
 

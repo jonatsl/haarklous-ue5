@@ -5,13 +5,16 @@
 #include "HKCollision.h"
 #include "HKInput.h"
 #include "HKNode.h"
+#include "HKVehicle.h"
+#include "HKAircraft.h"
+#include "HKMinigames.h"
+#include "HKFire.h"
 #include "HKGame.generated.h"
 
 class AHKRigActor;
 class UCameraComponent;
 class UCanvas;
 class UHierarchicalInstancedStaticMeshComponent;
-class FHKVehicle;
 
 /* A door of the web game (apartment doors and the street doors of the stair towers). */
 struct FHKDoor
@@ -153,7 +156,6 @@ public:
 
 	// ---- Hooks for the module ports (set up in HKGameModules.cpp); empty = not available ----
 	TArray<FHKVehicle*> VehicleList;                 // the web's vehicles[] (multiplayer uses the indices)
-	TArray<double> VehicleWorldRadii;                // radii of the vehicle collision worlds in use
 	TFunction<TArray<FHKObstacle>()> ExtraDynamic;   // mission actors, remote players ... (updateDynamic)
 	bool bDynamicEveryFrame = false;                 // "if (doorsChanged || caseGame?.active) updateDynamic()"
 	TFunction<bool()> MissionActive, MissionPlaying, MissionCanMove, PhotoActive, PromptBlocked;
@@ -220,6 +222,33 @@ public:
 	void DrawExtras(UCanvas* C);
 	void UpdateOverlayModels(double Dt);
 	TFunction<void()> MissionRoute;                  // the mission's input routing (between quick chat and the map)
+
+	// ---- Vehicles, aircraft, drone, minigames, firepit (HKGameModules.cpp) ----
+	TArray<TUniquePtr<FHKVehicle>> Vehicles;
+	TUniquePtr<class FHKDrone> Drone;
+	TUniquePtr<struct FHKMinigames> Mini;
+	TUniquePtr<class FHKFire> FirePit;
+	class FHKMinigame* ActiveMinigame = nullptr;
+	TSharedPtr<class IHKEngineSound> PassengerEngine;
+	// Multiplayer (offline defaults: every seat is yours, nobody else is around).
+	TFunction<int32(int32, const FString&)> Occupant;                                    // mp.occupant(i, seat) -> player id or 0
+	TFunction<FString(int32)> NameOf;                                                    // mp.nameOf(id)
+	TFunction<void(int32, const FString&, TFunction<void(bool, int32, bool)>)> Claim;    // mp.claim(i, seat) -> (ok, by, timeout)
+	TFunction<void(int32, const FString&, const TArray<double>*)> Release;               // mp.release(i, seat, final state)
+	TFunction<bool(int32)> RemoteDriven;                                                 // mp.remoteDriven(i)
+	int32 IndexOf(const FHKVehicle* V) const;
+	FHKVehicle* NearestVehicle();
+	void TryDrive(FHKVehicle* V);
+	void TryRide(FHKVehicle* V);
+	void EnterVehicle(FHKVehicle* V);
+	void ExitVehicle();
+	void EnterPassenger(FHKVehicle* V);
+	void ExitPassenger();
+	void StartDroneNow();
+	void StopDrone();
+	void StartMinigame(class FHKMinigame* G);
+	FHKVehicleInput FlightSticks(double Dl) const;
+	void SetClip(double NearM);
 	UFUNCTION() void DrawDialRT(UCanvas* C, int32 W, int32 H);
 
 	// Test driver access.
@@ -284,4 +313,23 @@ private:
 	void DrawDial(class UCanvas* C, int32 W, int32 H);
 	void LoadPhotos();
 	void SpawnOverlay();
+	// Modules (HKGameModules.cpp).
+	void SetupModules();
+	void UpdateVehicle(double Dt, double Dl);
+	void UpdateAircraft(double Dt, double Dl);
+	void UpdatePassenger(double Dt, double Dl);
+	void UpdateDrone(double Dt, double Dl);
+	void UpdateMinigame(double Dt, double Dl);
+	void UpdateOthers(double Dt);
+	void SyncModuleVisuals();
+	void DrawModuleHud(UCanvas* C);
+	UPROPERTY() TArray<TObjectPtr<AHKRigActor>> VehicleActors;
+	UPROPERTY() TObjectPtr<AHKRigActor> DiscActor;
+	UPROPERTY() TObjectPtr<AHKRigActor> PetanqueActor;
+	UPROPERTY() TObjectPtr<AHKRigActor> FireActor;
+	UPROPERTY() TObjectPtr<class AHKFireEffects> FireFx;
+	UPROPERTY() TArray<TObjectPtr<class UStaticMeshComponent>> DirtPiles;
+	double VehicleCullT = 0, OsdT = 0;
+	struct FOsd { bool bShow = false; FString Tl, Tr, Bl, Br, Warn; double Battery = 0; } Osd;
+	void AddDirtPile(double X, double Z, double R);
 };

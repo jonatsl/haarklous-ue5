@@ -60,6 +60,8 @@ public:
 	// The player's collision world (apartment, stair towers, surroundings, firepit) and the vehicles' worlds.
 	FHKWalkWorld WalkWorld;
 	FHKWalkWorld& VehicleWorld(double Radius);
+	// The vehicle worlds made so far (game-main.js updateDynamic sets the dynamic obstacles of the existing ones only).
+	void ForEachVehicleWorld(TFunctionRef<void(FHKWalkWorld&)> Fn) { for (TPair<FString, TUniquePtr<FHKWalkWorld>>& P : VehicleWorlds) Fn(*P.Value); }
 	FHKFloor TerrainFloor() const;
 	static TArray<FHKFloor> FloorsFromJson(const TArray<TSharedPtr<FJsonValue>>& A);
 	static TArray<FHKObstacle> ObstaclesFromJson(const TArray<TSharedPtr<FJsonValue>>& A);
