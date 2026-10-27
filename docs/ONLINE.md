@@ -69,8 +69,11 @@ Other options and their costs:
 ## Still open
 - Avatar meshes are imported (`/Game/Haarklous/Meshes/avatar_0..4`, `avatar_drone`). After a full re-export of the
   web geometry, rebuild them: `powershell -File tools\build-assets.ps1 -From 3 -Rigs "avatar_0 avatar_1 avatar_2 avatar_3 avatar_4 avatar_drone"`.
-- Real microphone (27 Oct 2026): the game opens the laptop's microphone array ("Mikrofonrekke (Realtek(R) Audio)",
-  48 kHz, 2 channels) and streams it, but the microphone delivered silence, the same in a separate Python recording
-  (peak 0.00003) while Windows shows it unmuted at 42 %: most likely the laptop's microphone mute key is on. Unmute it
-  and run `run-live.ps1 -Mode deployed -Game -RealMic` (or `run-game.ps1 -Test mic`), or talk with someone in a lobby.
+- Real microphone: tested on 27 Oct 2026 with `run-live.ps1 -Mode deployed -Voice -RealMic` while the user talked
+  to the laptop: the game opened "Mikrofonrekke (Realtek(R) Audio)" and the web game heard the voice (RMS 0.068; the
+  game heard the web at 0.205). Before that the microphone was muted with the laptop's key (pure silence everywhere).
+  The game's microphone sound gets an automatic gain and a noise gate (`FHKWebVoice::PumpAudio`), like the browser's
+  autoGainControl / noiseSuppression that `game-voice.js` asks for. No echo cancellation (headphones avoid echo).
+- Fixed: turning the microphone off or quitting after using it crashed (the engine's capture thread outlived the
+  capture object); `AbortCapturing()` now stops and closes it first.
 - No TURN server (like the web): voice may fail between homes behind strict NATs; text chat always works.

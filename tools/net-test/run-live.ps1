@@ -53,8 +53,9 @@ try {
   try {
     if ($Voice) {
       # CEF (the hidden voice page) needs rendering: a small game window on the empty engine map.
-      $realMicArg = if ($RealMic) { "-HKRealMic " } else { "" }
-      $uargs = "`"$project`" /Engine/Maps/Entry -game -windowed -ResX=320 -ResY=180 -nosplash -unattended -nosound -HKVoiceTest $realMicArg" +
+      # -nosound also stops Unreal from opening the microphone, so the real-microphone run keeps the sound on.
+      $realMicArg = if ($RealMic) { "-HKRealMic " } else { "-nosound " }
+      $uargs = "`"$project`" /Engine/Maps/Entry -game -windowed -ResX=320 -ResY=180 -nosplash -unattended -HKVoiceTest $realMicArg" +
         "`"-ExecCmds=Automation RunTests Haarklous.Net.Voice;Quit`" `"-TestExit=Automation Test Queue Empty`" " +
         "-HKLiveServer=$server -HKLiveLobby=$Lobby `"-HKLiveOut=$out`" `"-abslog=$ulog`""
       $p = Start-Process -FilePath "$engine\Engine\Binaries\Win64\UnrealEditor.exe" -ArgumentList $uargs -PassThru

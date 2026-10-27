@@ -3,8 +3,8 @@
 27 October 2026. The whole game is rebuilt in Unreal Engine 5.8 with assets made by Blender scripts. Every item in the
 porting checklist is built and ticked; the game logic is a line-by-line C++ port of the web game, checked against the
 web code's own answers; every feature was played through with a simulated DualShock 4; online play was tested
-together with the web game on the separate test server. What still needs you: a test with the real DualShock 4 and
-a real microphone.
+together with the web game on the separate test server, including voice with your real microphone. What still needs
+you: a test with the real DualShock 4 (none was connected).
 
 ## How to start the game
 
@@ -122,6 +122,12 @@ the final build (27 Oct 2026, lobby BG28):
 - **Voice:** Unreal's microphone (a 440 Hz test tone) was heard by the web game (RMS 0.21, about 434 Hz), and Unreal
   heard the web's microphone (RMS 0.07). Voice uses the web's own `game-voice.js` in a hidden browser inside the game,
   so it is the same WebRTC voice as the web version.
+- **Voice with your real microphone:** while you talked to the laptop, the game opened its microphone ("Mikrofonrekke
+  (Realtek(R) Audio)") and the web game heard your voice (RMS 0.068, pass mark 0.05); the game heard the web side at
+  0.205 (`run-live.ps1 -Mode deployed -Voice -RealMic`, lobby R83B, all 8 checks). This test also found and fixed two
+  things: switching the microphone off (or quitting after using it) crashed the game, and the game's microphone had no
+  automatic gain (the web asks the browser for automatic gain and noise suppression); it now has both a gain and a
+  noise gate.
 - **Pause-menu lobby controls** (play-through `menus` with online on, see above): the code pad, typing a code, going
   back home, the name field and the microphone checkbox all work against the test server. This run also found and
   fixed a real bug: Unreal's config reader cut the server address at the `//` in `wss://`, so online switched on in the
@@ -170,7 +176,7 @@ the final build.
 | Music and sounds | `HKSynth`, `HKMusicPlayer` | `Audio.*` (71/71 match the browser) | (sound) |
 | Lobby client, own code, join by code | `FHKNet` | `Net.*`; `online` with the web game; `menus` online | ![](img/menus--04-lobby-section.jpg) |
 | Remote avatars, passengers, shared doors and fire | `FHKMultiplayer`, `HKAvatars`, `AHKOnline` | `online` (both ways) | ![](img/net--B1-game-passenger-seat-web-driving.jpg) |
-| Chat and voice | chat in `HKGameExtras.cpp`, `FHKWebVoice` | `online` (both ways), `Net.Voice`; `activities` quick chat | ![](img/net--C1-game-sees-web-on-pillion.jpg) |
+| Chat and voice | chat in `HKGameExtras.cpp`, `FHKWebVoice` | `online` (both ways), `Net.Voice`, real-microphone voice test (your voice heard by the web game); `activities` quick chat | ![](img/net--C1-game-sees-web-on-pillion.jpg) |
 | Lobby settings: code pad, name, voice | `AHKOnline` pause-menu section | `menus` online (code pad, typed code, home, name, microphone) | ![](img/menus--05-code-pad.jpg) |
 | DualShock 4 plus keyboard and mouse | `FHKInputProcessor` | `Input.*`; simulated DualShock 4 in every play-through; `menus` keyboard and mouse. **Real controller: you.** | ![](img/menus--02-pause.jpg) |
 | Start screen, pause, settings, credits | `HKGameHud.cpp` | `menus` (start, pause, sliders, quality, saved, Resume) | ![](img/shots--00-start-screen.jpg) |
@@ -203,12 +209,6 @@ The "Fast" (65 %, no shadows) and "Sharp" (100 %) settings were not measured.
 
 - **Test with your real DualShock 4** (USB and Bluetooth). The controller code reads the same raw reports the
   browser uses and is tested with recorded reports and a simulated pad, but not with the real controller.
-- **Voice with a real microphone.** Voice was tested end to end both ways (the game's test tone heard by the web game,
-  the web game's microphone heard by the game). I also tried your laptop's own microphone: the game opened it
-  ("Mikrofonrekke (Realtek(R) Audio)") and sent its sound, but the microphone itself gave only silence, also to a
-  separate recording program, while Windows shows it switched on at 42 %. It is probably muted with the laptop's
-  microphone key (often F4 with a small light). Unmute it and talk in a lobby, or run
-  `powershell -File tools\net-test\run-live.ps1 -Mode deployed -Game -RealMic`.
 - **No DualShock 4 was connected** while I worked (checked on 27 Oct 2026), so the real controller is still untested.
 - **Decide on the web-game bugs** in `docs/GAMEPLAY-IDEAS.md` (they are copied 1:1, as the rules say):
   petanque never ends after 13 points, petanque can freeze when no boule is left, and vehicle obstacles appear one

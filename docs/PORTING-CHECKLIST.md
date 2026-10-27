@@ -85,8 +85,9 @@ simulated DualShock 4 (`tools\run-game.ps1 -Test <name>`, `HKTestScripts.cpp`), 
   each side (same level); test `Net.AvatarPoses`.
 - [x] Chat and voice. — chat in `HKGameExtras.cpp`; voice = the web's own `game-voice.js` in a hidden browser page
   (`FHKWebVoice`, `Content/Web/voice`). Play-through `online`: chat both ways, voice both ways (test tone heard by the
-  web at RMS 0.21, the web's fake microphone heard at RMS 0.07); tests `Net.Voice`, `Net.VoicePage`; quick chat offline
-  in play-through `activities`.
+  web at RMS 0.21, the web's fake microphone heard at RMS 0.07); tests `Net.Voice`, `Net.VoicePage`; with the laptop's
+  real microphone (`run-live.ps1 -Voice -RealMic`, someone talking) the web game heard the voice at RMS 0.068; quick
+  chat offline in play-through `activities`.
 - [x] Settings: lobby code, join by code (controller code pad), name, voice. — `AHKOnline` pause-menu section;
   play-through `menus` with `-HKOnline` on the test server: own code shown, △ code pad joins BAAA, □ back home, typed
   code "cdef" + Enter joins CDEF, "Back to my own lobby" button, name field, voice checkbox turns the microphone on.

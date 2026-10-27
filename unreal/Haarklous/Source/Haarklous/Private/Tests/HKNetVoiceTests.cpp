@@ -89,7 +89,7 @@ namespace
 			if (WebId && Voice->IsReady() && !bMicAsked)
 			{
 				bMicAsked = true;
-				Mp->SetMic(true, [this](bool bOk) { bMicOk = bOk; Check(TEXT("micOn"), bOk, TEXT("test tone 440 Hz")); if (!bOk) L(TEXT("mic could not be switched on")); });
+				Mp->SetMic(true, [this](bool bOk) { bMicOk = bOk; Check(TEXT("micOn"), bOk, FParse::Param(FCommandLine::Get(), TEXT("HKRealMic")) ? TEXT("real microphone") : TEXT("test tone 440 Hz")); if (!bOk) L(TEXT("mic could not be switched on")); });
 			}
 			if (WebId)
 			{
