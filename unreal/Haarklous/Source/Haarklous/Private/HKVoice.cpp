@@ -52,7 +52,9 @@ FHKWebVoice::FHKWebVoice(const FHKWebVoiceOptions& InOptions) : Options(InOption
 	Bridge->OnMicResult = [this](bool bOk, bool bOn)
 	{
 		bMic = bOn;
-		if (!bMic && Capture) { Capture->StopCapturing(); Capture.Reset(); }
+		// AbortCapturing stops and closes the stream: the engine's capture object does not do that when it is deleted,
+		// and its microphone thread would call into freed memory (a crash on the next audio callback).
+		if (!bMic && Capture) { Capture->AbortCapturing(); Capture.Reset(); }
 		if (MicWaiters.Num()) { TFunction<void(bool)> Done = MicWaiters[0]; MicWaiters.RemoveAt(0); if (Done) Done(bOk); }
 	};
 	Bridge->OnStats = [this](const FString& Json)
@@ -105,6 +107,7 @@ void FHKWebVoice::SetMic(bool bOn, TFunction<void(bool)> Done)
 		if (!Capture->GetDefaultCaptureDeviceInfo(Info) || !Capture->OpenDefaultStream() || !Capture->StartCapturing())
 		{
 			UE_LOG(LogHaarklous, Warning, TEXT("Voice chat: no microphone could be opened"));
+			Capture->AbortCapturing();
 			Capture.Reset();
 			if (Done) Done(false);
 			return;
@@ -207,6 +210,19 @@ void FHKWebVoice::PumpAudio(double Dt)
 			Mono.Add((float)(Resample[I] * (1 - T) + Resample[I + 1] * T));
 		}
 		CaptureFrac = FMath::Max(0.0, Pos - Frames);
+		// The web asks the browser for its microphone with autoGainControl and noiseSuppression on (game-voice.js); the
+		// sound pushed here bypasses that, so a slow automatic gain lifts speech toward the same level and a gate keeps
+		// quiet room noise down instead of amplifying it.
+		if (Mono.Num())
+		{
+			double E = 0;
+			for (const float V : Mono) E += V * V;
+			const double Rms = FMath::Sqrt(E / Mono.Num());
+			AgcEnv += (Rms - AgcEnv) * (Rms > AgcEnv ? .5 : .05);
+			const double Want = AgcEnv < .0015 ? .3 : FMath::Clamp(.1 / AgcEnv, 1.0, 30.0);
+			AgcGain += (Want - AgcGain) * .2;
+			for (float& V : Mono) V = FMath::Clamp(V * (float)AgcGain, -1.f, 1.f);
+		}
 	}
 	if (!Mono.Num()) return;
 	TArray<uint8> Bytes;

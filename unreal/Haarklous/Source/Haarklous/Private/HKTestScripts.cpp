@@ -427,7 +427,7 @@ namespace
 				{
 					const double Rms = M->Samples ? FMath::Sqrt(M->Energy / M->Samples) : 0;
 					UE_LOG(LogTemp, Display, TEXT("HK-TEST microphone over 5 s: %lld samples, RMS %.4f, peak %.4f"), M->Samples, Rms, M->Peak);
-					if (M->C) { M->C->StopCapturing(); M->C.Reset(); }
+					if (M->C) { M->C->AbortCapturing(); M->C.Reset(); }
 				});
 				T.Expect(TEXT("the microphone delivers sound"), [M]() { return M->Samples > 0 && M->Peak > 0; });
 			});

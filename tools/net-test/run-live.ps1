@@ -6,8 +6,9 @@
 # Without -Voice: Haarklous.Net.Live (states, chat, seats, doors, fire). Logs and summaries: tools\out\net-tests\.
 # Never points at the live game server.
 #   add -Game for the real game (-hktest=online, HKOnlineTestScript.cpp) with the web client in its lobby
-#   add -RealMic (with -Game) to use the laptop's real microphone instead of the test tone; alternating beeps play
-#   through the speakers meanwhile so the microphone has something to hear (nothing is recorded, only levels)
+#   add -RealMic (with -Game or -Voice) to use the laptop's real microphone instead of the test tone; alternating beeps
+#   play through the speakers meanwhile (with -Game) so the microphone has something to hear; with -Voice someone
+#   talks to the laptop (nothing is recorded, only levels)
 param([ValidateSet("local", "deployed")][string]$Mode = "local", [string]$Lobby = "", [int]$TimeoutS = 300, [switch]$Voice, [switch]$Game, [int]$WebDelayS = 0, [switch]$RealMic)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
@@ -26,7 +27,7 @@ if ($Mode -eq "local") {
 }
 if ($server -match "haarklous-online|haarklous-plass") { throw "Refusing: that is the live game server" }
 $tag = if ($Voice) { "$Mode-voice" } elseif ($Game) { "$Mode-game" } else { $Mode }
-if ($Game -and $RealMic) { $tag += "-realmic" }
+if ($RealMic) { $tag += "-realmic" }
 "Test $tag, lobby $Lobby, server $server"
 
 $wrangler = $null
@@ -52,7 +53,8 @@ try {
   try {
     if ($Voice) {
       # CEF (the hidden voice page) needs rendering: a small game window on the empty engine map.
-      $uargs = "`"$project`" /Engine/Maps/Entry -game -windowed -ResX=320 -ResY=180 -nosplash -unattended -nosound -HKVoiceTest " +
+      $realMicArg = if ($RealMic) { "-HKRealMic " } else { "" }
+      $uargs = "`"$project`" /Engine/Maps/Entry -game -windowed -ResX=320 -ResY=180 -nosplash -unattended -nosound -HKVoiceTest $realMicArg" +
         "`"-ExecCmds=Automation RunTests Haarklous.Net.Voice;Quit`" `"-TestExit=Automation Test Queue Empty`" " +
         "-HKLiveServer=$server -HKLiveLobby=$Lobby `"-HKLiveOut=$out`" `"-abslog=$ulog`""
       $p = Start-Process -FilePath "$engine\Engine\Binaries\Win64\UnrealEditor.exe" -ArgumentList $uargs -PassThru

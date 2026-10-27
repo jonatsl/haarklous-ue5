@@ -87,5 +87,6 @@ private:
 	TArray<float> Resample;
 	bool bReady = false, bMic = false, bUnlocked = false;
 	double TonePhase = 0, CaptureRate = 48000, CaptureFrac = 0, SinceUnlock = 0;
+	double AgcEnv = 0, AgcGain = 1;   // automatic gain of the microphone (envelope, current gain)
 	int32 CaptureChannels = 1;
 };

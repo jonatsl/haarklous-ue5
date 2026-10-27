@@ -56,7 +56,7 @@ namespace
 			FHKStore::SetPathForTests(Store);
 			FHKStore::Set(FHKNet::NameKey, TEXT("Unreal tester"));
 			FHKWebVoiceOptions VO;
-			VO.bTestTone = true;
+			VO.bTestTone = !FParse::Param(FCommandLine::Get(), TEXT("HKRealMic"));   // -HKRealMic: the real microphone
 			TUniquePtr<FHKWebVoice> V = MakeUnique<FHKWebVoice>(VO);
 			Voice = V.Get();
 			FHKMultiplayerContext Ctx;
