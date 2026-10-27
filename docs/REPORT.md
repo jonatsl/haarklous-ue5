@@ -181,27 +181,59 @@ the final build.
 | DualShock 4 plus keyboard and mouse | `FHKInputProcessor` | `Input.*`; simulated DualShock 4 in every play-through; `menus` keyboard and mouse. **Real controller: you.** | ![](img/menus--02-pause.jpg) |
 | Start screen, pause, settings, credits | `HKGameHud.cpp` | `menus` (start, pause, sliders, quality, saved, Resume) | ![](img/shots--00-start-screen.jpg) |
 
+## Realism pass (27 Oct 2026)
+
+Your follow-up goal: make everything look more realistic, still only graphics and still 20 fps or more. What changed
+(details in `docs/ARCHITECTURE.md`, all made by scripts):
+
+- **City blocks:** real brick at true size (240 × 66 mm bricks, mortar, worn edges, colour variation) instead of the
+  web's painted brick; the web's own windows (same places) now have painted frames, concrete sills and glass with a
+  fake room behind it, so each window has depth: walls, ceiling, floor, doors, sofas, curtains and blinds, varied
+  from window to window, under real sky reflections.
+- **Roofs** standing-seam zinc with streaks; **plaster** walls with fine grain (indoors clean paint); **plinths** in
+  darker brick.
+- **Grass:** a more natural lawn texture (dry patches, clover, soil) plus 3D grass tufts around you that sway in the
+  wind; **asphalt** with hairline cracks and sealed patches.
+- **Trees:** leaves let sunlight through and the trees sway in the wind.
+- **Cars and the motorcycle:** clear-coat paint that reflects the sky and the buildings.
+- **Light:** softer sun shadows, more sky light in the shade, a warm glow in the haze toward the sun, reflection
+  captures, tighter ambient occlusion, gentle colour grading and image sharpening.
+
+Cost: about 2–3 fps (the 3D grass) on top of the materials; all places stay above 20 fps (see below).
+
+![Before: the front of 17A](img/before-realism--02-front-of-17A.jpg)
+![After: real brick, windows with rooms behind them, frames and sills](img/shots--02-front-of-17A.jpg)
+![Before: the street door](img/before-realism--01-player-start.jpg)
+![After: glass with reflections and curtains, brick close up](img/shots--01-player-start.jpg)
+![Before: the firepit](img/before-realism--03-firepit.jpg)
+![After: lawn with dry patches and 3D grass tufts](img/shots--03-firepit.jpg)
+![Before: by the helipad](img/before-realism--04-helipad.jpg)
+![After: clear-coat car paint, brick and windows](img/shots--04-helipad.jpg)
+![Before: Torshov from the air](img/before-realism--08-aerial-home.jpg)
+![After: zinc roofs and brick from the air](img/shots--08-aerial-home.jpg)
+
 ## Frame rates on this laptop
 
-Measured on 27 Oct 2026 in **the packaged game you start** (`dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps
--fullscreen -ResX=2240 -ResY=1400`, results in `tools\out\shots\fps-packaged\fps.txt`): full screen at the laptop's
-own resolution (2240 × 1400), graphics quality "Balanced" (the default, 75 % screen percentage), baked lighting,
-nothing else running. At each place the camera turns one full circle in 12 seconds, so every direction counts.
-Two runs:
+Measured on 27 Oct 2026, after the realism pass, in **the packaged game you start**
+(`dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps -fullscreen -ResX=2240 -ResY=1400`, results in
+`tools\out\shots\fps-packaged\fps.txt`): full screen at the laptop's own resolution (2240 × 1400), graphics quality
+"Balanced" (the default, 75 % screen percentage), baked lighting, 3D grass on, nothing else running. At each place
+the camera turns one full circle in 12 seconds, so every direction counts. Two runs:
 
 | Place | Average (run 1 / run 2) | Slowest 1 % of frames | Slowest single frame |
 | --- | --- | --- | --- |
-| Home (apartment, looking into the living room and out of the windows) | **39.5 / 39.6 fps** | 30.2 / 30.8 fps | 26.1 / 18.3 fps |
-| Firepit (fire, smoke, cars and the block behind) | **32.1 / 32.6 fps** | 24.1 / 23.1 fps | 21.5 / 20.5 fps |
-| The park (Torshovdalen, the most trees) | **32.2 / 32.6 fps** | 24.0 / 25.6 fps | 18.9 / 22.2 fps |
-| The street outside 17A | **31.8 / 32.5 fps** | 23.7 / 25.9 fps | 19.0 / 24.6 fps |
-| Flying (110 m above the district) | **35.3 / 35.6 fps** | 27.6 / 28.0 fps | 22.2 / 21.2 fps |
+| Home (apartment, looking into the living room and out of the windows) | **37.3 / 35.8 fps** | 28.7 / 28.3 fps | 23.3 / 18.7 fps |
+| Firepit (fire, smoke, cars, grass and the block behind) | **29.7 / 29.9 fps** | 22.7 / 23.4 fps | 18.0 / 20.8 fps |
+| The park (Torshovdalen, the most trees and grass) | **29.8 / 29.7 fps** | 23.1 / 23.2 fps | 20.8 / 18.9 fps |
+| The street outside 17A | **30.0 / 30.1 fps** | 23.7 / 21.9 fps | 20.5 / 19.8 fps |
+| Flying (110 m above the district) | **33.8 / 34.1 fps** | 26.4 / 27.4 fps | 15.2 / 18.0 fps |
 
-Every place stays above the 20 fps goal on average and in the slowest 1 % of frames; single frames dip to about
-18–19 fps at most. The same test in the editor build (`tools\run-game.ps1 -Test fps -Res 2240x1400 -Fullscreen`)
-gave the same picture: home 39.5, firepit 33.4, park 35.2, street 35.3, flying 40.3 fps. Its first run right after a
-build showed a few one-off stalls at home while caches warmed up (average still 26.9 fps); the runs after that did
-not.
+Every place stays above the 20 fps goal on average and in the slowest 1 % of frames; single frames dip to 15–19 fps
+now and then. Before the realism pass the same test gave 32–40 fps on average (home 39.5, firepit 32.1, park 32.2,
+street 31.8, flying 35.3), so the new look costs about 2–3 fps. The editor build
+(`tools\run-game.ps1 -Test fps -Res 2240x1400 -Fullscreen`) gives the same picture: home 36.5, firepit 30.2, park
+30.2, street 30.9, flying 34.4 fps. An earlier realism build had one 8 fps stall in the park when the grass around
+the camera was rebuilt; the grass tiles are now reused instead of thrown away, and that stall is gone.
 
 The lower numbers in the online test (about 16–20 fps) were measured while a second game, the web version in a
 headless Chrome that draws in software, ran on the same laptop to play against; they are not the game's own speed.

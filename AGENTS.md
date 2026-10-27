@@ -13,7 +13,8 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
 - The backend is `reference/web-game/cloud/` (Cloudflare Worker + Durable Objects). Keep it unchanged. The Unreal client must speak the same WebSocket JSON protocol (`cloud/src/index.js`, `game-net.js`, `game-multiplayer.js`), including the same vehicle numbering (vehicle list order and the seeded generator in `game-main.js`).
 - **Live game untouched:** never deploy to, change or connect to the live Worker `haarklous-online` (`haarklous-online.server-smoke.workers.dev`). Online code is switched off by default in builds.
 - **Online testing (allowed since 26 Oct 2026):** on a separate test server only. Copy `reference/web-game/cloud/` to `server/`, change nothing but the Worker name to `haarklous-ue5-test` in `server/wrangler.toml` (and put the reference `haarklous-game.html` in `server/public/index.html`), test with `npx wrangler dev` locally, then deploy that test Worker to the user's Cloudflare account (46fd597da1c5fe9de4c3ebbaae86f906, Wrangler is logged in on this PC) at `haarklous-ue5-test.server-smoke.workers.dev`. Test the Unreal client together with the web client served by that test Worker in one lobby.
-- No GitHub for this project: local git only, unless the user asks.
+- GitHub (allowed by the user on 27 Oct 2026): the private repo **jonatsl/haarklous-ue5** (remote `origin`); push
+  there. Never use the GitHub account **ms-jonathans** for this project, even if it is available.
 
 ## Never touch the web game
 - Do not edit, build, commit, push or deploy anything in `C:\Users\Lenovo\Documents\haarklous-plass-ps-kontroller` (the live web game, its own repo and PRs). Read from it only to refresh the snapshot (`tools\refresh-reference.ps1`).

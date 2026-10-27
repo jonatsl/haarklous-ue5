@@ -11,12 +11,14 @@
 #include "Haarklous.h"
 #include "Camera/CameraComponent.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -151,6 +153,7 @@ void AHKGame::BuildWorld()
 	LocalFire.T = FPlatformTime::Seconds();
 	SpawnRigs();
 	SpawnTrees();
+	GrassMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Haarklous/Meshes/grass/SM_GrassClump.SM_GrassClump"));
 	SpawnOverlay();
 	SetupModules();
 	SetupMission();
@@ -607,6 +610,69 @@ void AHKGame::Tick(float DeltaSeconds)
 	Frame_(FixedDt > 0 ? FixedDt : Dt);
 	// The mission runs its own requestAnimationFrame loop in the web, on real time.
 	if (Mission) Mission->Tick(FixedDt > 0 ? FixedDt : DeltaSeconds);
+	UpdateGrass();
+}
+
+void AHKGame::UpdateGrass()
+{
+	const FHKData& D = FHKData::Get();
+	const double Tile = 6, Step = .45;
+	static const bool bNoGrass = FParse::Param(FCommandLine::Get(), TEXT("HKNoGrass"));   // for frame-rate comparisons
+	const bool bWant = GrassMesh && !bNoGrass && Quality > 0 && CamPos.Y - D.HeightWorld(CamPos.X, CamPos.Z) < 25;
+	const int32 Range = 3;   // tiles each way: 21 m, a little past the 16 m fade
+	const FIntPoint C(FMath::FloorToInt32(CamPos.X / Tile), FMath::FloorToInt32(CamPos.Z / Tile));
+	for (auto It = GrassTiles.CreateIterator(); It; ++It)
+		if (!bWant || FMath::Abs(It.Key().X - C.X) > Range || FMath::Abs(It.Key().Y - C.Y) > Range)
+		{
+			// Back to the pool instead of destroying: no garbage for the collector to sweep up later (a stall).
+			if (UInstancedStaticMeshComponent* Old = It.Value()) { Old->ClearInstances(); Old->SetVisibility(false); GrassPool.Add(Old); }
+			It.RemoveCurrent();
+		}
+	if (!bWant) return;
+	// One missing tile per frame, nearest first, so walking never stalls.
+	FIntPoint Best(0, 0);
+	int32 BestD = MAX_int32;
+	for (int32 Dz = -Range; Dz <= Range; Dz++)
+		for (int32 Dx = -Range; Dx <= Range; Dx++)
+		{
+			const FIntPoint K(C.X + Dx, C.Y + Dz);
+			if (!GrassTiles.Contains(K) && Dx * Dx + Dz * Dz < BestD) { BestD = Dx * Dx + Dz * Dz; Best = K; }
+		}
+	if (BestD == MAX_int32) return;
+	const double T0 = FPlatformTime::Seconds();
+	UInstancedStaticMeshComponent* I = GrassPool.Num() ? GrassPool.Pop().Get() : nullptr;
+	if (!I)
+	{
+		I = NewObject<UInstancedStaticMeshComponent>(this);
+		I->SetStaticMesh(GrassMesh);
+		I->SetMobility(EComponentMobility::Movable);
+		I->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		I->SetCastShadow(false);
+		I->SetCullDistances(1100, 1600);
+		I->SetCanEverAffectNavigation(false);    // registering hundreds of instances with navigation stalls a frame
+		I->bAffectDistanceFieldLighting = false;
+		I->RegisterComponent();
+	}
+	I->SetVisibility(true);
+	FRandomStream R(Best.X * 7919 + Best.Y * 104729);
+	TArray<FTransform> Xf;
+	for (double Z = 0; Z < Tile; Z += Step)
+		for (double X = 0; X < Tile; X += Step)
+		{
+			const double Wx = Best.X * Tile + X + R.FRandRange(0, Step), Wz = Best.Y * Tile + Z + R.FRandRange(0, Step);
+			const double Yaw = R.FRandRange(0, 360), S = R.FRandRange(.75, 1.3);
+			if (D.SurfaceAt(Wx, Wz) != TEXT("grass")) continue;
+			if (HK::Hypot(Wx - FireCenter.X, Wz - FireCenter.Z) < 2.6) continue;     // the fire ring
+			const double Y = D.HeightWorld(Wx, Wz);
+			int32 Ti; FVector L;
+			if (TowerAt(Wx, Wz, Y, Ti, L)) continue;                                 // stairwell floors
+			Xf.Add(FTransform(FRotator(R.FRandRange(-4, 4), Yaw, R.FRandRange(-4, 4)), HK::ToUE(FVector(Wx, Y - .02, Wz)), FVector(S)));
+		}
+	const double T1 = FPlatformTime::Seconds();
+	I->AddInstances(Xf, false, true);
+	GrassTiles.Add(Best, I);
+	const double T2 = FPlatformTime::Seconds();
+	if (T2 - T0 > .004) UE_LOG(LogHaarklous, Log, TEXT("Grass tile %d,%d: %d clumps, placing %.1f ms, adding %.1f ms"), Best.X, Best.Y, Xf.Num(), (T1 - T0) * 1000, (T2 - T1) * 1000);
 }
 
 void AHKGame::Frame_(double Dt)

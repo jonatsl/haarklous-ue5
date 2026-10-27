@@ -17,6 +17,8 @@ class AHKRigActor;
 class UCameraComponent;
 class UCanvas;
 class UHierarchicalInstancedStaticMeshComponent;
+class UInstancedStaticMeshComponent;
+class UStaticMesh;
 
 /* A door of the web game (apartment doors and the street doors of the stair towers). */
 struct FHKDoor
@@ -272,6 +274,9 @@ private:
 	void BuildWorld();
 	void SpawnRigs();
 	void SpawnTrees();
+	// Realism pass (visual only): 3D grass clumps near the camera, in 6 m tiles within three tiles of it, only on
+	// 'grass' ground and outside the stair towers; off on graphics quality Fast and high above the ground.
+	void UpdateGrass();
 	void Frame_(double Dt);
 	void UpdateFoot(double Dt, double Dl);
 	void UpdateSit(double Dt, double Dl);
@@ -287,6 +292,9 @@ private:
 	UPROPERTY() TObjectPtr<UCameraComponent> Camera;
 	UPROPERTY() TArray<TObjectPtr<AHKRigActor>> RigActors;
 	UPROPERTY() TArray<TObjectPtr<UHierarchicalInstancedStaticMeshComponent>> TreeComps;
+	UPROPERTY() TMap<FIntPoint, TObjectPtr<UInstancedStaticMeshComponent>> GrassTiles;
+	UPROPERTY() TArray<TObjectPtr<UInstancedStaticMeshComponent>> GrassPool;   // tiles out of range, reused
+	UPROPERTY() TObjectPtr<UStaticMesh> GrassMesh;
 	TArray<TUniquePtr<FHKRig>> Rigs;
 	FHKRig* AptRig = nullptr;
 	TArray<FHKRig*> StairRigs;

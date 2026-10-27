@@ -40,6 +40,25 @@ Blender files use (x, −z, y) of the web frame (metres, z up), which the FBX im
   light (Lightmass, `tools/unreal/build-lighting.ps1`), static lamps with the web's values. No Lumen, Nanite, virtual
   shadow maps or ray tracing (integrated Radeon laptop).
 
+### Realism pass (27 Oct 2026, `tools/unreal/materials_realism.py`, textures in `tools/blender/make_textures.py`)
+The web material instances keep their names, slots and colours; their parents change to new masters:
+- `M_HK_Facade` (`MI_facade`, the city blocks): brick at true size (`T_Brick_*`, 240 x 66 mm module), the web's own
+  window layout read from its facade texture, painted frames, concrete sills, and glass that shows a fake room
+  behind it (interior mapping: walls, floor, ceiling, doors, sofas, curtains and blinds varied per window) under the
+  engine's sky reflection.
+- `M_HK_Brick` (`MI_brick`, `MI_plinth`), `M_HK_RoofMetal` (`MI_roof`, standing-seam zinc), `M_HK_Plaster`
+  (`MI_plaster_*`, keeps each colour), `M_HK_CarPaint` (opaque `MI_Physical_*`: clear-coat paint; `Color` is still set
+  at run time by `AHKRigActor::SetPaint`), `M_HK_Foliage` (leaves let light through and sway in the wind, bark sways).
+- 3D grass: `tools/blender/build_grass.py` makes a clump of short blades (upward normals so they light like the lawn),
+  `M_HK_Grass` colours them from the ground's grass texture, `AHKGame::UpdateGrass` places them in 6 m tiles around
+  the camera on 'grass' ground only (not in stair towers or the fire ring), fading out at 11-16 m; off on quality
+  Fast. One new tile per frame; tiles that fall out of range go to `GrassPool` and are reused (destroying them made
+  the garbage collector stall a frame now and then). `-HKNoGrass` switches it off for frame-rate comparisons (it
+  costs about 2-3 fps).
+- Lighting: sun source angle 1.2 (soft shadow edges), sky light 1.35, sun glow in the height fog, reflection
+  captures around home and in the flat and stairwell, AO 0.7 / 70 cm, slight colour grading, `r.Tonemapper.Sharpen`.
+- Asphalt with hairline cracks and sealed patches; grass less saturated with dry patches, clover and soil.
+
 ## Core C++ (Source/Haarklous)
 | File | What |
 | --- | --- |

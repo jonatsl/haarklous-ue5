@@ -110,6 +110,8 @@ def lights():
     lc.set_editor_property('dynamic_shadow_cascades', 2)
     lc.set_editor_property('cascade_distribution_exponent', 3.0)
     lc.set_editor_property('shadow_bias', 0.4)
+    # Realism pass: the sun's real size gives soft shadow edges (penumbra) instead of razor-sharp ones.
+    lc.set_editor_property('light_source_angle', 1.2)
     atm = spawn(unreal.SkyAtmosphere, 'Sky atmosphere', None, 'Generated/Lighting')
     # Brighter than the physical default with this low sun intensity, toward the web's light-blue sky gradient.
     try:
@@ -129,7 +131,7 @@ def lights():
     sky = spawn(unreal.SkyLight, 'Sky light', unreal.Transform(unreal.Vector(0, 0, 3000), unreal.Rotator(0, 0, 0), unreal.Vector(1, 1, 1)), 'Generated/Lighting')
     sc = sky.light_component
     sc.set_mobility(unreal.ComponentMobility.STATIONARY)
-    sc.set_editor_property('intensity', 1.0)
+    sc.set_editor_property('intensity', 1.35)   # realism pass: more skylight in the shade (the web's hemisphere was 1.7)
     sc.set_editor_property('real_time_capture', False)
     sc.set_editor_property('lower_hemisphere_is_black', False)
     sc.set_editor_property('lower_hemisphere_color', unreal.LinearColor(0.42, 0.40, 0.33, 1))   # web hemisphere ground 0xb9b09c
@@ -146,6 +148,13 @@ def lights():
         log('fog cutoff', e)
     fc.set_editor_property('fog_inscattering_luminance', srgb_hex(0xc6d3dc))   # web fog colour
     fc.set_editor_property('start_distance', 3000.0)
+    # Realism pass: a warm glow in the haze toward the sun.
+    for k, v in [('directional_inscattering_exponent', 6.0), ('directional_inscattering_start_distance', 8000.0),
+                 ('directional_inscattering_luminance', unreal.LinearColor(0.55, 0.45, 0.32, 1))]:
+        try:
+            fc.set_editor_property(k, v)
+        except Exception as e:
+            log('fog setting', k, e)
     pp = spawn(unreal.PostProcessVolume, 'Post process', None, 'Generated/Lighting')
     pp.set_editor_property('unbound', True)
     s = pp.settings
@@ -153,8 +162,12 @@ def lights():
                  ('override_auto_exposure_apply_physical_camera_exposure', True), ('auto_exposure_apply_physical_camera_exposure', False),
                  ('override_auto_exposure_bias', True), ('auto_exposure_bias', 0.3),
                  ('override_bloom_intensity', True), ('bloom_intensity', 0.35),
-                 ('override_ambient_occlusion_intensity', True), ('ambient_occlusion_intensity', 0.55),
-                 ('override_ambient_occlusion_radius', True), ('ambient_occlusion_radius', 120.0),
+                 ('override_ambient_occlusion_intensity', True), ('ambient_occlusion_intensity', 0.7),
+                 ('override_ambient_occlusion_radius', True), ('ambient_occlusion_radius', 70.0),
+                 # Realism pass: a little less saturation, a little more contrast, slightly warm daylight.
+                 ('override_color_saturation', True), ('color_saturation', unreal.Vector4(0.93, 0.93, 0.93, 1.0)),
+                 ('override_color_contrast', True), ('color_contrast', unreal.Vector4(1.06, 1.06, 1.06, 1.0)),
+                 ('override_white_temp', True), ('white_temp', 6200.0),
                  ('override_vignette_intensity', True), ('vignette_intensity', 0.25),
                  ('override_motion_blur_amount', True), ('motion_blur_amount', 0.0),
                  ('override_lens_flare_intensity', True), ('lens_flare_intensity', 0.0)]:
@@ -163,6 +176,15 @@ def lights():
         except Exception as e:
             log('post process setting', k, e)
     pp.settings = s
+    # Realism pass: reflection captures, so glass, paint and metal reflect the buildings around them, not only the sky.
+    caps = [(x, -8.0, z, 2600.0) for x in (-40.0, 0.0, 40.0) for z in (-20.0, 20.0, 60.0)]
+    caps += [(1.6, 1.4, 3.0, 450.0), (4.0, 1.4, 7.6, 400.0), (0.1, -5.0, 8.0, 500.0)]   # living room, kitchen, stairwell
+    for i, (x, y, z, r) in enumerate(caps):
+        rc = spawn(unreal.SphereReflectionCapture, f'Reflection {i}', unreal.Transform(ue_loc([x, y, z]), unreal.Rotator(0, 0, 0), unreal.Vector(1, 1, 1)), 'Generated/Lighting')
+        try:
+            rc.capture_component.set_editor_property('influence_radius', r)
+        except Exception as e:
+            log('reflection capture', e)
     # Lightmass importance volume over the walkable neighbourhood (+-540 m) and the apartment block.
     lv = spawn(unreal.LightmassImportanceVolume, 'Lightmass importance', unreal.Transform(unreal.Vector(0, 0, 0), unreal.Rotator(0, 0, 0), unreal.Vector(1, 1, 1)), 'Generated/Lighting')
     lv.set_actor_scale3d(unreal.Vector(550.0 * 2 / 2, 550.0 * 2 / 2, 60.0 / 2))
