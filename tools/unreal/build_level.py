@@ -174,10 +174,26 @@ def lights():
     log('lighting placed')
 
 
+def world_settings():
+    """Lightmass: three bounces, sky colour from the web's hemisphere light, a volumetric lightmap for moving things."""
+    ws = unreal.EditorLevelLibrary.get_editor_world().get_world_settings()
+    lm = ws.get_editor_property('lightmass_settings')
+    for k, v in [('num_indirect_lighting_bounces', 3), ('num_sky_lighting_bounces', 1), ('static_lighting_level_scale', 1.0),
+                 ('indirect_lighting_quality', 1.0), ('indirect_lighting_smoothness', 1.0), ('use_ambient_occlusion', True),
+                 ('direct_illumination_occlusion_fraction', 0.4), ('indirect_illumination_occlusion_fraction', 0.8),
+                 ('volume_lighting_method', unreal.VolumeLightingMethod.VLM_VOLUMETRIC_LIGHTMAP), ('volumetric_lightmap_detail_cell_size', 400.0)]:
+        try:
+            lm.set_editor_property(k, v)
+        except Exception as e:
+            log('lightmass setting', k, e)
+    ws.set_editor_property('lightmass_settings', lm)
+
+
 def main():
     open_level()
     place_static()
     lights()
+    world_settings()
     LES.save_current_level()
     log('saved', LEVEL)
 

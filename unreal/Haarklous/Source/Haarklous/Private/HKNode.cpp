@@ -77,6 +77,15 @@ bool FHKRig::LoadFromJson(const FString& Path, FString* Error)
 		if (O->TryGetBoolField(TEXT("visible"), bVis)) N->bVisible = bVis;
 		FString Mesh;
 		if (O->TryGetStringField(TEXT("mesh"), Mesh) && !Mesh.IsEmpty()) N->MeshKey = FName(*Mesh);
+		const TSharedPtr<FJsonObject>* Flags;
+		if (O->TryGetObjectField(TEXT("flags"), Flags))
+		{
+			(*Flags)->TryGetStringField(TEXT("doorId"), N->DoorId);
+			(*Flags)->TryGetStringField(TEXT("partName"), N->PartName);
+			(*Flags)->TryGetBoolField(TEXT("lockedDoor"), N->bLockedDoor);
+			double Drink;
+			if ((*Flags)->TryGetNumberField(TEXT("drink"), Drink)) N->DrinkIndex = (int32)Drink;
+		}
 		Made.Add(N);
 	}
 	Root->UpdateMatrixWorld();

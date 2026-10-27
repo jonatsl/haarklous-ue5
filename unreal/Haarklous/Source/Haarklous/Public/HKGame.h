@@ -151,8 +151,76 @@ public:
 	TSharedPtr<FHKInputProcessor> InputProc;
 	FHKInputFrame Frame;
 
-	// Hooks for the module ports (filled in when the modules are merged); null = not available.
-	TFunction<bool()> MissionActive;
+	// ---- Hooks for the module ports (set up in HKGameModules.cpp); empty = not available ----
+	TArray<FHKVehicle*> VehicleList;                 // the web's vehicles[] (multiplayer uses the indices)
+	TArray<double> VehicleWorldRadii;                // radii of the vehicle collision worlds in use
+	TFunction<TArray<FHKObstacle>()> ExtraDynamic;   // mission actors, remote players ... (updateDynamic)
+	bool bDynamicEveryFrame = false;                 // "if (doorsChanged || caseGame?.active) updateDynamic()"
+	TFunction<bool()> MissionActive, MissionPlaying, MissionCanMove, PhotoActive, PromptBlocked;
+	TFunction<double()> MissionMoveScale, LookScaleExtra, FootFov;
+	TFunction<void()> StartMission, OnLeaveFoot, OnBegin, AddWood;
+	TFunction<bool(FHKPrompt&)> ModePrompt, VehiclePrompt, MinigamePrompt;
+	TFunction<void(const FString&, bool)> OnDoorChanged;   // mp.sendDoor
+	TFunction<bool(int32)> SitTaken;
+	TFunction<void(const FVector&)> ThrowLog;
+	TFunction<double()> SharedFireLevel;
+	TFunction<FString()> MusicTrack;
+	TFunction<bool()> OverlayBack;                   // Options closes the map / gallery first
+	TFunction<bool(double)> PreModeUpdate;           // chat, map, gear menu, photo camera ... return true to skip the rest
+	TFunction<void(double, double)> ModeUpdate;      // vehicle, passenger, drone, minigame modes (dt, drunk level)
+	TFunction<void(double)> PostModeUpdate;          // other vehicles, multiplayer, fire
+	double FireMax = 6, FireDecayS = 90;
+	struct FFireState { double Level = 2; double T = 0; } LocalFire;   // offline fire {level: 2, t: now}
+	double FireLevel() const;
+	void AddLog();
+	double FixedDt = 0;                              // tests: run frames with a fixed time step
+	TFunction<void(UCanvas*)> HudExtra;              // module HUDs (mission, minigames, map, camera, chat ...)
+	TFunction<bool()> HideCrosshair;
+	TFunction<float(UCanvas*, float, float, float)> DrawLobby;   // pause menu multiplayer section (x, y, w) -> new y
+	TFunction<bool(const FHKInputFrame&)> LobbyInput;            // controller code pad etc. in the pause menu
+	TFunction<void(const FString&)> OnMenuClick;
+	FString SpeedoText;                              // #speedo
+	bool bSpeedoAir = false;
+	FVector2D MenuMouse = FVector2D::ZeroVector;
+	// Tests and photos: take over the camera pose.
+	bool bCameraOverride = false;
+	FVector OverridePos = FVector::ZeroVector;
+	FQuat OverrideQuat = FQuat::Identity;
+	void UpdateCamera();
+
+	// ---- Chat (game-main.js chatLine/openChat/quick chat) ----
+	struct FChatLine { FString Name, Text; int32 Slot = 0; bool bSys = false; double T = 0; };
+	TArray<FChatLine> ChatLog;
+	bool bChatOpen = false, bQuick = false, bQuickStick = false;
+	int32 QuickSel = 0;
+	double ChatRecentT = 0;
+	FString ChatDraft;
+	TFunction<bool(const FString&)> SendChat;        // mp.sendChat(text) -> sent online
+	TFunction<bool()> IsOnline;
+	void ChatLine(const FString& Name, const FString& Text, int32 Slot, bool bSys, bool bMine, bool bOld);
+	void OpenChat();
+	void CloseChat();
+	// ---- Gear menu (hold △), photo camera (game-camera.js), wristwatch (game-watch.js), map (game-map.js) ----
+	bool bGear = false, bGearOpen = false, bGearStick = false;
+	double GearT0 = 0;
+	int32 GearSel = 0, GearLast = 0;
+	struct FPhoto { int64 Id = 0; FString File, Place; };
+	struct FPhotoCam { bool bActive = false, bGallery = false, bShutterHeld = false, bStick = false; double Raised = 0, Zoom = 1, FlashT = 0, PreviewT = 0; int32 Index = 0; TArray<FPhoto> Photos; } Photo;
+	struct FWatch { double Target = 0, T = 0, HoldT = 0, LastDraw = -1; } Watch;
+	struct FMapView { bool bOpen = false; double Cx = 0, Cs = 0, Scale = 2.2; } Map;
+	TFunction<void()> StartDrone;                    // set by the aircraft module
+	TFunction<TArray<TTuple<FVector2D, FLinearColor, FString>>()> RemotePoi;   // other players on the map
+	void PhotoToggle();
+	void PhotoOpenGallery(bool bOpen);
+	void PhotoCapture();
+	void WatchToggle() { Watch.Target = Watch.Target ? 0 : 1; Watch.HoldT = 0; }
+	void WatchHide() { Watch.Target = 0; }
+	void MapToggle();
+	bool ExtrasUpdate(double Dt);   // the parts of frame() before the mode update; true = skip the rest of the frame
+	void DrawExtras(UCanvas* C);
+	void UpdateOverlayModels(double Dt);
+	TFunction<void()> MissionRoute;                  // the mission's input routing (between quick chat and the map)
+	UFUNCTION() void DrawDialRT(UCanvas* C, int32 W, int32 H);
 
 	// Test driver access.
 	FString LastPromptText() const { return PromptAction.Text; }
@@ -166,7 +234,6 @@ private:
 	void Frame_(double Dt);
 	void UpdateFoot(double Dt, double Dl);
 	void UpdateSit(double Dt, double Dl);
-	void UpdateCamera();
 	void UpdateAmbience();
 	void ApplyQuality();
 	void SaveSettings() const;
@@ -199,4 +266,22 @@ private:
 	double LowFrames = 0;
 	float ScreenPercentage = 75;
 	int32 PauseSel = 0;
+	double PendingThud = 0;
+	void PauseInput(double Dt);
+	// Overlay models (wristwatch, photo camera) and the photo gallery.
+	FHKRig* WatchRig = nullptr;
+	FHKRig* PhotoRig = nullptr;
+	UPROPERTY() TObjectPtr<AHKRigActor> WatchActor;
+	UPROPERTY() TObjectPtr<AHKRigActor> PhotoActor;
+	UPROPERTY() TObjectPtr<class UCanvasRenderTarget2D> DialRT;
+	UPROPERTY() TObjectPtr<class UTexture2D> GalleryTex;
+	UPROPERTY() TObjectPtr<class UMaterialInstanceDynamic> DrunkMid;
+	void UpdateDrunkEffect();
+	FString GalleryTexFile;
+	bool bPhotoPending = false;
+	FString PhotoPendingPlace;
+	FDelegateHandle ShotHandle;
+	void DrawDial(class UCanvas* C, int32 W, int32 H);
+	void LoadPhotos();
+	void SpawnOverlay();
 };
