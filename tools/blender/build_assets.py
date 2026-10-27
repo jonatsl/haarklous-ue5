@@ -52,6 +52,122 @@ def uv_transform(mat_id):
     return (t['repeat'][0], t['repeat'][1], t['offset'][0], t['offset'][1])
 
 
+def horizon_with_hole(pos, nor, uv):
+    """The web's 18 km horizon plane was drawn in a separate pass behind the district; in one Unreal scene it would cut
+    through the mapped area, so it gets a hole over the district (+-600 m in the map frame, where the far terrain is)."""
+    data = json.load(open(os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data', 'surroundings.json'), encoding='utf-8'))
+    th, gx, gz = data['geo']['theta'], data['geo']['x'], data['geo']['z']
+    to_world = lambda x, s: (x * math.cos(th) + s * math.sin(th) + gx, -x * math.sin(th) + s * math.cos(th) + gz)
+    o, a, b = pos[0], pos[1] - pos[0], pos[2] - pos[0]          # corners of the plane: o, o+a, o+b (+ o+a+b)
+    y = float(pos[:, 1].mean())
+    def uv_at(x, z):
+        # Solve x,z = o + u*a + v*b on the xz plane, then interpolate the corner uvs.
+        M = np.array([[a[0], b[0]], [a[2], b[2]]])
+        u, v = np.linalg.solve(M, np.array([x - o[0], z - o[2]]))
+        return uv[0] + (uv[1] - uv[0]) * u + (uv[2] - uv[0]) * v
+    outer = [pos[0], pos[1], pos[3], pos[2]] if len(pos) >= 4 else list(pos)
+    H = 600.0
+    inner = [to_world(*c) for c in ((-H, -H), (H, -H), (H, H), (-H, H))]
+    # Order the inner corners like the outer ones (by angle around the centre).
+    cx, cz = np.mean([p[0] for p in outer]), np.mean([p[2] for p in outer])
+    ang = lambda p: math.atan2(p[1] - cz, p[0] - cx)
+    outer = sorted(outer, key=lambda p: math.atan2(p[2] - cz, p[0] - cx))
+    inner = sorted(inner, key=ang)
+    P = [np.array([p[0], y, p[2]]) for p in outer] + [np.array([p[0], y, p[1]]) for p in inner]
+    U = [uv_at(p[0], p[2]) for p in P]
+    tris = []
+    for i in range(4):
+        j = (i + 1) % 4
+        tris += [[i, j, 4 + j], [i, 4 + j, 4 + i]]
+    tris = np.array(tris, dtype=np.int64)
+    P, U = np.array(P), np.array(U)
+    # Keep the plane facing up (+y).
+    t = tris[0]
+    if np.cross(P[t[1]] - P[t[0]], P[t[2]] - P[t[0]])[1] < 0:
+        tris = tris[:, [0, 2, 1]]
+    return P, np.tile([0.0, 1.0, 0.0], (len(P), 1)), U, None, tris
+
+
+def quad_corners(c, n_axis, size, rng):
+    """Two triangles of a square card centred at c (web frame), randomly turned; returns corner positions and uvs."""
+    q = rng.normal(size=4)
+    q /= np.linalg.norm(q)
+    x, y, z, w = q
+    R = np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+                  [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+                  [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]])
+    pts = np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]]) * size / 2
+    pts = pts @ R.T + c
+    uv = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], dtype=np.float64)
+    return pts[[0, 1, 2, 0, 2, 3]].reshape(2, 3, 3), uv[[0, 1, 2, 0, 2, 3]].reshape(2, 3, 2)
+
+
+def cylinder_tris(a, b, r0, r1, sides, slot, v_repeat=1.0):
+    """Tapered cylinder from a to b (web frame) as corner arrays."""
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    axis = b - a
+    L = np.linalg.norm(axis)
+    d = axis / L
+    t = np.cross(d, [0.0, 0.0, 1.0] if abs(d[2]) < 0.9 else [1.0, 0.0, 0.0])
+    t /= np.linalg.norm(t)
+    s = np.cross(d, t)
+    P, N, U = [], [], []
+    for i in range(sides):
+        a0, a1 = 2 * np.pi * i / sides, 2 * np.pi * (i + 1) / sides
+        n0, n1 = np.cos(a0) * t + np.sin(a0) * s, np.cos(a1) * t + np.sin(a1) * s
+        p00, p01, p10, p11 = a + n0 * r0, a + n1 * r0, b + n0 * r1, b + n1 * r1
+        u0, u1 = i / sides * 2, (i + 1) / sides * 2
+        P += [[p00, p10, p11], [p00, p11, p01]]
+        N += [[n0, n0, n1], [n0, n1, n1]]
+        U += [[[u0, 0], [u0, v_repeat], [u1, v_repeat]], [[u0, 0], [u1, v_repeat], [u1, 0]]]
+    n = len(P)
+    return {'pos': np.array(P), 'nor': np.array(N), 'uv': np.array(U), 'slot': np.full(n, slot)}
+
+
+def concat(parts):
+    return {k: np.concatenate([p[k] for p in parts]) for k in ('pos', 'nor', 'uv', 'slot')}
+
+
+def foliage(kind, variant):
+    """Better trees and bushes in the web's own normalised instance space (surroundings.js plantTrees):
+    trunk = cylinder of height 1 (radius .17 -> .11), scaled per tree; crown = cards around (0, .55, 0) within ~1, scaled
+    (r * .95, crown * .5, r * .95); bush = cards around (0, .35, 0). Same placements and sizes, denser crowns, branches."""
+    rng = np.random.default_rng(100 + variant)
+    if kind == 'trunk':
+        parts, y = [], 0.0
+        bend = rng.normal(0, 0.03, 2)
+        for k in range(4):
+            y1 = y + 0.25
+            c0 = np.array([bend[0] * y * y, y, bend[1] * y * y]); c1 = np.array([bend[0] * y1 * y1, y1, bend[1] * y1 * y1])
+            r0 = 0.17 - 0.06 * y + (0.05 if k == 0 else 0); r1 = 0.17 - 0.06 * y1
+            parts.append(cylinder_tris(c0 - [0, 0.02 if k == 0 else 0, 0], c1, r0, r1, 10, 0, 0.8))
+            y = y1
+        return concat(parts), 1
+    lift = 0.35 if kind == 'bush' else 0.55
+    cards = 130 if kind == 'bush' else 280
+    centre = np.array([0.0, lift, 0.0])
+    parts = []
+    P, N, U = [], [], []
+    for k in range(cards):
+        d = np.array([rng.uniform(-1, 1), rng.uniform(-0.5, 1.1), rng.uniform(-1, 1)])
+        d /= np.linalg.norm(d)
+        c = d * (0.3 + 0.65 * rng.uniform() ** 0.6) + centre
+        size = rng.uniform(0.42, 0.72) if kind != 'bush' else rng.uniform(0.38, 0.62)
+        tri, uv = quad_corners(c, None, size, rng)
+        nrm = tri - centre
+        nrm /= np.linalg.norm(nrm, axis=-1, keepdims=True)
+        P.append(tri); N.append(nrm); U.append(uv)
+    leaves = {'pos': np.concatenate(P), 'nor': np.concatenate(N), 'uv': np.concatenate(U), 'slot': np.zeros(cards * 2, dtype=np.int64)}
+    parts.append(leaves)
+    if kind != 'bush':
+        for k in range(6):
+            a = 2 * np.pi * k / 6 + rng.uniform(-.3, .3)
+            tip = np.array([np.cos(a) * rng.uniform(.45, .7), lift + rng.uniform(.1, .55), np.sin(a) * rng.uniform(.45, .7)])
+            parts.append(cylinder_tris([0, -0.05, 0], tip, 0.07, 0.025, 6, 1, 1.0))
+        parts.append(cylinder_tris([0, -0.05, 0], [0, lift + .7, 0], 0.08, 0.03, 7, 1, 1.0))
+    return concat(parts), (2 if kind != 'bush' else 1)
+
+
 def gather(exp, bin_data, mesh_indices, slots):
     """Concatenate the planned meshes: corner arrays (T x 3 x ...) plus a material slot per triangle."""
     parts = []
@@ -68,6 +184,8 @@ def gather(exp, bin_data, mesh_indices, slots):
         col = array(bin_data, g['col'], np.float32).reshape(-1, 3).astype(np.float64) if 'col' in g else None
         idx = array(bin_data, g['idx'], np.uint32).astype(np.int64) if 'idx' in g else np.arange(n, dtype=np.int64)
         tris = idx[: (len(idx) // 3) * 3].reshape(-1, 3)
+        if m.get('type') == 'PlaneGeometry' and (m.get('params') or {}).get('width', 0) >= 10000:
+            pos, nor, uv, col, tris = horizon_with_hole(pos, nor, uv)
         if g.get('flip'):
             tris = tris[:, [0, 2, 1]]
         tmat = np.zeros(len(tris), dtype=np.int64)   # index into mats
@@ -210,16 +328,30 @@ def build_rig(rig):
                 continue
             mats = m['mat'] if isinstance(m['mat'], list) else [m['mat']]
             name = f"{a['asset']}__inst{mi}"
-            # The base geometry: the same mesh entry without its instance list.
-            exp['meshes'].append({k: v for k, v in m.items() if k != 'instances'})
-            base = gather(exp, bin_data, [len(exp['meshes']) - 1], mats)
-            exp['meshes'].pop()
-            if base is None:
-                continue
-            build_object(name, base, [a['slotKeys'][a['slots'].index(x)] if x in a['slots'] else 'M_missing' for x in mats])
+            # Trees and bushes get new Blender geometry in the web's normalised instance space (same placements).
+            leaf = any(MATS[x].get('alphaTest', 0) and MATS[x]['type'] == 'MeshStandardMaterial' for x in mats if x >= 0)
+            if m['type'] == 'CylinderGeometry':
+                base, nslots = foliage('trunk', 0)
+                build_object(name, base, ['MI_HK_Bark'])
+                key = 'MI_HK_Bark'
+            elif leaf:
+                is_bush = m['instanceCount'] == len(json.load(open(os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data', 'surroundings.json'), encoding='utf-8'))['bushes']) // 3
+                crown_index = sum(1 for x in instances if 'Leaves' in x.get('kind', '') and 'Bush' not in x.get('kind', ''))
+                key = 'MI_HK_LeavesBush' if is_bush else ('MI_HK_LeavesA' if crown_index % 2 == 0 else 'MI_HK_LeavesB')
+                base, nslots = foliage('bush' if is_bush else 'crown', crown_index)
+                build_object(name, base, [key] + ([] if is_bush else ['MI_HK_Bark']))
+            else:
+                # The base geometry: the same mesh entry without its instance list.
+                exp['meshes'].append({k: v for k, v in m.items() if k != 'instances'})
+                base = gather(exp, bin_data, [len(exp['meshes']) - 1], mats)
+                exp['meshes'].pop()
+                if base is None:
+                    continue
+                build_object(name, base, [a['slotKeys'][a['slots'].index(x)] if x in a['slots'] else 'M_missing' for x in mats])
+                key = ''
             mats_arr = array(bin_data, m['instances'], np.float32).reshape(-1, 16)
             instances.append({'asset': name, 'count': int(m['instanceCount']), 'transforms': [to_ue_transform(row.tolist()) for row in mats_arr[: int(m['instanceCount'])]],
-                              'cast': m.get('cast', True)})
+                              'cast': m.get('cast', True), 'kind': key})
             made.append({'asset': name, 'instanced': True})
     os.makedirs(OUT, exist_ok=True)
     bpy.ops.object.select_all(action='SELECT')
@@ -228,6 +360,11 @@ def build_rig(rig):
                              bake_space_transform=False, object_types={'MESH'}, use_mesh_modifiers=True, mesh_smooth_type='FACE',
                              use_custom_props=False, add_leaf_bones=False, axis_forward='-Z', axis_up='Y', colors_type='LINEAR', use_tspace=False)
     json.dump({'rig': rig, 'assets': made, 'instances': instances}, open(os.path.join(OUT, rig + '.manifest.json'), 'w'))
+    if instances:
+        # Placements of instanced meshes (trees, bushes) for the game, which spawns them at run time.
+        inst_dir = os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data', 'instances')
+        os.makedirs(inst_dir, exist_ok=True)
+        json.dump({'rig': rig, 'instances': instances}, open(os.path.join(inst_dir, rig + '.json'), 'w'))
     if SAVE_BLEND:
         os.makedirs(BLEND, exist_ok=True)
         bpy.ops.wm.save_as_mainfile(filepath=os.path.join(BLEND, rig + '.blend'), compress=True)

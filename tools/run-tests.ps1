@@ -16,7 +16,7 @@ try {
 & "$engine\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" $project -nullrhi -unattended -nosplash -nopause -nosound "-ExecCmds=Automation RunTests $Filter;Quit" "-TestExit=Automation Test Queue Empty" "-ReportExportPath=$report" "-abslog=$log" -stdout 2>&1 | Out-Null
 } finally { $lock.Close() }
 $lines = Get-Content $log
-$lines | Where-Object { $_ -match 'LogAutomationController: (Display|Error|Warning).*(Test Completed|Result=|match the web|largest|Error|: \d+ / \d+)' -or $_ -match 'TEST COMPLETE|Tests? (passed|failed)' } | ForEach-Object { $_ -replace '^\[[^\]]*\]\[[^\]]*\]', '' } | Select-Object -Last 80
+$lines | Where-Object { $_ -match 'LogAutomationController: (Display|Error|Warning).*(Test Completed|Result=|match the web|largest|Error|Expected|: \d+ / \d+)' -or $_ -match 'TEST COMPLETE|Tests? (passed|failed)' } | ForEach-Object { $_ -replace '^\[[^\]]*\]\[[^\]]*\]', '' } | Select-Object -Last 80
 $failed = ($lines | Where-Object { $_ -match 'Result=\{Fail' }).Count
 $passed = ($lines | Where-Object { $_ -match 'Result=\{Success' }).Count
 "Passed: $passed  Failed: $failed"

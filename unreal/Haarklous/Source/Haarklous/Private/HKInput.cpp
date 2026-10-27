@@ -110,12 +110,12 @@ public:
 				Buf.SetNumZeroed(FMath::Max(64, InputLen));
 			}
 			OVERLAPPED Ov = {};
-			Ov.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+			Ov.hEvent = CreateEventW(nullptr, 1, 0, nullptr);
 			DWORD Got = 0;
 			bool bOk = ReadFile(Handle, Buf.GetData(), (DWORD)Buf.Num(), &Got, &Ov) != 0;
 			if (!bOk && GetLastError() == ERROR_IO_PENDING)
 			{
-				if (WaitForSingleObject(Ov.hEvent, 250) == WAIT_OBJECT_0) bOk = GetOverlappedResult(Handle, &Ov, &Got, FALSE) != 0;
+				if (WaitForSingleObject(Ov.hEvent, 250) == WAIT_OBJECT_0) bOk = GetOverlappedResult(Handle, &Ov, &Got, 0) != 0;
 				else { CancelIo(Handle); bOk = true; Got = 0; }
 			}
 			CloseHandle(Ov.hEvent);
@@ -296,12 +296,9 @@ bool FHKInputProcessor::HandleKeyUpEvent(FSlateApplication& SlateApp, const FKey
 	return false;
 }
 
-bool FHKInputProcessor::HandleKeyCharEvent(FSlateApplication& SlateApp, const FCharacterEvent& E)
+void FHKInputProcessor::HandleChar(TCHAR C)
 {
-	if (!bTextEntry) return false;
-	const TCHAR C = E.GetCharacter();
-	if (C >= 32 && C != 127) TypedText.AppendChar(C);
-	return true;
+	if (bTextEntry && C >= 32 && C != 127) TypedText.AppendChar(C);
 }
 
 bool FHKInputProcessor::HandleAnalogInputEvent(FSlateApplication& SlateApp, const FAnalogInputEvent& E)

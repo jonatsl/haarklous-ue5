@@ -146,6 +146,9 @@ def material_instances(master, wanted_keys):
     textures = json.load(open(os.path.join(EXPORT, 'materials.json'), encoding='utf-8'))['textures']
     made = {}
     for key in sorted(wanted_keys):
+        if key.startswith('MI_HK_'):
+            made[key] = foliage_material(master, key)
+            continue
         path = f'{MAT_DIR}/Web/{key}'
         if EAL.does_asset_exist(path):
             made[key] = unreal.load_asset(path)
@@ -191,6 +194,49 @@ def material_instances(master, wanted_keys):
     return made
 
 
+def tool_texture(name, normal=False):
+    """Textures made by tools/blender/make_textures.py (tools/out/textures/<name>.png)."""
+    path = f'/Game/Haarklous/Textures/Foliage/{name}'
+    src = os.path.join(ROOT, 'tools', 'out', 'textures', name + '.png')
+    task = unreal.AssetImportTask()
+    task.filename = src; task.destination_path = '/Game/Haarklous/Textures/Foliage'; task.destination_name = name
+    task.automated = True; task.replace_existing = True; task.save = False
+    AT.import_asset_tasks([task])
+    t = unreal.load_asset(path)
+    if t and normal:
+        t.set_editor_property('compression_settings', unreal.TextureCompressionSettings.TC_NORMALMAP); t.set_editor_property('srgb', False)
+    if t:
+        t.set_editor_property('lod_group', unreal.TextureGroup.TEXTUREGROUP_WORLD)
+        EAL.save_loaded_asset(t)
+    return t
+
+
+def foliage_material(master, key):
+    """Leaves (masked, two-sided) and bark for the Blender-made trees and bushes."""
+    path = f'{MAT_DIR}/Foliage/{key}'
+    if EAL.does_asset_exist(path):
+        EAL.delete_asset(path)
+    mi = AT.create_asset(key, f'{MAT_DIR}/Foliage', unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+    MEL.set_material_instance_parent(mi, master)
+    tex = {'MI_HK_LeavesA': 'T_LeavesA', 'MI_HK_LeavesB': 'T_LeavesB', 'MI_HK_LeavesBush': 'T_LeavesBush', 'MI_HK_Bark': 'T_Bark'}[key]
+    d, n = tool_texture(tex + '_D'), tool_texture(tex + '_N', normal=True)
+    MEL.set_material_instance_texture_parameter_value(mi, 'BaseMap', d)
+    MEL.set_material_instance_texture_parameter_value(mi, 'NormalMap', n)
+    if key == 'MI_HK_Bark':
+        MEL.set_material_instance_scalar_parameter_value(mi, 'Roughness', 0.92)
+    else:
+        # The web multiplied its leaf colour by 1.6 (lib.leaves); keep leaves bright and slightly translucent-looking.
+        MEL.set_material_instance_vector_parameter_value(mi, 'Color', unreal.LinearColor(1.15, 1.2, 1.05, 1))
+        MEL.set_material_instance_scalar_parameter_value(mi, 'Roughness', 0.78)
+        ov = unreal.MaterialInstanceBasePropertyOverrides()
+        ov.set_editor_property('override_two_sided', True); ov.set_editor_property('two_sided', True)
+        ov.set_editor_property('override_blend_mode', True); ov.set_editor_property('blend_mode', unreal.BlendMode.BLEND_MASKED)
+        ov.set_editor_property('override_opacity_mask_clip_value', True); ov.set_editor_property('opacity_mask_clip_value', 0.45)
+        mi.set_editor_property('base_property_overrides', ov)
+    EAL.save_loaded_asset(mi)
+    return mi
+
+
 # ---------- Meshes ----------
 def import_rig(rig, mats):
     fbx = os.path.join(FBX, rig + '.fbx')
@@ -211,7 +257,17 @@ def import_rig(rig, mats):
     task.options = ui
     AT.import_asset_tasks([task])
     count = 0
-    for p in task.imported_object_paths:
+    paths = list(task.imported_object_paths)
+    # An FBX with a single object is named after the file: rename it to the planned asset name.
+    planned = [a['asset'] for a in manifest['assets']]
+    meshes = [p for p in paths if isinstance(unreal.load_asset(p), unreal.StaticMesh)]
+    if len(meshes) == 1 and len(planned) == 1 and unreal.load_asset(meshes[0]).get_name() != planned[0]:
+        target = f'{dest}/{planned[0]}'
+        if EAL.does_asset_exist(target):
+            EAL.delete_asset(target)
+        EAL.rename_asset(meshes[0], target)
+        paths = [target]
+    for p in paths:
         sm = unreal.load_asset(p)
         if not isinstance(sm, unreal.StaticMesh):
             continue
@@ -243,6 +299,8 @@ def main():
         plan = json.load(open(os.path.join(PLAN, rig + '.json'), encoding='utf-8'))
         for a in plan['assets']:
             wanted.update(a['slotKeys'])
+    if any(r.startswith('world_') for r in rigs):
+        wanted.update({'MI_HK_LeavesA', 'MI_HK_LeavesB', 'MI_HK_LeavesBush', 'MI_HK_Bark'})   # Blender-made trees
     mats = material_instances(master, wanted)
     log(f'{len(mats)} material instances ready')
     for rig in rigs:

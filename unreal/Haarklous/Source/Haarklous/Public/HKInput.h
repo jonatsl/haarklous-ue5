@@ -74,7 +74,6 @@ public:
 	virtual void Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor) override {}
 	virtual bool HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent) override;
 	virtual bool HandleKeyUpEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent) override;
-	virtual bool HandleKeyCharEvent(FSlateApplication& SlateApp, const FCharacterEvent& InCharacterEvent) override;
 	virtual bool HandleAnalogInputEvent(FSlateApplication& SlateApp, const FAnalogInputEvent& InAnalogInputEvent) override;
 	virtual bool HandleMouseMoveEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override;
 	virtual bool HandleMouseButtonDownEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override;
@@ -84,6 +83,8 @@ public:
 
 	// Called once per game frame. Mode is the player's mode (W/S drive vehicles, as in the web code).
 	FHKInputFrame ReadFrame(bool bInVehicle);
+	// Typed characters (from UHKGameViewportClient::InputChar).
+	void HandleChar(TCHAR C);
 	// Text entry (chat, lobby code, name): while a text field is open, typed characters go here instead of the game.
 	bool bTextEntry = false;
 	FString TypedText;          // characters typed since the last read
