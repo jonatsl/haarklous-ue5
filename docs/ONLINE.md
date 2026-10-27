@@ -37,6 +37,16 @@ check `server/wrangler.toml` says `haarklous-ue5-test`, then `npx wrangler deplo
 - `powershell -File tools\run-tests.ps1 -Filter Haarklous.Net` (no network).
 - `powershell -File tools\net-test\run-live.ps1 -Mode local|deployed [-Voice] [-Game] [-WebDelayS 100]` – logs and
   summaries in `tools/out/net-tests/` (`unreal-client-*.json`, `web-client-*.json`, `web-sees-unreal-*.png`).
+- `-Game`: the real game (`-game`, map Torshov, play-through `-hktest=online`, `HKOnlineTestScript.cpp`) and the web
+  game (`web-client.mjs --game`) follow one script, handing over with chat lines: A chat both ways, a door and a log on
+  the fire from each side, both walk; B the web player drives car 1, the game rides along through its own
+  "□ Ride along" prompt (lobby gives 'p', the web sees the avatar at the passenger anchor, the game's camera moves
+  with the car); C the game drives the motorcycle (prompt □ + simulated R2), the web player rides pillion; D voice
+  (the game's microphone is a 440 Hz tone with `-HKVoiceTone`). Screenshots: `tools/out/net-tests/shots-<mode>-game/`
+  (game side) and `web-<mode>-*.png` (web side).
+- The headless web page runs requestAnimationFrame about once a second (hidden page), so the test client runs frames
+  on a timer like the web's own `tests/browser-harness.js`; next to the game it still renders slowly and its game time
+  (capped at 50 ms a frame) runs at about a third of real time, so it walks and drives by distance, not by time.
 
 ## Voice: how and why
 CEF in UE 5.8 (Chromium 128) has WebRTC, but it cannot open the microphone itself: UE's CEF client has no media
@@ -54,7 +64,7 @@ Other options and their costs:
 4. A server-side relay (SFU / TURN service): changes the backend, which must stay unchanged.
 
 ## Still open
-- Avatar meshes: run the asset pipeline for the new rigs:
-  `powershell -File tools\build-assets.ps1 -From 3 -Rigs "avatar_0 avatar_1 avatar_2 avatar_3 avatar_4 avatar_drone"`.
+- Avatar meshes are imported (`/Game/Haarklous/Meshes/avatar_0..4`, `avatar_drone`). After a full re-export of the
+  web geometry, rebuild them: `powershell -File tools\build-assets.ps1 -From 3 -Rigs "avatar_0 avatar_1 avatar_2 avatar_3 avatar_4 avatar_drone"`.
 - Real microphone capture is built but only tested with the test tone (no one to talk); test with a real microphone.
 - No TURN server (like the web): voice may fail between homes behind strict NATs; text chat always works.

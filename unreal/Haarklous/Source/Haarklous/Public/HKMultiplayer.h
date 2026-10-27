@@ -89,6 +89,8 @@ public:
 	virtual void PeerLeft(int32 Id) {}
 	virtual void SetVolume(int32 Id, double V) {}
 	virtual void Reset() {}
+	// Received level (RMS 0..1) and connection state of one peer (tests and diagnostics; 0 when unknown).
+	virtual double PeerLevel(int32 Id, FString* OutState = nullptr, double* OutBytesIn = nullptr) const { return 0; }
 };
 
 /* The game's side (the JS ctx). Every function may be left empty where the game has nothing to do. */

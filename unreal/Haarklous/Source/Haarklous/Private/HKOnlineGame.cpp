@@ -9,6 +9,8 @@
 #include "HKVehicle.h"
 #include "HKVoice.h"
 #include "Engine/World.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 
 AHKOnline::AHKOnline()
 {
@@ -86,7 +88,12 @@ void AHKOnline::Wire()
 	Ctx.FireDecayS = G->FireDecayS;
 	Ctx.FireMax = G->FireMax;
 	TUniquePtr<IHKVoice> Voice;
-	if (FHKWebVoice::Available()) Voice = MakeUnique<FHKWebVoice>();
+	if (FHKWebVoice::Available())
+	{
+		FHKWebVoiceOptions VO;
+		VO.bTestTone = FParse::Param(FCommandLine::Get(), TEXT("HKVoiceTone"));   // tests: a 440 Hz tone instead of the microphone
+		Voice = MakeUnique<FHKWebVoice>(VO);
+	}
 	MpPtr = MakeUnique<FHKMultiplayer>(Ctx, FHKNet::DefaultOptions(), MoveTemp(Voice));
 	FHKMultiplayer* M = MpPtr.Get();
 
