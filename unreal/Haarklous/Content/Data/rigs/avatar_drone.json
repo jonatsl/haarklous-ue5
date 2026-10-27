@@ -1,0 +1,1 @@
+{"rig":"avatar_drone","source":"avatar_drone","levelStatic":false,"nodes":[{"name":"root","parent":-1,"pos":[0,0,0],"quat":[0,0,0,1],"scale":[1,1,1],"visible":true,"mesh":"SM_avatar_drone__root","slots":["MI_Standard_1b1d20_1047","MI_Basic_2e3135_1048","MI_Basic_ff2020_1049","MI_Basic_20ff40_1050"]}],"lights":[]}
