@@ -87,7 +87,7 @@ def place_static():
             # works on the walkable neighbourhood.
             comp.set_mobility(unreal.ComponentMobility.MOVABLE if far else unreal.ComponentMobility.STATIC)
             comp.set_static_mesh(sm)
-            if far:
+            if far or a.get('castShadow') is False:
                 comp.set_editor_property('cast_shadow', False)
             count += 1
     log(f'{count} static mesh actors placed')

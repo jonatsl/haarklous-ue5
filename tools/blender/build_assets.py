@@ -52,6 +52,15 @@ def uv_transform(mat_id):
     return (t['repeat'][0], t['repeat'][1], t['offset'][0], t['offset'][1])
 
 
+def glows(mid):
+    """Lamp globes and other light sources (emissive colour x intensity >= .5) cast no shadow: in Unreal the lamp's
+    light sits just under its globe, which would throw a dark disc onto the ceiling."""
+    m = MATS[mid]
+    e = m.get('emissive') or 0
+    lum = (0.2126 * ((e >> 16) & 255) + 0.7152 * ((e >> 8) & 255) + 0.0722 * (e & 255)) / 255
+    return lum * (m.get('emissiveIntensity') or 0) >= 0.5
+
+
 def horizon_with_hole(pos, nor, uv, exp, bin_data):
     """The web's 18 km horizon plane was drawn in a separate pass behind the district; in one Unreal scene it would cut
     through the mapped area, so it gets a hole over the district terrain (+-600 m in the map frame). The hole's rim
@@ -225,10 +234,11 @@ def gather(exp, bin_data, mesh_indices, slots):
             cuv[sel, :, 1] = cuv[sel, :, 1] * rv + ov
         slot = np.array([slots.index(int(mid)) if int(mid) in slots else 0 for mid in mat_ids], dtype=np.int64)
         parts.append({'pos': pos[tris], 'nor': nor[tris], 'uv': cuv, 'col': col[tris] if col is not None else None, 'slot': slot,
-                      'vcol': any(MATS[int(mid)].get('vertexColors') for mid in np.unique(mat_ids))})
+                      'vcol': any(MATS[int(mid)].get('vertexColors') for mid in np.unique(mat_ids)),
+                      'cast': np.array([not glows(int(mid)) for mid in mat_ids], dtype=bool)})
     if not parts:
         return None
-    out = {k: np.concatenate([p[k] for p in parts]) for k in ('pos', 'nor', 'uv', 'slot')}
+    out = {k: np.concatenate([p[k] for p in parts]) for k in ('pos', 'nor', 'uv', 'slot', 'cast')}
     if any(p['col'] is not None and p['vcol'] for p in parts):
         out['col'] = np.concatenate([p['col'] if (p['col'] is not None and p['vcol']) else np.ones((len(p['slot']), 3, 3)) for p in parts])
     return out
@@ -324,14 +334,23 @@ def build_rig(rig):
             out = (np.abs(cx) > 700) | (np.abs(cz) > 700)
             ti[out], tj[out] = 49, 49
             for (i, j) in sorted(set(zip(ti.tolist(), tj.tolist()))):
-                sel = (ti == i) & (tj == j)
-                used = sorted(set(data['slot'][sel].tolist()))
-                remap = {s: k for k, s in enumerate(used)}
-                sub = {k: v[sel] for k, v in data.items()}
-                sub['slot'] = np.array([remap[s] for s in sub['slot']])
-                name = f"{a['asset']}_t{i + 50}_{j + 50}"
-                build_object(name, sub, [a['slotKeys'][s] for s in used])
-                made.append({'asset': name, 'tile': [i, j], 'levelStatic': True})
+                for cast in (True, False):
+                    sel = (ti == i) & (tj == j) & (data['cast'] == cast)
+                    if not sel.any():
+                        continue
+                    used = sorted(set(data['slot'][sel].tolist()))
+                    remap = {s: k for k, s in enumerate(used)}
+                    sub = {k: v[sel] for k, v in data.items()}
+                    sub['slot'] = np.array([remap[s] for s in sub['slot']])
+                    name = f"{a['asset']}_t{i + 50}_{j + 50}" + ('' if cast else '__noshadow')
+                    build_object(name, sub, [a['slotKeys'][s] for s in used])
+                    made.append({'asset': name, 'tile': [i, j], 'levelStatic': True, 'castShadow': cast})
+        elif data is not None and a.get('levelStatic') and not data['cast'].all():
+            # Level geometry with lamp globes: the globes become their own mesh that casts no shadow.
+            build_object(a['asset'], data, a['slotKeys'], data['cast'])
+            build_object(a['asset'] + '__noshadow', data, a['slotKeys'], ~data['cast'])
+            made.append({'asset': a['asset'], 'levelStatic': True})
+            made.append({'asset': a['asset'] + '__noshadow', 'levelStatic': True, 'castShadow': False})
         elif data is not None:
             build_object(a['asset'], data, a['slotKeys'])
             made.append({'asset': a['asset'], 'levelStatic': bool(a.get('levelStatic'))})

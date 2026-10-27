@@ -19,15 +19,19 @@ def log(*a):
 DRUNK_HLSL = r'''
 // game-main.js renderFrame(): CSS blur(dl * 2.2 px) saturate(1 + dl * .3) on the canvas, plus a "ghost" copy of the
 // frame drawn at alpha .35 * dl with a drifting offset. PostProcessInput0 (index 14) is the tonemapped frame.
-float2 uv = GetDefaultSceneTextureUV(Parameters, 14);
-float2 px = View.BufferSizeAndInvSize.zw;
-float3 c = SceneTextureLookup(uv, 14, false).rgb;
-c += SceneTextureLookup(uv + float2(Blur, Blur) * px, 14, false).rgb;
-c += SceneTextureLookup(uv + float2(-Blur, Blur) * px, 14, false).rgb;
-c += SceneTextureLookup(uv + float2(Blur, -Blur) * px, 14, false).rgb;
-c += SceneTextureLookup(uv + float2(-Blur, -Blur) * px, 14, false).rgb;
-c *= 0.2;
-float3 g = SceneTextureLookup(uv + Ghost.xy * px, 14, false).rgb;
+// Every sample is taken in viewport UV, kept inside the view and clamped to the valid part of the buffer (the buffer
+// can be larger than the view; outside it holds stale pixels).
+float2 vuv = GetViewportUV(Parameters);
+float2 px = View.ViewSizeAndInvSize.zw;
+float2 o[6] = { float2(0, 0), float2(Blur, Blur), float2(-Blur, Blur), float2(Blur, -Blur), float2(-Blur, -Blur), Ghost.xy };
+float3 s[6];
+for (int i = 0; i < 6; i++)
+{
+    float2 bu = ViewportUVToSceneTextureUV(saturate(vuv + o[i] * px), 14);
+    s[i] = SceneTextureLookup(ClampSceneTextureUV(bu, 14), 14, true).rgb;
+}
+float3 c = (s[0] + s[1] + s[2] + s[3] + s[4]) * 0.2;
+float3 g = s[5];
 c = lerp(c, g, 0.35 * Level);
 float l = dot(c, float3(0.2126, 0.7152, 0.0722));
 return l + (c - l) * (1.0 + 0.3 * Level);

@@ -35,8 +35,10 @@ namespace
 				Ground(T, 6, 24, 1.7, Toward(6, 24, 1, 6), .05); T.Shot(TEXT("02-front-of-17A"));
 				Ground(T, -12, 44, 1.7, Toward(-12, 44, -2.7, 34.7), -.1); T.Shot(TEXT("03-firepit"));
 				Ground(T, 20, 30, 1.7, Toward(20, 30, 26, 14), -.05); T.Shot(TEXT("04-helipad"));
-				T.Pose(3.2, 1.62, 9.5, Toward(3.2, 9.5, 3, 3), -.1); T.Shot(TEXT("05-apartment-a"));
-				T.Pose(4.5, 1.62, 3.0, Toward(4.5, 3, 2, 8), -.15); T.Shot(TEXT("06-apartment-b"));
+				// Apartment rooms (apartment-data.js): living x 0..2.9 z 0..4.9, kitchen x 1.7..5.7 z 6.3..8.9, bedroom z 8.5..10.
+				T.Pose(0.4, 1.62, 0.4, Toward(0.4, 0.4, 2.6, 4.5), -.1); T.Shot(TEXT("05-apartment-living"));
+				T.Pose(2.0, 1.62, 6.6, Toward(2.0, 6.6, 5.4, 8.6), -.2); T.Shot(TEXT("06-apartment-kitchen"));
+				T.Pose(2.0, 1.62, 9.7, Toward(2.0, 9.7, 5.5, 8.7), -.15); T.Shot(TEXT("06b-apartment-bedroom"));
 				T.Pose(0.2, -8.3, 8.0, HK::Pi, .25); T.Shot(TEXT("07-stairwell"));
 				T.Pose(40, 70, 90, Toward(40, 90, 0, 0), -.55); T.Shot(TEXT("08-aerial-home"));
 				T.Pose(-60, 120, 120, Toward(-60, 120, 60, -60), -.45); T.Shot(TEXT("09-aerial-district"));
@@ -95,6 +97,26 @@ namespace
 				Sweep(TEXT("street"), 2, -8.3, 22, 0);
 				Sweep(TEXT("flying"), 30, 110, 60, -.35);
 				T.FreeCamera();
+			});
+
+			// The drunk post-process at a few levels and screen percentages, next to a sober frame.
+			FHKTestScripts::All().Add(TEXT("drunk"), [](AHKTestDriver& T)
+			{
+				T.Wait(3);
+				T.Press(0);
+				T.Wait(1);
+				T.Do([&T]() { AHKGame* G = T.Game(); G->Place(-6, 38, 0); G->Drunk = 0; });
+				T.Wait(1); T.Shot(TEXT("01-sober"));
+				T.Do([&T]() { T.Game()->Drunk = 30; });
+				T.Wait(.5); T.Shot(TEXT("02-drunk-30s"));
+				T.Wait(1); T.Shot(TEXT("02b-drunk-29s"));
+				T.Wait(1); T.Shot(TEXT("02c-drunk-28s"));
+				T.Do([&T]() { T.Game()->Drunk = 90; });
+				T.Wait(.5); T.Shot(TEXT("03-drunk-90s"));
+				T.Do([&T]() { GEngine->Exec(T.GetWorld(), TEXT("r.ScreenPercentage 100")); });
+				T.Wait(.5); T.Shot(TEXT("04-drunk-90s-sp100"));
+				T.Do([&T]() { GEngine->Exec(T.GetWorld(), TEXT("r.ScreenPercentage 75")); T.Game()->Drunk = 0; });
+				T.Wait(.5); T.Shot(TEXT("05-sober-again"));
 			});
 
 			// Every vehicle: get in with square, drive with the simulated controller, read the HUD, get out.
