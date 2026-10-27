@@ -1,5 +1,6 @@
 // Port of reference/web-game/game-vehicles.js and the vehicle list of game-main.js (lines 74-121).
 #include "HKVehicles.h"
+#include <limits>
 #include "HKAircraft.h"
 #include "HKData.h"
 #include "HKVehicleMath.h"
@@ -88,7 +89,7 @@ void HKVehicles::CreateAll(TArray<TUniquePtr<FHKVehicle>>& Out)
 			for (const TCHAR* Kd : Kinds) bKind |= K == Kd;
 			if (!bKind) continue;
 			const TArray<double> Pts = HKJson::Nums(R, TEXT("p"));
-			const double Wd = HKJson::Num(R, TEXT("w"), NAN);
+			const double Wd = HKJson::Num(R, TEXT("w"), std::numeric_limits<double>::quiet_NaN());
 			for (int32 k = 0; k + 3 < Pts.Num(); k += 2) Segs.Add({Ri, Wd, {Pts[k], Pts[k + 1]}, {Pts[k + 2], Pts[k + 3]}});
 			Ri++;
 		}

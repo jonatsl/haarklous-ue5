@@ -1,5 +1,6 @@
 #pragma once
 
+#include <limits>
 #include "CoreMinimal.h"
 #include "HKAudio.h"
 #include "HKVehicle.h"
@@ -122,7 +123,7 @@ protected:
 struct FHKDroneFloor
 {
 	double Y = 0;
-	double Ceiling = INFINITY;   // f.ceilingHeight ?? Infinity
+	double Ceiling = std::numeric_limits<double>::infinity();   // f.ceilingHeight ?? Infinity
 };
 struct FHKDroneEnv
 {

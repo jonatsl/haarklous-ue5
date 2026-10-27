@@ -7,7 +7,8 @@ Rebuilding the look of **Haarklous online** – the open-world game around Haark
 - `blender/` – Blender files saved by the build scripts (`tools/blender/build_assets.py --blend`).
 - `unreal/Haarklous/` – the Unreal Engine 5 project (C++ in `Source/Haarklous`, game data exported from the web version in `Content/Data`).
 - `tools/` – scripts that rebuild everything: `web-export/` (Node + headless Chrome), `blender/` (Blender Python), `unreal/` (Unreal Python), build/test/run scripts, `refresh-reference.ps1`.
-- `docs/` – `PORTING-CHECKLIST.md` (everything the game must do, with where it lives in the web code) and `START-PROMPT.md` (the /goal prompt that runs this project).
+- `docs/` – `PORTING-CHECKLIST.md` (everything the game must do, with the Unreal class and test for each item), `REPORT.md` (the final report; HTML with screenshots in `docs/report/`), `ARCHITECTURE.md`, `ONLINE.md`, `AUDIO.md`, `GAMEPLAY-IDEAS.md` (web bugs and ideas that need your OK) and `START-PROMPT.md` (the /goal prompt that runs this project).
+- `server/` – copy of the web game's cloud server with only the Worker name changed (`haarklous-ue5-test`), for online tests.
 
 ## Not in the snapshot yet
 Open pull requests in the web game at snapshot time (port them once merged, after refreshing the snapshot):
@@ -23,6 +24,10 @@ Refresh after changes in the web game: `powershell -File tools\refresh-reference
 - Controls are the web game's: DualShock 4 (USB or Bluetooth, plug it in before starting) or keyboard and mouse.
 - **Online is off.** To try it against the test server only: start with `-HKOnline` (server
   `wss://haarklous-ue5-test.server-smoke.workers.dev`, see `docs/ONLINE.md`). Never point it at the live game.
+
+## Frame rates (27 Oct 2026, this laptop, 2240 × 1400 full screen, quality "Balanced")
+Home 38.9 fps, firepit 32.2, park 32.3, street 32.1, flying 35.6 (averages; slowest 1 % of frames 23–27 fps).
+Measure again with `powershell -File tools\run-game.ps1 -Test fps -Res 2240x1400 -Fullscreen`. Details: `docs/REPORT.md`.
 
 ## Tools (installed on this PC)
 Unreal Engine 5.8.4, Visual Studio 2022 with "Game development with C++", Blender 5.2, Node 24, Python 3.12, Chrome.

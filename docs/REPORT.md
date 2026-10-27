@@ -10,7 +10,9 @@ a real microphone.
 
 - **From the project:** `"C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe" unreal\Haarklous\Haarklous.uproject -game -dx11`
   (from `C:\Users\Lenovo\Documents\haarklous-ue5`). Add `-fullscreen` for full screen.
-- **Packaged build:** {PACKAGE}
+- **Packaged build:** double-click `dist\Haarklous-UE5\Windows\Haarklous.exe` (Shipping build, 1.1 GB, made with
+  `powershell -File tools\package-game.ps1`; checked by running the screenshot tour in it). `dist` is not in git;
+  the script makes it again in a few minutes.
 - Plug in the DualShock 4 (USB or Bluetooth) before starting; keyboard and mouse always work.
 - Online is **off**. To try it, start with `-HKOnline` (it only knows the test server
   `wss://haarklous-ue5-test.server-smoke.workers.dev`). The live game is never contacted.
@@ -67,16 +69,17 @@ headless Chrome with the same inputs and fixed time steps.
 ### Play-throughs with a simulated DualShock 4
 
 Each one starts the real game (`tools\run-game.ps1 -Test <name>`), presses buttons and moves sticks like a player,
-checks the game state and takes screenshots. {PLAYTHROUGHS}
+checks the game state and takes screenshots. The last full round (27 Oct 2026, after the final lighting bake) passed
+every check in every play-through.
 
 | Play-through | What it does | Result |
 | --- | --- | --- |
-| `walkhome` | street door, up four storeys to the 4th floor (feet at 0.00 m), entrance door, into the flat, a beer → 30 s drunk | {R_walkhome} |
-| `vehicles` | motorcycle (50 km/h in 2nd gear after 3 s), car (47 km/h), excavator (5.2 km/h), helicopter lift-off to 11 m and landing, plane lift-off at 92 km/h after 86.9 m (web: about 87 km/h after 76–87 m) | {R_vehicles} |
-| `activities` | watch, photo camera and gallery, gear menu, FPV drone, map, quick chat, log on the fire, sitting and a beer, disc golf, petanque | {R_activities} |
-| `mission` | prompt in the red ring, briefing, play, aim, fire, pause, leave | {R_mission} |
-| `drunk` | the drunk blur and double image at 30 s and 90 s | {R_drunk} |
-| `shots` | tour of the world for checking the graphics | {R_shots} |
+| `walkhome` | street door, up four storeys to the 4th floor (feet at 0.00 m), entrance door, into the flat, a beer → 30 s drunk | 5 / 5 checks, 6 screenshots |
+| `vehicles` | motorcycle (50 km/h in 2nd gear after 3 s), car (47 km/h), excavator (5.2 km/h), helicopter lift-off to 11 m and landing, plane lift-off at 92 km/h after 86.9 m (web: about 87 km/h after 76–87 m) | 9 / 9 checks, 8 screenshots |
+| `activities` | watch, photo camera and gallery, gear menu, FPV drone, map, quick chat, log on the fire, sitting and a beer, disc golf, petanque | 11 / 11 checks, 12 screenshots |
+| `mission` | prompt in the red ring, briefing, play, aim, fire, pause, leave | 3 / 3 checks, 6 screenshots |
+| `drunk` | the drunk blur and double image at 30 s and 90 s | 7 screenshots, checked by eye |
+| `shots` | tour of the world for checking the graphics | 14 screenshots, checked by eye |
 
 ![Walking home: the street door prompt](img/walkhome--01-street-door.jpg)
 ![The motorcycle](img/vehicles--01-motorcycle.jpg)
@@ -120,7 +123,27 @@ session twice in a row, both times with 0 failures:
 
 ## Frame rates on this laptop
 
-{FPS}
+Measured on 27 Oct 2026 with `tools\run-game.ps1 -Test fps -Res 2240x1400 -Fullscreen`: full screen at the
+laptop's own resolution (2240 × 1400), graphics quality "Balanced" (the default, 75 % screen percentage), baked
+lighting, nothing else running. At each place the camera turns one full circle in 12 seconds, so every direction
+counts.
+
+| Place | Average | Slowest 1 % of frames | Slowest single frame |
+| --- | --- | --- | --- |
+| Home (apartment, looking into the living room and out of the windows) | **38.9 fps** | 24.4 fps | 15.1 fps |
+| Firepit (fire, smoke, cars and the block behind) | **32.2 fps** | 24.1 fps | 20.8 fps |
+| The park (Torshovdalen, the most trees) | **32.3 fps** | 24.9 fps | 21.7 fps |
+| The street outside 17A | **32.1 fps** | 23.4 fps | 20.2 fps |
+| Flying (110 m above the district) | **35.6 fps** | 27.0 fps | 21.9 fps |
+
+All places stay above the 20 fps goal on average and in the slowest 1 % of frames. The one slow frame at home
+(15 fps) is a single hitch while turning, not a steady rate. During the online test, with a second game (the web
+version in software-rendered Chrome) running on the same laptop, the Unreal game still averaged 19.6 fps.
+The "Fast" (65 %, no shadows) and "Sharp" (100 %) settings were not measured.
+
+![Frame-rate test: the park](img/fps--fps-park.jpg)
+![Frame-rate test: home](img/fps--fps-home.jpg)
+![Frame-rate test: flying](img/fps--fps-flying.jpg)
 
 ## What still needs you
 

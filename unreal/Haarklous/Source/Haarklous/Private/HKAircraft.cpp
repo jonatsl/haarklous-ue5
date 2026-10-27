@@ -1,5 +1,6 @@
 // Port of reference/web-game/game-aircraft.js.
 #include "HKAircraft.h"
+#include <limits>
 #include "HKData.h"
 #include "HKVehicleMath.h"
 
@@ -586,7 +587,7 @@ void FHKDrone::Update(double Dt, const FHKVehicleInput& Inp, const FHKDroneEnv& 
 		}
 	}
 	else if (!Fl.IsSet() || Pos.Y > Fl->Y + .1) bLanded = false;
-	if (Fl.IsSet() && Fl->Ceiling < INFINITY && Pos.Y > Fl->Y + Fl->Ceiling - .12)
+	if (Fl.IsSet() && Fl->Ceiling < std::numeric_limits<double>::infinity() && Pos.Y > Fl->Y + Fl->Ceiling - .12)
 	{
 		Pos.Y = Fl->Y + Fl->Ceiling - .12;
 		if (V.Y > 3.5) { Crash(); return; }

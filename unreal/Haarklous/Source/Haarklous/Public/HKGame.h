@@ -1,5 +1,6 @@
 #pragma once
 
+#include <limits>
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "HKCollision.h"
@@ -120,7 +121,7 @@ public:
 	double DrunkLevel() const { return FMath::Min(1.0, Drunk / 90); }
 	double StanceEye(const FString& S) const { return S == TEXT("prone") ? .32 : S == TEXT("crouch") ? 1.05 : Player.Eye; }
 	double StanceSpeed() const { return Player.Stance == TEXT("prone") ? .28 : Player.Stance == TEXT("crouch") ? .55 : 1; }
-	void Place(double X, double Z, double Yaw, double Y = NAN, bool bKeepYaw = false);
+	void Place(double X, double Z, double Yaw, double Y = std::numeric_limits<double>::quiet_NaN(), bool bKeepYaw = false);
 	void SetStance(const FString& Next);
 	void MovePlayer(double Dx, double Dz);
 	bool InApartment() const;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <limits>
 #include "CoreMinimal.h"
 #include "HKMath.h"
 #include <cmath>
@@ -79,9 +80,9 @@ namespace HKV
 	inline double Hypot(double A, double B)
 	{
 		const double Abs[2] = {std::fabs(A), std::fabs(B)};
-		if (std::isnan(A) || std::isnan(B)) return (std::isinf(A) || std::isinf(B)) ? INFINITY : NAN;
+		if (std::isnan(A) || std::isnan(B)) return (std::isinf(A) || std::isinf(B)) ? std::numeric_limits<double>::infinity() : std::numeric_limits<double>::quiet_NaN();
 		const double Max = FMath::Max(Abs[0], Abs[1]);
-		if (std::isinf(Max)) return INFINITY;
+		if (std::isinf(Max)) return std::numeric_limits<double>::infinity();
 		if (Max == 0) return 0;
 		double Sum = 0, Compensation = 0;
 		for (int32 i = 0; i < 2; i++)
