@@ -209,7 +209,9 @@ The "Fast" (65 %, no shadows) and "Sharp" (100 %) settings were not measured.
 
 - **Test with your real DualShock 4** (USB and Bluetooth). The controller code reads the same raw reports the
   browser uses and is tested with recorded reports and a simulated pad, but not with the real controller.
-- **No DualShock 4 was connected** while I worked (checked on 27 Oct 2026), so the real controller is still untested.
+- **No DualShock 4 was connected** while I worked (checked on 27 Oct 2026; you confirmed it is not here), so the real
+  controller is still untested. When you have it: plug it in (or pair it), start the game and play; the mapping is the
+  web version's. If a button does something unexpected, tell me which one.
 - **Decide on the web-game bugs** in `docs/GAMEPLAY-IDEAS.md` (they are copied 1:1, as the rules say):
   petanque never ends after 13 points, petanque can freeze when no boule is left, and vehicle obstacles appear one
   update late. Fixing them is a small change in both games once you say yes.
