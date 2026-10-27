@@ -44,6 +44,9 @@ check `server/wrangler.toml` says `haarklous-ue5-test`, then `npx wrangler deplo
   with the car); C the game drives the motorcycle (prompt □ + simulated R2), the web player rides pillion; D voice
   (the game's microphone is a 440 Hz tone with `-HKVoiceTone`). Screenshots: `tools/out/net-tests/shots-<mode>-game/`
   (game side) and `web-<mode>-*.png` (web side).
+- `-Game -RealMic`: the same with the laptop's real microphone instead of the tone, while alternating beeps play
+  through the speakers. `powershell -File toolsun-game.ps1 -Test mic` only opens the microphone the way the voice
+  chat does and logs the level for 5 seconds.
 - The headless web page runs requestAnimationFrame about once a second (hidden page), so the test client runs frames
   on a timer like the web's own `tests/browser-harness.js`; next to the game it still renders slowly and its game time
   (capped at 50 ms a frame) runs at about a third of real time, so it walks and drives by distance, not by time.
@@ -66,5 +69,8 @@ Other options and their costs:
 ## Still open
 - Avatar meshes are imported (`/Game/Haarklous/Meshes/avatar_0..4`, `avatar_drone`). After a full re-export of the
   web geometry, rebuild them: `powershell -File tools\build-assets.ps1 -From 3 -Rigs "avatar_0 avatar_1 avatar_2 avatar_3 avatar_4 avatar_drone"`.
-- Real microphone capture is built but only tested with the test tone (no one to talk); test with a real microphone.
+- Real microphone (27 Oct 2026): the game opens the laptop's microphone array ("Mikrofonrekke (Realtek(R) Audio)",
+  48 kHz, 2 channels) and streams it, but the microphone delivered silence, the same in a separate Python recording
+  (peak 0.00003) while Windows shows it unmuted at 42 %: most likely the laptop's microphone mute key is on. Unmute it
+  and run `run-live.ps1 -Mode deployed -Game -RealMic` (or `run-game.ps1 -Test mic`), or talk with someone in a lobby.
 - No TURN server (like the web): voice may fail between homes behind strict NATs; text chat always works.

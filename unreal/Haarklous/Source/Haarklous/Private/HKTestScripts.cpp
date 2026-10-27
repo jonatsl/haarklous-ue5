@@ -11,6 +11,7 @@
 #include "HKOnlineGame.h"
 #include "HKRigActor.h"
 #include "HKVehicles.h"
+#include "AudioCaptureCore.h"
 #include "Engine/Engine.h"
 #include "HAL/FileManager.h"
 #include "Misc/CommandLine.h"
@@ -394,6 +395,41 @@ namespace
 					T.Press(2);
 					T.Expect(FString::Printf(TEXT("tower %d: it is locked"), k), [&T]() { return T.Game()->LastNoticeText().StartsWith(TEXT("Locked")); });
 				}
+			});
+
+			// The real microphone through the same capture the voice chat uses (levels only, nothing is kept).
+			FHKTestScripts::All().Add(TEXT("mic"), [](AHKTestDriver& T)
+			{
+				struct FMic { TUniquePtr<Audio::FAudioCaptureSynth> C; double T = 0; int64 Samples = 0; double Energy = 0, Peak = 0; int32 Channels = 1; FString Name; bool bOpen = false; };
+				TSharedPtr<FMic> M = MakeShared<FMic>();
+				T.Wait(2);
+				T.Do([M]()
+				{
+					M->C = MakeUnique<Audio::FAudioCaptureSynth>();
+					Audio::FCaptureDeviceInfo Info;
+					M->bOpen = M->C->GetDefaultCaptureDeviceInfo(Info) && M->C->OpenDefaultStream() && M->C->StartCapturing();
+					M->Name = Info.DeviceName; M->Channels = FMath::Max(1, Info.InputChannels);
+					UE_LOG(LogTemp, Display, TEXT("HK-TEST microphone '%s', %d Hz, %d channels, open %d, capturing %d"), *Info.DeviceName, Info.PreferredSampleRate, Info.InputChannels, M->bOpen, M->bOpen && M->C->IsCapturing());
+				});
+				T.Steps.Add([M](double Dt)
+				{
+					M->T += Dt;
+					if (M->bOpen)
+					{
+						TArray<float> D;
+						M->C->GetAudioData(D);
+						M->Samples += D.Num();
+						for (float V : D) { M->Energy += V * V; M->Peak = FMath::Max(M->Peak, (double)FMath::Abs(V)); }
+					}
+					return M->T > 5;
+				});
+				T.Do([&T, M]()
+				{
+					const double Rms = M->Samples ? FMath::Sqrt(M->Energy / M->Samples) : 0;
+					UE_LOG(LogTemp, Display, TEXT("HK-TEST microphone over 5 s: %lld samples, RMS %.4f, peak %.4f"), M->Samples, Rms, M->Peak);
+					if (M->C) { M->C->StopCapturing(); M->C.Reset(); }
+				});
+				T.Expect(TEXT("the microphone delivers sound"), [M]() { return M->Samples > 0 && M->Peak > 0; });
 			});
 
 			// Every vehicle: get in with square, drive with the simulated controller, read the HUD, get out.

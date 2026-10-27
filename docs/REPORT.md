@@ -203,8 +203,14 @@ The "Fast" (65 %, no shadows) and "Sharp" (100 %) settings were not measured.
 
 - **Test with your real DualShock 4** (USB and Bluetooth). The controller code reads the same raw reports the
   browser uses and is tested with recorded reports and a simulated pad, but not with the real controller.
-- **Voice with a real microphone** (tested with a test tone and Chrome's fake microphone). Windows may ask once for
-  microphone access.
+- **Voice with a real microphone.** Voice was tested end to end both ways (the game's test tone heard by the web game,
+  the web game's microphone heard by the game). I also tried your laptop's own microphone: the game opened it
+  ("Mikrofonrekke (Realtek(R) Audio)") and sent its sound, but the microphone itself gave only silence, also to a
+  separate recording program, while Windows shows it switched on at 42 %. It is probably muted with the laptop's
+  microphone key (often F4 with a small light). Unmute it and talk in a lobby, or run
+  `powershell -File tools
+et-testun-live.ps1 -Mode deployed -Game -RealMic`.
+- **No DualShock 4 was connected** while I worked (checked on 27 Oct 2026), so the real controller is still untested.
 - **Decide on the web-game bugs** in `docs/GAMEPLAY-IDEAS.md` (they are copied 1:1, as the rules say):
   petanque never ends after 13 points, petanque can freeze when no boule is left, and vehicle obstacles appear one
   update late. Fixing them is a small change in both games once you say yes.
