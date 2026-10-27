@@ -49,15 +49,45 @@ The web material instances keep their names, slots and colours; their parents ch
 - `M_HK_Brick` (`MI_brick`, `MI_plinth`), `M_HK_RoofMetal` (`MI_roof`, standing-seam zinc), `M_HK_Plaster`
   (`MI_plaster_*`, keeps each colour), `M_HK_CarPaint` (opaque `MI_Physical_*`: clear-coat paint; `Color` is still set
   at run time by `AHKRigActor::SetPaint`), `M_HK_Foliage` (leaves let light through and sway in the wind, bark sways).
-- 3D grass: `tools/blender/build_grass.py` makes a clump of short blades (upward normals so they light like the lawn),
-  `M_HK_Grass` colours them from the ground's grass texture, `AHKGame::UpdateGrass` places them in 6 m tiles around
-  the camera on 'grass' ground only (not in stair towers or the fire ring), fading out at 11-16 m; off on quality
+- 3D grass (its blades were replaced by photo grass cards in the photo-real pass below):
+  `AHKGame::UpdateGrass` places clumps in 6 m tiles around
+  the camera on 'grass' ground only (not in stair towers or the fire ring); off on quality
   Fast. One new tile per frame; tiles that fall out of range go to `GrassPool` and are reused (destroying them made
   the garbage collector stall a frame now and then). `-HKNoGrass` switches it off for frame-rate comparisons (it
   costs about 2-3 fps).
 - Lighting: sun source angle 1.2 (soft shadow edges), sky light 1.35, sun glow in the height fog, reflection
   captures around home and in the flat and stairwell, AO 0.7 / 70 cm, slight colour grading, `r.Tonemapper.Sharpen`.
 - Asphalt with hairline cracks and sealed patches; grass less saturated with dry patches, clover and soil.
+
+### Photo-real pass (28 Oct 2026, `tools/unreal/materials_photoreal.py`, runs after materials_realism.py)
+- **Library:** CC0 scans from Poly Haven and ambientCG (`python tools/fetch-library.py`, allowed by the user,
+  `tools/out/library`), imported to `/Game/Haarklous/Textures/Lib`. Normal maps are OpenGL (green flipped on import).
+- **Building map:** `python tools/make-building-map.py` rasterises every building footprint (web frame -> Unreal
+  world cm) into `T_BuildingId` (2048 px, ~0.8 m, palette index, nearest, no mips) plus `T_BuildingPalette` (256 x 2:
+  colour; style brick/plaster, roof slate/tile, frames brown/white, variant). Looks: OSM building:colour (salmon
+  `#cb9c89` = brick, else plaster in that colour), roof:colour (red = clay tile) where tagged, else a Torshov mix per
+  70 m cell. Materials sample it at the texel centre 60 cm inside the wall (roofs: at the pixel), shared samplers.
+- `M_HK_Building` (`MI_facade`, and `MI_plaster_d9d2c3` with FacadeUVScale/Offset so the web's plaster buildings get
+  windows too): scanned brick or plaster tinted by the map; windows of 1.0-2.0 m per 3 m bay chosen per column by a
+  hash; glass 10-14 cm deep: parallax of the reveal in tangent space (side walls get their own normal), sun shadow
+  of the reveal from `SkyAtmosphereLightDirection`; frames, mullions, sashes; interior mapping behind the glass.
+- `M_HK_Plinth` (`MI_plinth`): concrete with recessed basement windows. `M_HK_Roof` (`MI_roof`): slate or clay tiles
+  in rows along each face (uv from the world normal, world-space normal), bitumen on flat roofs.
+  `M_HK_BrickPhoto` (`MI_brick`: stair towers, the flat's two brick walls) in the same salmon brick.
+- **Details:** `tools/blender/build_details.py` builds balconies (steel-bar `M_HK_Railing` or panel fronts),
+  downpipes, chimneys and kerb stones, and their placements `Content/Data/instances/details.json` (window bays of the
+  web's walls, away from stair towers and from 17A; kerbs along drivable roads unless the surface map shows asphalt
+  well beyond the edge). `AHKGame::SpawnTrees` spawns them like the trees; kerbs cast no shadow; view distances
+  70-600 m. Kerbs and 3D grass sit on `FHKData::VisualHeightWorld` (the drawn terrain triangles), not the bilinear
+  game height, which differs by a few cm.
+- **3D grass:** `tools/make-grass-atlas.py` cuts five photographed tufts out of Poly Haven's grass_medium_01 atlas
+  (alpha-coverage mips keep thin blades); `build_grass.py` makes 16-card clumps; `M_HK_GrassCards` colours them from
+  the lawn scan under them. `PerInstanceFadeAmount` is 1 when fully shown (it sinks the cards near the cull distance).
+  Tiles reach 15 m, fade 9-13 m.
+- **Trees:** `tools/make-leaf-atlas.py` scatters ~1,100 scanned leaves (Poly Haven tree_small_02) over a card.
+- **Look:** `tools/unreal/look.py` (sun 4.2 with light shafts and contact shadows, sky light 1.2, bloom, lens flares,
+  SSR, AO, grading) is used by build_level.py and can be applied to the existing level without re-baking by
+  `apply_look.py`. `AHKGame::ApplyQuality` switches SSR, light shafts, lens flares and contact shadows per quality.
 
 ## Core C++ (Source/Haarklous)
 | File | What |

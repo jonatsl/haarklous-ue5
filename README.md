@@ -25,9 +25,9 @@ Refresh after changes in the web game: `powershell -File tools\refresh-reference
 - **Online is off.** To try it against the test server only: start with `-HKOnline` (server
   `wss://haarklous-ue5-test.server-smoke.workers.dev`, see `docs/ONLINE.md`). Never point it at the live game.
 
-## Frame rates (27 Oct 2026, this laptop, 2240 × 1400 full screen, quality "Balanced")
-Packaged game with the realism pass: home 37.3 fps, firepit 29.7, park 29.8, street 30.0, flying 33.8 (averages;
-slowest 1 % of frames 22–29 fps; a second run within 1.5 fps; before the realism pass 2–3 fps faster). Measure again: `dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps
+## Frame rates (28 Oct 2026, this laptop, 2240 × 1400 full screen, quality "Balanced")
+Packaged game with the photo-real pass: home 33.3 fps, firepit 27.1, park 27.4, street 27.9, flying 31.2 (averages;
+slowest 1 % of frames 21–28 fps; a second run within 0.4 fps; before the photo-real pass 2–4 fps faster). Measure again: `dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps
 -hkout=<folder> -fullscreen -ResX=2240 -ResY=1400` (results in `<folder>\fps.txt`), or in the editor build
 `powershell -File tools\run-game.ps1 -Test fps -Res 2240x1400 -Fullscreen`. Details: `docs/REPORT.md`.
 
@@ -41,6 +41,10 @@ See `docs/ARCHITECTURE.md`. In short:
 - Realism pass: `tools/blender/make_textures.py` (brick, zinc roof, plaster, concrete, grass, asphalt),
   `tools/blender/build_grass.py` (3D grass clump), `tools/unreal/materials_realism.py` (facade with windows and rooms,
   brick, roof, plaster, car paint, foliage wind, grass); all run by `tools\build-assets.ps1`. See `docs/ARCHITECTURE.md`.
+- Photo-real pass: `python tools/fetch-library.py` (CC0 scans), `tools/make-building-map.py` (each building's real
+  look), `tools/make-grass-atlas.py`, `tools/make-leaf-atlas.py`, `tools/blender/build_details.py` (balconies,
+  downpipes, chimneys, kerbs), `tools/unreal/materials_photoreal.py`; the light and camera look is
+  `tools/unreal/look.py` (`apply_look.py` changes the level without re-baking). Also run by `tools\build-assets.ps1`.
 - `powershell -File tools\build-unreal.ps1` - compile the C++ game.
 - `powershell -File tools\run-tests.ps1` - automation tests (the C++ port against the web code's own answers).
 - `powershell -File tools\run-game.ps1 -Test walkhome` - scripted play-through with a simulated DualShock 4; screenshots in `tools\out\shots\<test>`.
@@ -48,3 +52,5 @@ See `docs/ARCHITECTURE.md`. In short:
 
 ## Licences of the data
 Map data © OpenStreetMap contributors (ODbL); height data © Kartverket (CC BY 4.0). Keep these credits in the game.
+Photo-scanned textures from Poly Haven (polyhaven.com) and ambientCG (ambientcg.com), both CC0 (public domain; no
+credit required, credited anyway).

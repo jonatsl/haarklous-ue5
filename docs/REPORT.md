@@ -6,6 +6,10 @@ web code's own answers; every feature was played through with a simulated DualSh
 together with the web game on the separate test server, including voice with your real microphone. What still needs
 you: a test with the real DualShock 4 (none was connected).
 
+28 October 2026: a photo-real pass on top (see "Photo-real pass" below): every building looks like the real one
+(salmon brick or coloured plaster, deep windows, balconies, chimneys), real 3D grass, scanned materials from free
+CC0 libraries, Battlefield-style light, kerbs along the streets.
+
 ## How to start the game
 
 - **From the project:** `"C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe" unreal\Haarklous\Haarklous.uproject -game -dx11`
@@ -212,28 +216,88 @@ Cost: about 2–3 fps (the 3D grass) on top of the materials; all places stay ab
 ![Before: Torshov from the air](img/before-realism--08-aerial-home.jpg)
 ![After: zinc roofs and brick from the air](img/shots--08-aerial-home.jpg)
 
+## Photo-real pass (28 Oct 2026)
+
+Your next goal: real-looking grass, buildings that look like the real ones, Battlefield 4-style realism, using
+libraries where they help. Still only graphics: nothing about the map, collision, rules or controls changed (all 49
+tests and every play-through pass), and still 20 fps or more.
+
+**What the real place looks like.** Google Street View in Sigurd Lies gate (next to 17A), an Esri aerial photo and a
+photo of Haarklous plass on lokalhistoriewiki.no
+([Oslo, Haarklous plass-1.jpg](https://lokalhistoriewiki.no/wiki/Fil:Oslo,_Haarklous_plass-1.jpg)) show: the blocks
+around 17A are **light salmon brick** with **dark-brown wooden three-light windows**, a **grey concrete plinth** with
+small basement windows and **concrete balconies with black steel railings**; their neighbours are **yellow or red
+plaster** with white windows; roofs are **dark grey slate**, some **red clay tile**. OpenStreetMap agrees (building
+colour `#cb9c89` on all blocks around 17A). The web drew every block in the same dark red brick.
+
+**Libraries (with your OK):** free CC0 photo scans from [Poly Haven](https://polyhaven.com) and
+[ambientCG](https://ambientcg.com): brick, plaster, concrete, two asphalts, slate and clay-tile roofs, granite,
+bark, a lawn, two grass models' blade textures and a tree's leaf scans (213 MB, `python tools/fetch-library.py`, kept
+in `tools/out/library`, not in git). Fab/Megascans was left out (it needs your Epic sign-in and licence).
+
+What changed (all made by scripts, details in `docs/ARCHITECTURE.md`):
+
+- **Every building gets its own real look.** `tools/make-building-map.py` paints a map of the district: OSM's colour
+  for the ~90 tagged buildings, a believable Torshov mix (salmon brick, pale yellow, ochre, oxide red, pink, beige,
+  grey plaster) shared by each block for the rest, slate or red tiles for the roof. The facade material reads it.
+- **Windows with real depth:** the glass sits 10–14 cm back in a reveal you see from the side and that throws the
+  sun's shadow on frame and glass; three-light, two-light and single windows, the same down each column; dark-brown
+  frames on brick, white on plaster; rooms behind the glass; rain streaks under the sills on plaster.
+- **Balconies, downpipes, chimneys, kerbs** (`tools/blender/build_details.py`): 8,459 concrete balconies (steel-bar
+  railings or solid panel fronts) in columns on the long walls, 1,274 downpipes, 786 brick chimneys on the ridges,
+  36,703 granite kerb stones along the streets, placed from the web's own buildings and roads. No collision, out of
+  reach (balconies start one storey up), Haarklous plass 17 itself left as the web has it.
+- **Real grass:** the lawn is a photo scan (ambientCG Grass001), and up to 15 m around you it grows real 3D grass:
+  cards cut from photographed grass tufts (Poly Haven grass_medium_01), 16 per 0.6 m clump, coloured from the lawn
+  under them, swaying in the wind.
+- **Trees:** crowns made of hundreds of scanned leaves per card, scanned bark.
+- **Ground:** scanned asphalt with cracks; the lawn no longer reflects the sky.
+- **Light and camera (Battlefield-style):** stronger sun against a softer sky, light shafts, contact shadows, bloom,
+  lens flares, screen-space reflections in windows and paint, tighter ambient occlusion, cool shadows / warm
+  highlights with a filmic curve, light colour fringing and vignette; lighting baked again.
+
+![Before: the front of 17A](img/before-photoreal--02-front-of-17A.jpg)
+![After: salmon brick, three-light windows in deep reveals, grey plinth with basement windows](img/shots--02-front-of-17A.jpg)
+![Next to 17A, from where Google Street View stands in Sigurd Lies gate: kerbs, scanned asphalt, the block's brick and windows](img/shots--04e-street-view-match.jpg)
+![A facade from the side: the windows sit back in the wall](img/shots--04c-facade-side.jpg)
+![Before: the firepit](img/before-photoreal--03-firepit.jpg)
+![After: scanned lawn, 3D grass, leafy trees, chimneys](img/shots--03-firepit.jpg)
+![The 3D lawn at your feet](img/shots--04b-lawn-closeup.jpg)
+![The lawn from 45 cm: real grass tufts](img/shots--04d-lawn-low.jpg)
+![Before: by the helipad](img/before-photoreal--04-helipad.jpg)
+![After: balconies with railings and panel fronts, chimneys, kerbs](img/shots--04-helipad.jpg)
+![Plaster blocks with red tile roofs and balconies; the web's plain buildings now have windows](img/shots--11-sky.jpg)
+![Before: Torshov from the air](img/before-photoreal--08-aerial-home.jpg)
+![After: slate roofs with chimneys, brick blocks](img/shots--08-aerial-home.jpg)
+![The district: brick, yellow and red plaster, slate and tile roofs](img/shots--09-aerial-district.jpg)
+
+Not changed (would be bigger jobs, ask if you want them): the cars and other vehicles are still the web's simple
+shapes with new paint; the sky keeps the web's clouds; there are no road markings (the real residential streets
+have few).
+
 ## Frame rates on this laptop
 
-Measured on 27 Oct 2026, after the realism pass, in **the packaged game you start**
+Measured on 28 Oct 2026, after the photo-real pass, in **the packaged game you start**
 (`dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps -fullscreen -ResX=2240 -ResY=1400`, results in
 `tools\out\shots\fps-packaged\fps.txt`): full screen at the laptop's own resolution (2240 × 1400), graphics quality
-"Balanced" (the default, 75 % screen percentage), baked lighting, 3D grass on, nothing else running. At each place
-the camera turns one full circle in 12 seconds, so every direction counts. Two runs:
+"Balanced" (the default: 75 % screen percentage, screen-space reflections, contact shadows, lens flares, no light
+shafts), baked lighting, 3D grass, balconies and kerbs on, nothing else running. At each place the camera turns one
+full circle in 12 seconds, so every direction counts. Two runs:
 
 | Place | Average (run 1 / run 2) | Slowest 1 % of frames | Slowest single frame |
 | --- | --- | --- | --- |
-| Home (apartment, looking into the living room and out of the windows) | **37.3 / 35.8 fps** | 28.7 / 28.3 fps | 23.3 / 18.7 fps |
-| Firepit (fire, smoke, cars, grass and the block behind) | **29.7 / 29.9 fps** | 22.7 / 23.4 fps | 18.0 / 20.8 fps |
-| The park (Torshovdalen, the most trees and grass) | **29.8 / 29.7 fps** | 23.1 / 23.2 fps | 20.8 / 18.9 fps |
-| The street outside 17A | **30.0 / 30.1 fps** | 23.7 / 21.9 fps | 20.5 / 19.8 fps |
-| Flying (110 m above the district) | **33.8 / 34.1 fps** | 26.4 / 27.4 fps | 15.2 / 18.0 fps |
+| Home (apartment, looking into the living room and out of the windows) | **33.3 / 33.4 fps** | 28.3 / 27.6 fps | 18.7 / 20.3 fps |
+| Firepit (fire, smoke, cars, grass and the block behind) | **27.1 / 27.4 fps** | 22.2 / 22.7 fps | 17.0 / 18.5 fps |
+| The park (Torshovdalen, the most trees and grass) | **27.4 / 27.6 fps** | 21.6 / 23.2 fps | 17.7 / 18.8 fps |
+| The street outside 17A | **27.9 / 27.8 fps** | 22.9 / 20.9 fps | 18.8 / 19.7 fps |
+| Flying (110 m above the district) | **31.2 / 31.3 fps** | 26.0 / 25.5 fps | 20.4 / 21.2 fps |
 
-Every place stays above the 20 fps goal on average and in the slowest 1 % of frames; single frames dip to 15–19 fps
-now and then. Before the realism pass the same test gave 32–40 fps on average (home 39.5, firepit 32.1, park 32.2,
-street 31.8, flying 35.3), so the new look costs about 2–3 fps. The editor build
-(`tools\run-game.ps1 -Test fps -Res 2240x1400 -Fullscreen`) gives the same picture: home 36.5, firepit 30.2, park
-30.2, street 30.9, flying 34.4 fps. An earlier realism build had one 8 fps stall in the park when the grass around
-the camera was rebuilt; the grass tiles are now reused instead of thrown away, and that stall is gone.
+Every place stays above the 20 fps goal on average and in the slowest 1 % of frames; single frames dip to 17–19 fps
+now and then. The photo-real pass costs 2–4 fps against the realism pass (home 37.3, firepit 29.7, park 29.8, street
+30.0, flying 33.8) and the original port (32–40 fps). Where it went, measured in the editor build: balconies, kerbs
+and the other details about 2 fps (after taking the shadows off kerbs and railings and laying kerbs as 2 m stones),
+reflections, contact shadows and light shafts about 1 fps each (light shafts are therefore only on "Sharp"), the 3D
+grass under 1 fps. Measure again with `-HKNoGrass`, `-HKNoDetails` or `-HKCmds=r.SSR.Quality:0` to compare.
 
 The lower numbers in the online test (about 16–20 fps) were measured while a second game, the web version in a
 headless Chrome that draws in software, ran on the same laptop to play against; they are not the game's own speed.
@@ -250,6 +314,9 @@ The "Fast" (65 %, no shadows) and "Sharp" (100 %) settings were not measured.
 - **No DualShock 4 was connected** while I worked (checked on 27 Oct 2026; you confirmed it is not here), so the real
   controller is still untested. When you have it: plug it in (or pair it), start the game and play; the mapping is the
   web version's. If a button does something unexpected, tell me which one.
+- **Buildings further away:** the blocks around 17A have their real colour in OpenStreetMap; most others do not,
+  so their brick or plaster colour is a believable Torshov guess, the same for one block. If one you know looks
+  wrong, tell me its street and colour (one line in `tools/make-building-map.py`).
 - **Decide on the web-game bugs** in `docs/GAMEPLAY-IDEAS.md` (they are copied 1:1, as the rules say):
   petanque never ends after 13 points, petanque can freeze when no boule is left, and vehicle obstacles appear one
   update late. Fixing them is a small change in both games once you say yes.

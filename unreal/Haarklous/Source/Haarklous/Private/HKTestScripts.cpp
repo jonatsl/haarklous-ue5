@@ -49,6 +49,14 @@ namespace
 				Ground(T, 6, 24, 1.7, Toward(6, 24, 1, 6), .05); T.Shot(TEXT("02-front-of-17A"));
 				Ground(T, -12, 44, 1.7, Toward(-12, 44, -2.7, 34.7), -.1); T.Shot(TEXT("03-firepit"));
 				Ground(T, 20, 30, 1.7, Toward(20, 30, 26, 14), -.05); T.Shot(TEXT("04-helipad"));
+				// Close-ups for the photo-real pass: the lawn at your feet, a facade from the side (window depth).
+				// The 3D lawn grows one 6 m tile per frame around the camera: give it time after the jump.
+				Ground(T, -12, 44, 1.7, Toward(-12, 44, -2.7, 34.7), -.5); T.Wait(2.5); T.Shot(TEXT("04b-lawn-closeup"));
+				Ground(T, -10, 42, .45, Toward(-10, 42, -2.7, 34.7), -.2); T.Wait(1); T.Shot(TEXT("04d-lawn-low"));
+				Ground(T, 14, 15, 1.7, Toward(14, 15, -6, 9), .12); T.Shot(TEXT("04c-facade-side"));
+				// Where Google Street View stands in Sigurd Lies gate (panorama at 59.93614 N 10.77697 E), looking at
+				// bearing 322 degrees toward the next block, to compare with the real photo.
+				Ground(T, -31.42, -2.52, 2.2, Toward(-31.42, -2.52, -21.78, .15), -.09); T.Wait(1.5); T.Shot(TEXT("04e-street-view-match"));
 				// Apartment rooms (apartment-data.js): living x 0..2.9 z 0..4.9, kitchen x 1.7..5.7 z 6.3..8.9, bedroom z 8.5..10.
 				T.Pose(0.4, 1.62, 0.4, Toward(0.4, 0.4, 2.6, 4.5), -.1); T.Shot(TEXT("05-apartment-living"));
 				T.Pose(2.0, 1.62, 6.6, Toward(2.0, 6.6, 5.4, 8.6), -.2); T.Shot(TEXT("06-apartment-kitchen"));

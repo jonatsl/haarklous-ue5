@@ -10,8 +10,12 @@ Actors made here carry the tag HKGen and are replaced on every run.
 import json
 import math
 import os
+import sys
 
 import unreal
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import look  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 DATA = os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data')
@@ -112,6 +116,7 @@ def lights():
     lc.set_editor_property('shadow_bias', 0.4)
     # Realism pass: the sun's real size gives soft shadow edges (penumbra) instead of razor-sharp ones.
     lc.set_editor_property('light_source_angle', 1.2)
+    look.sun(lc)   # photo-real pass: tools/unreal/look.py
     atm = spawn(unreal.SkyAtmosphere, 'Sky atmosphere', None, 'Generated/Lighting')
     # Brighter than the physical default with this low sun intensity, toward the web's light-blue sky gradient.
     try:
@@ -135,6 +140,7 @@ def lights():
     sc.set_editor_property('real_time_capture', False)
     sc.set_editor_property('lower_hemisphere_is_black', False)
     sc.set_editor_property('lower_hemisphere_color', unreal.LinearColor(0.42, 0.40, 0.33, 1))   # web hemisphere ground 0xb9b09c
+    look.sky_light(sc)
     fog = spawn(unreal.ExponentialHeightFog, 'Height fog', unreal.Transform(unreal.Vector(0, 0, -1000), unreal.Rotator(0, 0, 0), unreal.Vector(1, 1, 1)), 'Generated/Lighting')
     fc = fog.component
     # The web: FogExp2(0xc6d3dc, .0011) near, .00011 far. A light haze that keeps the sky blue.
@@ -175,7 +181,7 @@ def lights():
             s.set_editor_property(k, v)
         except Exception as e:
             log('post process setting', k, e)
-    pp.settings = s
+    pp.settings = look.post(s)
     # Realism pass: reflection captures, so glass, paint and metal reflect the buildings around them, not only the sky.
     caps = [(x, -8.0, z, 2600.0) for x in (-40.0, 0.0, 40.0) for z in (-20.0, 20.0, 60.0)]
     caps += [(1.6, 1.4, 3.0, 450.0), (4.0, 1.4, 7.6, 400.0), (0.1, -5.0, 8.0, 500.0)]   # living room, kitchen, stairwell

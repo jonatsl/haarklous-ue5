@@ -251,6 +251,20 @@ double FHKData::RelLocal(double X, double S) const
 	return Grid[j * N + i] * (1 - u) * (1 - v) + Grid[j * N + i + 1] * u * (1 - v) + Grid[(j + 1) * N + i] * (1 - u) * v + Grid[(j + 1) * N + i + 1] * u * v;
 }
 
+double FHKData::VisualHeightWorld(double X, double Z) const
+{
+	const FVector2D L = ToLocal(X, Z);
+	const bool bNear = FMath::Max(FMath::Abs(L.X), FMath::Abs(L.Y)) < 300;
+	const int32 K = FMath::Max(1, FMath::RoundToInt32((bNear ? 4 : 8) / TerStep)), N = TerN;
+	const double Fi = FMath::Min(N - 1.0 - K, FMath::Max(0.0, (L.X + TerHalf) / TerStep)) / K, Fj = FMath::Min(N - 1.0 - K, FMath::Max(0.0, (L.Y + TerHalf) / TerStep)) / K;
+	const int32 i = FMath::FloorToInt32(Fi), j = FMath::FloorToInt32(Fj);
+	const double u = Fi - i, v = Fj - j;
+	const double Ga = Grid[j * K * N + i * K], Gb = Grid[j * K * N + (i + 1) * K], Gc = Grid[(j + 1) * K * N + i * K], Gd = Grid[(j + 1) * K * N + (i + 1) * K];
+	// surroundings.js terrainMesh: triangles (a, c, b) and (b, c, d).
+	const double H = u + v <= 1 ? Ga + u * (Gb - Ga) + v * (Gc - Ga) : Gd + (1 - u) * (Gc - Gd) + (1 - v) * (Gb - Gd);
+	return Ground + H - (bNear ? 0 : .5);
+}
+
 FString FHKData::SurfaceAt(double X, double Z) const
 {
 	static const TCHAR* Names[] = {TEXT("grass"), TEXT("asphalt"), TEXT("gravel"), TEXT("sand"), TEXT("none")};

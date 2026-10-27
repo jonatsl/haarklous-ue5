@@ -49,6 +49,9 @@ public:
 	double RelLocal(double X, double S) const;
 	double YLocal(double X, double S) const { return Ground + RelLocal(X, S); }
 	double HeightWorld(double X, double Z) const { const FVector2D L = ToLocal(X, Z); return YLocal(L.X, L.Y); }
+	/** Looks only: the height of the drawn ground (the web's terrain mesh triangles, 4 m cells within 300 m, else
+	 *  8 m cells 0.5 m lower), which differs from the bilinear HeightWorld by a few cm. For grass and kerbs. */
+	double VisualHeightWorld(double X, double Z) const;
 	// "grass", "asphalt", "gravel", "sand" or "none" (footstep sounds)
 	FString SurfaceAt(double X, double Z) const;
 	double TrafficDistance(double X, double Z) const;

@@ -234,8 +234,11 @@ void AHKGame::SpawnRigs()
 void AHKGame::SpawnTrees()
 {
 	// Trees and bushes: the web's instanced leaf-card crowns, trunks and bushes, at the same places and sizes.
-	for (const TCHAR* Rig : {TEXT("world_near"), TEXT("world_far")})
+	// "details": balconies, downpipes and chimneys of the photo-real pass (tools/blender/build_details.py), looks only.
+	static const bool bNoDetails = FParse::Param(FCommandLine::Get(), TEXT("HKNoDetails"));   // frame-rate comparisons
+	for (const TCHAR* Rig : {TEXT("world_near"), TEXT("world_far"), TEXT("details")})
 	{
+		if (bNoDetails && FString(Rig) == TEXT("details")) continue;
 		const FString Path = FPaths::Combine(FHKData::DataDir(), TEXT("instances"), FString(Rig) + TEXT(".json"));
 		const TSharedPtr<FJsonObject> J = HKJson::LoadFile(Path);
 		if (!J) { UE_LOG(LogHaarklous, Warning, TEXT("No instance list %s"), *Path); continue; }
@@ -250,7 +253,10 @@ void AHKGame::SpawnTrees()
 			H->SetMobility(EComponentMobility::Static);
 			H->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 			H->SetCastShadow(HKJson::Bool(O, TEXT("cast"), true));
-			H->SetCullDistances(0, FString(Rig) == TEXT("world_far") ? 150000 : 90000);
+			// Details are small: shorter view distances, and kerb stones and railings cast no shadow (frame rate).
+			const bool bDetail = FString(Rig) == TEXT("details"), bKerb = Asset == TEXT("SM_Kerb");
+			H->SetCullDistances(0, bDetail ? (Asset == TEXT("SM_Chimney") ? 60000 : bKerb ? 7000 : Asset == TEXT("SM_Downpipe") ? 9000 : 15000) : FString(Rig) == TEXT("world_far") ? 150000 : 90000);
+			if (bKerb || Asset == TEXT("SM_BalconyRail")) H->SetCastShadow(false);
 			H->RegisterComponent();
 			TArray<FTransform> Xf;
 			for (const TSharedPtr<FJsonValue>& T : HKJson::Arr(O, TEXT("transforms")))
@@ -619,7 +625,7 @@ void AHKGame::UpdateGrass()
 	const double Tile = 6, Step = .45;
 	static const bool bNoGrass = FParse::Param(FCommandLine::Get(), TEXT("HKNoGrass"));   // for frame-rate comparisons
 	const bool bWant = GrassMesh && !bNoGrass && Quality > 0 && CamPos.Y - D.HeightWorld(CamPos.X, CamPos.Z) < 25;
-	const int32 Range = 3;   // tiles each way: 21 m, a little past the 16 m fade
+	const int32 Range = 2;   // tiles each way: 15 m, a little past the 13 m fade
 	const FIntPoint C(FMath::FloorToInt32(CamPos.X / Tile), FMath::FloorToInt32(CamPos.Z / Tile));
 	for (auto It = GrassTiles.CreateIterator(); It; ++It)
 		if (!bWant || FMath::Abs(It.Key().X - C.X) > Range || FMath::Abs(It.Key().Y - C.Y) > Range)
@@ -648,7 +654,7 @@ void AHKGame::UpdateGrass()
 		I->SetMobility(EComponentMobility::Movable);
 		I->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		I->SetCastShadow(false);
-		I->SetCullDistances(1100, 1600);
+		I->SetCullDistances(900, 1300);
 		I->SetCanEverAffectNavigation(false);    // registering hundreds of instances with navigation stalls a frame
 		I->bAffectDistanceFieldLighting = false;
 		I->RegisterComponent();
@@ -666,7 +672,7 @@ void AHKGame::UpdateGrass()
 			const double Y = D.HeightWorld(Wx, Wz);
 			int32 Ti; FVector L;
 			if (TowerAt(Wx, Wz, Y, Ti, L)) continue;                                 // stairwell floors
-			Xf.Add(FTransform(FRotator(R.FRandRange(-4, 4), Yaw, R.FRandRange(-4, 4)), HK::ToUE(FVector(Wx, Y - .02, Wz)), FVector(S)));
+			Xf.Add(FTransform(FRotator(R.FRandRange(-4, 4), Yaw, R.FRandRange(-4, 4)), HK::ToUE(FVector(Wx, D.VisualHeightWorld(Wx, Wz) - .01, Wz)), FVector(S)));
 		}
 	const double T1 = FPlatformTime::Seconds();
 	I->AddInstances(Xf, false, true);
@@ -924,12 +930,26 @@ void AHKGame::LoadSettings()
 
 void AHKGame::ApplyQuality()
 {
-	// Web: 0 Fast (no shadows), 1 Balanced, 2 Sharp. Unreal: scalability levels and screen percentage for this laptop.
+	// Web: 0 Fast (no shadows), 1 Balanced, 2 Sharp. Unreal: scalability levels and screen percentage for this laptop,
+	// plus the photo-real effects of tools/unreal/look.py (reflections, light shafts, lens flares, contact shadows).
+	// Balanced leaves out the light shafts (about 1 fps on this laptop; they only show toward the sun).
 	if (!GEngine) return;
-	const TCHAR* Cmds0[] = {TEXT("sg.ShadowQuality 0"), TEXT("sg.PostProcessQuality 0"), TEXT("sg.EffectsQuality 0"), TEXT("sg.FoliageQuality 0"), TEXT("sg.TextureQuality 1"), TEXT("r.ScreenPercentage 65")};
-	const TCHAR* Cmds1[] = {TEXT("sg.ShadowQuality 1"), TEXT("sg.PostProcessQuality 1"), TEXT("sg.EffectsQuality 1"), TEXT("sg.FoliageQuality 1"), TEXT("sg.TextureQuality 2"), TEXT("r.ScreenPercentage 75")};
-	const TCHAR* Cmds2[] = {TEXT("sg.ShadowQuality 2"), TEXT("sg.PostProcessQuality 2"), TEXT("sg.EffectsQuality 2"), TEXT("sg.FoliageQuality 2"), TEXT("sg.TextureQuality 2"), TEXT("r.ScreenPercentage 100")};
-	const TCHAR** Cmds = Quality == 0 ? Cmds0 : Quality == 2 ? Cmds2 : Cmds1;
-	for (int32 i = 0; i < 6; i++) GEngine->Exec(GetWorld(), Cmds[i]);
+	static const TArray<const TCHAR*> Cmds[3] = {
+		{TEXT("sg.ShadowQuality 0"), TEXT("sg.PostProcessQuality 0"), TEXT("sg.EffectsQuality 0"), TEXT("sg.FoliageQuality 0"), TEXT("sg.TextureQuality 1"), TEXT("r.ScreenPercentage 65"),
+		 TEXT("r.SSR.Quality 0"), TEXT("r.LightShaftQuality 0"), TEXT("r.LensFlareQuality 0"), TEXT("r.ContactShadows 0")},
+		{TEXT("sg.ShadowQuality 1"), TEXT("sg.PostProcessQuality 1"), TEXT("sg.EffectsQuality 1"), TEXT("sg.FoliageQuality 1"), TEXT("sg.TextureQuality 2"), TEXT("r.ScreenPercentage 75"),
+		 TEXT("r.SSR.Quality 1"), TEXT("r.LightShaftQuality 0"), TEXT("r.LensFlareQuality 1"), TEXT("r.ContactShadows 1"), TEXT("r.BloomQuality 4"), TEXT("r.SceneColorFringeQuality 1")},
+		{TEXT("sg.ShadowQuality 2"), TEXT("sg.PostProcessQuality 2"), TEXT("sg.EffectsQuality 2"), TEXT("sg.FoliageQuality 2"), TEXT("sg.TextureQuality 2"), TEXT("r.ScreenPercentage 100"),
+		 TEXT("r.SSR.Quality 2"), TEXT("r.LightShaftQuality 1"), TEXT("r.LensFlareQuality 2"), TEXT("r.ContactShadows 1"), TEXT("r.BloomQuality 5"), TEXT("r.SceneColorFringeQuality 1")}};
+	for (const TCHAR* C : Cmds[FMath::Clamp(Quality, 0, 2)]) GEngine->Exec(GetWorld(), C);
+	// For frame-rate comparisons: -HKCmds=r.SSR.Quality:0,r.ContactShadows:0 runs extra console commands after these
+	// (':' stands for the space).
+	FString Extra;
+	if (FParse::Value(FCommandLine::Get(), TEXT("HKCmds="), Extra, false))
+	{
+		TArray<FString> Parts;
+		Extra.TrimQuotes().ParseIntoArray(Parts, TEXT(","));
+		for (const FString& C : Parts) GEngine->Exec(GetWorld(), *C.TrimStartAndEnd().Replace(TEXT(":"), TEXT(" ")));
+	}
 	ScreenPercentage = Quality == 0 ? 65 : Quality == 2 ? 100 : 75;
 }

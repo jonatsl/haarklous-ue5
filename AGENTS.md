@@ -43,6 +43,11 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
   settings; add `-Extra "-HKOnline -HKVoiceTone"` for the lobby section on the test server), `stairwells`, `mic` (real microphone level), `fps` (frame rate in the busiest
   places), `online` (via `tools\net-test\run-live.ps1`, test server only).
 - Look decisions (sky, horizon, lamp globes without shadows, ground, trees): `docs/ARCHITECTURE.md` "Look of the world".
+- Photo-real pass (28 Oct 2026, goal: real grass, buildings like the real ones, Battlefield 4-style realism):
+  `docs/ARCHITECTURE.md` "Photo-real pass". The real blocks around 17A are salmon brick with dark-brown windows,
+  grey plinths and concrete balconies; neighbours yellow/red plaster; roofs dark slate, some red tile (Street View,
+  Esri aerial, OSM colours). Free CC0 scans from Poly Haven and ambientCG are allowed (user, 27 Oct 2026; re-download
+  with `python tools/fetch-library.py`); Fab/Megascans is not used (needs the user's Epic sign-in and licence).
 - Bugs found in the web game and ideas (not changed without the user's OK): `docs/GAMEPLAY-IDEAS.md`.
 - Final report: `docs/REPORT.md`; `python tools\make-report.py` turns it into `docs/report/Haarklous-UE5-report.html`
   with the screenshots embedded.
