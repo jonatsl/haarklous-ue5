@@ -5,7 +5,8 @@
 #   add -Voice for the voice test (Haarklous.Net.Voice; the editor runs with -game because CEF needs rendering)
 # Without -Voice: Haarklous.Net.Live (states, chat, seats, doors, fire). Logs and summaries: tools\out\net-tests\.
 # Never points at the live game server.
-param([ValidateSet("local", "deployed")][string]$Mode = "local", [string]$Lobby = "", [int]$TimeoutS = 300, [switch]$Voice, [int]$WebDelayS = 0)
+#   add -Game for the real game (-hktest=online, HKOnlineTestScript.cpp) with the web client in its lobby
+param([ValidateSet("local", "deployed")][string]$Mode = "local", [string]$Lobby = "", [int]$TimeoutS = 300, [switch]$Voice, [switch]$Game, [int]$WebDelayS = 0)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $engine = "C:\Program Files\Epic Games\UE_5.8"
@@ -22,7 +23,7 @@ if ($Mode -eq "local") {
   $page = "https://$hostName/?lobby=$Lobby"
 }
 if ($server -match "haarklous-online|haarklous-plass") { throw "Refusing: that is the live game server" }
-$tag = if ($Voice) { "$Mode-voice" } else { $Mode }
+$tag = if ($Voice) { "$Mode-voice" } elseif ($Game) { "$Mode-game" } else { $Mode }
 "Test $tag, lobby $Lobby, server $server"
 
 $wrangler = $null
@@ -40,6 +41,7 @@ try {
   for ($i = 0; $i -lt 3600 -and -not $lock; $i++) { try { $lock = [System.IO.File]::Open($lockPath, 'OpenOrCreate', 'ReadWrite', 'None') } catch { Start-Sleep -Seconds 1 } }
   $webArgs = "`"$root\tools\net-test\web-client.mjs`" --page=`"$page`" --lobby=$Lobby --allow=$allow --out=`"$out`" --mode=$Mode --timeout=$TimeoutS"
   if ($Voice) { $webArgs += " --voice" }
+  if ($Game) { $webArgs += " --game" }
   if ($WebDelayS -gt 0) { $webArgs += " --delay-begin=$WebDelayS"; $tag += "-late" }
   $web = Start-Process -FilePath "node" -ArgumentList $webArgs -RedirectStandardOutput "$out\web-client-$tag.log" -RedirectStandardError "$out\web-client-$tag.err.log" -PassThru -WindowStyle Hidden
   $null = $web.Handle   # keeps the exit code readable later
@@ -52,6 +54,11 @@ try {
         "-HKLiveServer=$server -HKLiveLobby=$Lobby `"-HKLiveOut=$out`" `"-abslog=$ulog`""
       $p = Start-Process -FilePath "$engine\Engine\Binaries\Win64\UnrealEditor.exe" -ArgumentList $uargs -PassThru
       if (-not $p.WaitForExit(600000)) { $p.Kill() }
+    } elseif ($Game) {
+      $uargs = "`"$project`" -game -windowed -ResX=1280 -ResY=720 -nosplash -dx11 -NoLoadingScreen -hktest=online `"-hkout=$out\shots-$tag`" " +
+        "-HKOnline -HKServer=$server -HKLobby=$Lobby `"-abslog=$ulog`""
+      $p = Start-Process -FilePath "$engine\Engine\Binaries\Win64\UnrealEditor.exe" -ArgumentList $uargs -PassThru
+      if (-not $p.WaitForExit(900000)) { $p.Kill() }
     } else {
       & "$engine\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" $project -nullrhi -unattended -nosplash -nopause -nosound "-ExecCmds=Automation RunTests Haarklous.Net.Live;Quit" "-TestExit=Automation Test Queue Empty" `
         "-HKLiveServer=$server" "-HKLiveLobby=$Lobby" "-HKLiveOut=$out" "-abslog=$ulog" -stdout 2>&1 | Out-Null
@@ -64,8 +71,14 @@ try {
   ""
   "--- Web client ---"
   Get-Content "$out\web-client-$tag.log"
-  $u = Get-Content $ulog | Where-Object { $_ -match 'Result=\{Success\} Name=\{(Live|Voice)\}' }
-  $f = Get-Content $ulog | Where-Object { $_ -match 'Result=\{Fail' }
+  if ($Game) {
+    Get-Content $ulog | Where-Object { $_ -match 'HK-TEST|Online:' } | ForEach-Object { $_ -replace '^\[[^\]]*\]\[[^\]]*\]', '' }
+    $u = Get-Content $ulog | Where-Object { $_ -match 'HK-TEST PASS the web client finished' }
+    $f = Get-Content $ulog | Where-Object { $_ -match 'HK-TEST FAIL' }
+  } else {
+    $u = Get-Content $ulog | Where-Object { $_ -match 'Result=\{Success\} Name=\{(Live|Voice)\}' }
+    $f = Get-Content $ulog | Where-Object { $_ -match 'Result=\{Fail' }
+  }
   Get-Content $ulog | Where-Object { $_ -match 'live full lobby:' } | ForEach-Object { $_ -replace '^\[[^\]]*\]\[[^\]]*\]', '' }
   if (-not $u -or $f -or $web.ExitCode -ne 0) { "LIVE TEST FAILED"; exit 1 }
   "LIVE TEST PASSED ($tag, lobby $Lobby)"

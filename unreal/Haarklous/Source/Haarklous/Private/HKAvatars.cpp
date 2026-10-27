@@ -40,7 +40,7 @@ namespace
 		T.V0_Pos = A * S; T.V1_Pos = B * S; T.V2_Pos = D * S;
 		T.V0_Color = T.V1_Color = T.V2_Color = Color;
 		Tris.Add(T);
-		FCanvasTriangleItem Item(Tris, nullptr);
+		FCanvasTriangleItem Item(Tris, GWhiteTexture);
 		Item.BlendMode = SE_BLEND_Translucent;
 		C->DrawItem(Item);
 	}

@@ -105,7 +105,10 @@ try {
       check('unrealDrives3', mp.occupant(3, 'd') === U.id && mp.remoteDriven(3), 'vehicle 3 driver ' + mp.occupant(3, 'd'));
       if (r && r.st && r.st.v === 3) check('unrealSeatedIn3', Math.hypot(r.av.group.position.x - v3.x, r.av.group.position.z - v3.z) < 3, 'avatar at the car seat');
       check('vehicle3Moved', mp.remoteDriven(3) && Math.hypot(v3.x - 4, v3.z - 38) < 1.5, 'car 3 at (' + v3.x.toFixed(2) + ', ' + v3.z.toFixed(2) + ')');
-      check('unrealDone', chatText().includes('done-unreal'));
+      check('unrealDone', chatText().includes(${JSON.stringify(process.argv.includes('--game') ? 'done-game' : 'done-unreal')}));
+      // --game: the real game (-hktest=online) instead of the test client.
+      check('gameChat', chatText().includes('hello from the game'));
+      if (r && r.st) check('gameState', r.seen && r.av.group.visible && r.st.p && Math.hypot(r.st.p[0] + 1, r.st.p[2] - 32.5) < 1.5, 'p = ' + JSON.stringify(r.st.p) + ' st ' + r.st.st + ' y ' + r.st.y);
     }, 100);
     return 0;
   })()`;
@@ -140,19 +143,21 @@ try {
   })()`;
   const voiceMode = process.argv.includes('--voice');
   await evaluate(voiceMode ? voiceSetup : setup);
+  const gameMode = process.argv.includes('--game');
   const names = voiceMode ? ['online', 'sawUnreal', 'micOn', 'peerConnected', 'heardUnreal', 'unrealHeardWeb'] :
+    gameMode ? ['online', 'sawUnreal', 'claim5', 'gameState', 'gameChat'] :
     ['online', 'sawUnreal', 'claim5', 'unrealState', 'unrealAvatarVisible', 'unrealChat', 'unrealDoor', 'fireShared', 'unrealDrives3', 'unrealSeatedIn3', 'vehicle3Moved'];
   let shot = false, doneSent = false;
   const tw = Date.now();
   for (;;) {
     const W = await evaluate('JSON.parse(JSON.stringify({seen: __hkTest.seen, notes: __hkTest.notes, log: __hkTest.log}))');
     // A picture of the Unreal player's avatar (with name tag and chat bubble) as the web client sees it.
-    if (!voiceMode && !shot && W.seen.unrealAvatarVisible !== undefined && W.seen.unrealChat !== undefined) {
+    if (!voiceMode && !shot && W.seen.unrealAvatarVisible !== undefined && (W.seen.unrealChat ?? W.seen.gameChat) !== undefined) {
       shot = true;
       await evaluate(`(() => {const G = haarklousGame, r = [...G.mp.remotes.values()][0];if (!r) return 0;const p = G.player;p.yaw = Math.atan2(-(r.pos.x - p.x), -(r.pos.z - p.z));p.pitch = -.05;return 0;})()`);
       await sleep(1200);
       const png = await send('Page.captureScreenshot', {format: 'png'});
-      fs.writeFileSync(path.join(outDir, `web-sees-unreal-${mode}.png`), Buffer.from(png.data, 'base64'));
+      fs.writeFileSync(path.join(outDir, `web-sees-unreal-${mode}${gameMode ? "-game" : ""}.png`), Buffer.from(png.data, 'base64'));
       L('screenshot saved');
     }
     const all = names.every(n => W.seen[n] !== undefined);
@@ -174,7 +179,7 @@ try {
 } catch (e) {
   L('error: ' + e.message);result.error = e.message;
 } finally {
-  fs.writeFileSync(path.join(outDir, `web-client-${mode}${process.argv.includes('--voice') ? '-voice' : ''}.json`), JSON.stringify(result, null, 1));
+  fs.writeFileSync(path.join(outDir, `web-client-${mode}${process.argv.includes('--voice') ? '-voice' : process.argv.includes('--game') ? '-game' : ''}.json`), JSON.stringify(result, null, 1));
   try {ws && ws.close();} catch {}
   proc.kill();
   await sleep(500);
