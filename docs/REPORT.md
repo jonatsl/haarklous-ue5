@@ -79,6 +79,8 @@ every check in every play-through.
 | `activities` | watch, photo camera and gallery, gear menu, FPV drone, map, quick chat, log on the fire, sitting and a beer, disc golf, petanque | 11 / 11 checks, 12 screenshots |
 | `mission` | prompt in the red ring, briefing, play, aim, fire, pause, leave | 3 / 3 checks, 6 screenshots |
 | `drunk` | the drunk blur and double image at 30 s and 90 s | 7 screenshots, checked by eye |
+| `menus` | keyboard and mouse: Enter starts, W walks at 1.45 m/s and Shift + W runs at 3.60 m/s (measured), Space jumps, C crouches, Z lies prone, mouse look, M map, Escape pause; pause menu: D-pad music volume, three sliders dragged with the mouse, graphics quality Fast/Balanced/Sharp (65/75/100 %), settings saved to settings.ini, Resume | 21 / 21 checks offline |
+| `menus` with online on | the same, plus the lobby section on the test server: own code, controller code pad joins BAAA, □ back home, typing "cdef" + Enter joins CDEF, "Back to my own lobby", name field, voice checkbox turns the microphone on | 28 / 28 checks |
 | `shots` | tour of the world for checking the graphics | 14 screenshots, checked by eye |
 
 ![Walking home: the street door prompt](img/walkhome--01-street-door.jpg)
@@ -92,6 +94,8 @@ every check in every play-through.
 ![Disc golf](img/activities--11-discgolf-flight.jpg)
 ![Petanque against Arne](img/activities--12-petanque.jpg)
 ![Hostage rescue: aiming](img/mission--03-aim.jpg)
+![Pause menu with the lobby section (online, test server)](img/menus--04-lobby-section.jpg)
+![The controller code pad](img/menus--05-code-pad.jpg)
 
 ### Online, on the test server only
 
@@ -99,9 +103,11 @@ The cloud server was copied unchanged to `server/` with only the Worker name cha
 tested with `npx wrangler dev`, then deployed to your Cloudflare account at
 `haarklous-ue5-test.server-smoke.workers.dev`. The live game `haarklous-online` was never touched or contacted.
 The real Unreal game and the web game served by the test Worker joined one lobby by its code and ran a scripted
-session twice in a row, both times with 0 failures:
+session (`tools
+et-testun-live.ps1 -Mode deployed -Game`) three times, each with 0 failures; the last run was on
+the final build (27 Oct 2026, lobby BG28):
 
-- **Join by code:** both in lobby G3M8 (and BNU7 in the other run).
+- **Join by code:** both in one lobby (G3M8, BNU7 and BG28 in the three runs).
 - **Chat** both ways.
 - **Doors:** the web opened a door and Unreal showed it open; Unreal opened one and the web showed it open.
 - **Firepit:** one log from each side; both sides show the same fire level.
@@ -114,6 +120,10 @@ session twice in a row, both times with 0 failures:
 - **Voice:** Unreal's microphone (a 440 Hz test tone) was heard by the web game (RMS 0.21, about 434 Hz), and Unreal
   heard the web's microphone (RMS 0.07). Voice uses the web's own `game-voice.js` in a hidden browser inside the game,
   so it is the same WebRTC voice as the web version.
+- **Pause-menu lobby controls** (play-through `menus` with online on, see above): the code pad, typing a code, going
+  back home, the name field and the microphone checkbox all work against the test server. This run also found and
+  fixed a real bug: Unreal's config reader cut the server address at the `//` in `wss://`, so online switched on in the
+  config file (rather than on the command line) could not connect.
 
 ![Unreal sees the web player walking](img/net--A1-game-sees-web-walking.jpg)
 ![Unreal rides in the car the web player drives](img/net--B1-game-passenger-seat-web-driving.jpg)
@@ -155,6 +165,9 @@ The "Fast" (65 %, no shadows) and "Sharp" (100 %) settings were not measured.
   petanque never ends after 13 points, petanque can freeze when no boule is left, and vehicle obstacles appear one
   update late. Fixing them is a small change in both games once you say yes.
 - Web pull request #4 (hidden stashes with boosts) was not in the snapshot; refresh the snapshot when it is merged.
+- Decide whether you want the web's "aerial imagery" checkbox back. The web only shows Esri aerial photos when it is
+  online; Unreal draws real ground materials instead, so the option was left out. Bringing it back means downloading
+  the photos while the game runs.
 
 ## Differences from the web that are only about looks
 
@@ -162,5 +175,6 @@ The "Fast" (65 %, no shadows) and "Sharp" (100 %) settings were not measured.
   photos) is not used.
 - Clouds come from the web's own sky formula but sit over a physical sky; the far hills and fjord are the web's
   shapes.
+- The pause menu shrinks to fit the window (the web's panel scrolled instead), so Resume is always visible.
 - Lamp globes do not cast shadows, the apartment rooms get soft fill light (the web used a hemisphere light that
   shines through walls), and the stairwell lamps are lit on every landing (baked) instead of one lamp following you.

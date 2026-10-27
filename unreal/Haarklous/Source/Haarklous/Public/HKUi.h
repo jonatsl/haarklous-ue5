@@ -22,6 +22,7 @@ struct HAARKLOUS_API FHKUi
 	static const FLinearColor Warn;
 	static const FLinearColor Good;
 
+	static float Zoom;                                           // extra scale for a menu that must fit the screen (1 = none)
 	static float Scale(const UCanvas* C);                       // real pixels per UI pixel
 	static FVector2D Size(const UCanvas* C);                    // screen size in UI pixels
 	static void Rect(UCanvas* C, float X, float Y, float W, float H, const FLinearColor& Color);

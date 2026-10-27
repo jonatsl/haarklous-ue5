@@ -38,7 +38,8 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
 - Commands: see README "How it is built". Builds, tests and Unreal Python runs share one lock file (several helpers may run).
 - Helper sessions worked in git worktrees under `.claude/worktrees/` (ignored by git); all their branches are merged into `main` and the worktrees removed (27 Oct 2026).
 - Play-throughs (`tools\run-game.ps1 -Test <name>`, scripts in `HKTestScripts.cpp` / `HKOnlineTestScript.cpp`): `shots`
-  (tour of the world), `walkhome`, `vehicles`, `activities`, `mission`, `drunk`, `fps` (frame rate in the busiest
+  (tour of the world), `walkhome`, `vehicles`, `activities`, `mission`, `drunk`, `menus` (keyboard, mouse, pause menu,
+  settings; add `-Extra "-HKOnline -HKVoiceTone"` for the lobby section on the test server), `fps` (frame rate in the busiest
   places), `online` (via `tools\net-test\run-live.ps1`, test server only).
 - Look decisions (sky, horizon, lamp globes without shadows, ground, trees): `docs/ARCHITECTURE.md` "Look of the world".
 - Bugs found in the web game and ideas (not changed without the user's OK): `docs/GAMEPLAY-IDEAS.md`.

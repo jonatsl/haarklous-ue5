@@ -73,6 +73,14 @@ namespace
 
 void AHKGame::RegisterClickable(const FString& Id, float X, float Y, float W, float H) { Clickable(Id, X, Y, W, H); }
 
+bool AHKGame::MenuRect(const FString& Id, FVector2D& Pos, FVector2D& Size)
+{
+	const FHit* H = GHits.FindByPredicate([&Id](const FHit& X) { return X.Id == Id; });
+	if (!H) return false;
+	Pos = FVector2D(H->X, H->Y); Size = FVector2D(H->W, H->H);
+	return true;
+}
+
 void AHKGame::DrawHud(UCanvas* C)
 {
 	if (!C) return;
@@ -152,10 +160,12 @@ void AHKGame::DrawStart(UCanvas* C)
 
 void AHKGame::DrawPause(UCanvas* C)
 {
+	FHKUi::Rect(C, 0, 0, FHKUi::Size(C).X, FHKUi::Size(C).Y, FLinearColor(FColor(0x0b, 0x0f, 0x13, 0xb8)));
+	FHKUi::Zoom = PauseZoom;
 	const FVector2D Sz = FHKUi::Size(C);
-	FHKUi::Rect(C, 0, 0, Sz.X, Sz.Y, FLinearColor(FColor(0x0b, 0x0f, 0x13, 0xb8)));
-	const float W = 700, X = Sz.X / 2 - W / 2, H = FMath::Min(Sz.Y - 40, 1040.f);
+	const float W = 700, X = Sz.X / 2 - W / 2, H = PauseContentH > 0 ? PauseContentH : FMath::Min(Sz.Y - 40, 1040.f);
 	float Y = Sz.Y / 2 - H / 2;
+	const float Top = Y;
 	FHKUi::Panel(C, X, Y, W, H, FLinearColor(FColor(0x11, 0x16, 0x1c, 0xf4)), 12);
 	const float Ix = X + 26, Iw = W - 52;
 	Y += 20;
@@ -168,7 +178,8 @@ void AHKGame::DrawPause(UCanvas* C)
 	FString Title; double Len = 0;
 	FHKMusic::Get().Position(Title, Len);
 	const FString Now = Title.IsEmpty() ? FString(TEXT("–")) : FString::Printf(TEXT("%s (%d:%02d loop)"), *Title, (int32)(Len / 60), (int32)HK::JsRound(FMath::Fmod(Len, 60.0)));
-	FHKUi::Text(C, TEXT("Controller: D-pad ←/→ changes the music volume. Now playing: ") + Now, Ix, Y, 14, FHKUi::TextDim); Y += 30;
+	for (const FString& L : FHKUi::Wrap(C, TEXT("Controller: D-pad ←/→ changes the music volume. Now playing: ") + Now, 14, Iw)) { FHKUi::Text(C, L, Ix, Y, 14, FHKUi::TextDim); Y += 19; }
+	Y += 11;
 	// Multiplayer section (drawn by the online module when it is merged).
 	if (DrawLobby) Y = DrawLobby(C, Ix, Y, Iw);
 	// Graphics quality: Fast (no shadows) / Balanced / Sharp.
@@ -183,12 +194,20 @@ void AHKGame::DrawPause(UCanvas* C)
 	FHKUi::Text(C, TEXT("Map data © OpenStreetMap contributors (ODbL) · Height data © Kartverket (CC BY 4.0)"), Ix, Y, 13, FHKUi::TextDim); Y += 24;
 	float Bw;
 	Button(C, TEXT("resume"), TEXT("Resume"), Ix, Y, Bw);
+	// Next frame: a panel as tall as its content, zoomed out when that is taller than the screen (16 px margins).
+	// Text wrapping depends a little on the zoom, so the zoom only changes when the panel no longer fits (less than
+	// 16 px to spare) or has lots of room (over 120 px); in between it stays put and the buttons do not drift.
+	PauseContentH = Y + 40 + 24 - Top;
+	const float Room = 1080.f / PauseZoom - PauseContentH;
+	if (Room < 16 || (Room > 120 && PauseZoom < 1)) PauseZoom = FMath::Min(1.f, 1080.f / (PauseContentH + 32));
 	// Mouse cursor.
-	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
+	if (TestMenuMouse.IsSet()) MenuMouse = *TestMenuMouse;
+	else if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
 	{
 		float Mx, My;
 		if (PC->GetMousePosition(Mx, My)) { const float S = FHKUi::Scale(C); MenuMouse = FVector2D(Mx / S, My / S); }
 	}
+	FHKUi::Zoom = 1;
 }
 
 void AHKGame::PauseInput(double Dt)

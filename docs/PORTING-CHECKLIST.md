@@ -24,7 +24,8 @@ simulated DualShock 4 (`tools\run-game.ps1 -Test <name>`, `HKTestScripts.cpp`), 
 ## Player (`AHKGame::UpdateFoot`, `FHKWalkWorld`)
 - [x] First person; walk 1.45 / run 3.6 m/s, crouch and prone, jump 3.1 m/s. — `HKGame.cpp` (port of `updateFoot`);
   play-through `walkhome` (street door → 4 storeys → flat, feet 0.00 m on the 4th floor).
-- [x] Look sensitivity (controller and mouse), saved. — `AHKGame::SetSens`, `Saved/Haarklous/settings.ini`; pause menu sliders.
+- [x] Look sensitivity (controller and mouse), saved. — `AHKGame::SetSens`, `Saved/Haarklous/settings.ini`; play-through
+  `menus` (sliders dragged with the mouse to 1.70× and 0.80×, saved to settings.ini; mouse look turns −0.0024 rad per pixel).
 - [x] Collision: walls, steps 0.36 m, doors as moving obstacles. — `FHKWalkWorld` (port of `walk-collision.js`): test
   `World.WalkCollision` – 2500 moves (largest difference 0 m), 3000 stand/support/ceiling checks, 2000 hit checks,
   150 spawns, 483 boundary pieces all identical; doors in `UpdateDynamic`.
@@ -72,15 +73,29 @@ simulated DualShock 4 (`tools\run-game.ps1 -Test <name>`, `HKTestScripts.cpp`), 
 
 ## Online (built, off by default; tested only against `haarklous-ue5-test`)
 - [x] Lobby client with the same protocol, own code, join by code, up to 5 players. — `FHKNet`; tests `Net.*`
-  (wire JSON byte-identical, 219/219 session steps identical); live tests on `wrangler dev` and the deployed test server.
+  (wire JSON byte-identical, 219/219 session steps identical); live tests on `wrangler dev` and the deployed test server
+  (play-through `online`: the real game and the web game in one lobby, twice in a row, 0 failures).
 - [x] Remote avatars with name tags and bubbles, smoothed vehicles, one driver and one passenger, shared doors and fire. —
-  `FHKMultiplayer`, `HKAvatars`, `AHKOnline`; live tests (see `docs/ONLINE.md`).
+  `FHKMultiplayer`, `HKAvatars`, `AHKOnline`; play-through `online` on the test server: the web player's avatar seen
+  walking (up to 1.57 m/s) and seen by the web, Unreal rides in the web player's car (8.0 m), the web player rides
+  pillion on Unreal's motorcycle (avatar 0.000 m from the seat), a door opened on each side, a log on the fire from
+  each side (same level); test `Net.AvatarPoses`.
 - [x] Chat and voice. — chat in `HKGameExtras.cpp`; voice = the web's own `game-voice.js` in a hidden browser page
-  (`FHKWebVoice`, `Content/Web/voice`), tested both ways with a test tone and Chrome's fake microphone.
-- [x] Settings: lobby code, join by code (controller code pad), name, voice. — `AHKOnline` pause-menu section.
+  (`FHKWebVoice`, `Content/Web/voice`). Play-through `online`: chat both ways, voice both ways (test tone heard by the
+  web at RMS 0.21, the web's fake microphone heard at RMS 0.07); tests `Net.Voice`, `Net.VoicePage`; quick chat offline
+  in play-through `activities`.
+- [x] Settings: lobby code, join by code (controller code pad), name, voice. — `AHKOnline` pause-menu section;
+  play-through `menus` with `-HKOnline` on the test server: own code shown, △ code pad joins BAAA, □ back home, typed
+  code "cdef" + Enter joins CDEF, "Back to my own lobby" button, name field, voice checkbox turns the microphone on.
 
 ## Controls and screens
 - [x] DualShock 4 (USB and Bluetooth) with the web mapping, plus keyboard and mouse. — `FHKInputProcessor` (raw HID
-  reports, XInput fallback, keyboard/mouse like `readInput`); tests `Input.*`. **Still to do by the user: a real DualShock 4.**
-- [x] Start screen, pause/settings (sensitivity, music volume, graphics quality), credits. — `HKGameHud.cpp`
-  (`00-start-screen`). The web's "aerial imagery" option is not used: the ground has real materials instead.
+  reports, XInput fallback, keyboard/mouse like `readInput`); tests `Input.DualShock4Reports`, `Input.StandardMapping`;
+  every play-through drives the game with a simulated DualShock 4; play-through `menus` uses keyboard and mouse
+  (Enter starts, W walks 1.45 m/s, Shift + W runs 3.60 m/s, Space jumps, C crouches, Z prone, M map, Escape pause,
+  mouse look and clicks). **Still to do by the user: a real DualShock 4.**
+- [x] Start screen, pause/settings (sensitivity, music volume, graphics quality), credits. — `HKGameHud.cpp`;
+  play-through `menus`: start screen, pause with Escape, D-pad ←/→ music volume ±0.1, sliders, graphics quality
+  Balanced → Sharp (100 %) → Fast (65 %) → Balanced (75 %), settings saved to settings.ini, Resume; the map-data credits
+  are on the start screen and in the pause menu. The web's "aerial imagery" option is not used: the ground has real
+  materials instead.

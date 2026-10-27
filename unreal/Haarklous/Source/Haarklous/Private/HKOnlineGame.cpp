@@ -247,9 +247,10 @@ float AHKOnline::DrawLobby(UCanvas* C, float X, float Y, float W)
 	Y += 30;
 	FHKUi::Text(C, N.StatusText(), X, Y, 14, FHKUi::TextDim); Y += 24;
 	FHKUi::Text(C, TEXT("Your lobby code"), X, Y + 4, 16);
-	FHKUi::Text(C, N.GetOwnCode(), X + 140, Y, 24, FHKUi::Accent, EHKAlign::Left, true); Y += 36;
+	FHKUi::Text(C, N.GetOwnCode(), X + FHKUi::Measure(C, TEXT("Your lobby code"), 16).X + 14, Y, 24, FHKUi::Accent, EHKAlign::Left, true); Y += 36;
 	FHKUi::Text(C, N.WhereText(), X, Y, 14, FHKUi::TextDim); Y += 22;
-	FHKUi::Text(C, TEXT("Share link: ") + N.Link(), X, Y, 14, FHKUi::TextDim); Y += 28;
+	for (const FString& L : FHKUi::Wrap(C, TEXT("Share link: ") + N.Link(), 14, W)) { FHKUi::Text(C, L, X, Y, 14, FHKUi::TextDim); Y += 19; }
+	Y += 9;
 	// Join field + buttons.
 	float Bw = 0;
 	const bool bCode = Edit == EEdit::Code;
@@ -293,6 +294,7 @@ float AHKOnline::DrawLobby(UCanvas* C, float X, float Y, float W)
 		FHKUi::Text(C, P.Name + (P.Id == N.You() ? TEXT(" (you)") : TEXT("")) + (P.bMic ? TEXT("  · mic on") : TEXT("")), X + 22, Y, 15);
 		Y += 24;
 	}
-	FHKUi::Text(C, TEXT("Controller: △ enter a lobby code · □ back to your own lobby · Share: quick chat in the game · Keyboard: Enter or T to chat"), X, Y + 4, 13, FHKUi::TextDim);
-	return Y + 30;
+	Y += 4;
+	for (const FString& L : FHKUi::Wrap(C, TEXT("Controller: △ enter a lobby code · □ back to your own lobby · Share: quick chat in the game · Keyboard: Enter or T to chat"), 13, W)) { FHKUi::Text(C, L, X, Y, 13, FHKUi::TextDim); Y += 18; }
+	return Y + 8;
 }

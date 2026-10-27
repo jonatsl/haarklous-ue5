@@ -27,7 +27,8 @@ namespace
 	struct FView { FVector Pos = FVector::ZeroVector; FRotator Rot = FRotator::ZeroRotator; float Fov = 70; FVector2D Px = FVector2D(1920, 1080); } GView;
 }
 
-float FHKUi::Scale(const UCanvas* C) { return C ? C->ClipY / 1080.f : 1.f; }
+float FHKUi::Zoom = 1.f;
+float FHKUi::Scale(const UCanvas* C) { return C ? C->ClipY / 1080.f * Zoom : Zoom; }
 FVector2D FHKUi::Size(const UCanvas* C) { const float S = Scale(C); return C ? FVector2D(C->ClipX / S, C->ClipY / S) : FVector2D(1920, 1080); }
 
 void FHKUi::Rect(UCanvas* C, float X, float Y, float W, float H, const FLinearColor& Color)

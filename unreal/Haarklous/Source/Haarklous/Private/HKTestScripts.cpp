@@ -1,12 +1,19 @@
 // Scripted play-throughs (run with -hktest=<name>). Positions are in the web frame; buttons use the standard mapping:
 // 0 cross, 1 circle, 2 square, 3 triangle, 4 L1, 5 R1, 6 L2, 7 R2, 8 share, 9 options, 10 L3, 11 R3, 12-15 D-pad, 16 PS, 17 touchpad.
 #include "HKTestDriver.h"
+#include "HKAudio.h"
 #include "HKData.h"
 #include "HKGame.h"
 #include "HKInput.h"
 #include "HKMath.h"
+#include "HKNet.h"
+#include "HKOnlineGame.h"
 #include "HKVehicles.h"
 #include "Engine/Engine.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
@@ -127,6 +134,187 @@ namespace
 				T.Wait(.5); T.Shot(TEXT("04-drunk-90s-sp100"));
 				T.Do([&T]() { GEngine->Exec(T.GetWorld(), TEXT("r.ScreenPercentage 75")); T.Game()->Drunk = 0; });
 				T.Wait(.5); T.Shot(TEXT("05-sober-again"));
+			});
+
+			// Keyboard and mouse, the pause menu and its settings (saved to settings.ini), and with -HKOnline the lobby
+			// section: own code, the controller code pad, typing a code, back home, the name field and the microphone.
+			FHKTestScripts::All().Add(TEXT("menus"), [](AHKTestDriver& T)
+			{
+				const FString SettingsFile = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Haarklous"), TEXT("settings.ini"));
+				TSharedPtr<TOptional<FString>> Before = MakeShared<TOptional<FString>>();
+				TSharedPtr<FString> OldName = MakeShared<FString>();
+				T.Do([SettingsFile, Before]() { FString S; if (FFileHelper::LoadFileToString(S, *SettingsFile)) *Before = S; });
+				auto In = []() { return FHKInputProcessor::Get(); };
+				// The lobby section is drawn offline too (like the web); its steps run only with -HKOnline.
+				const bool bOnline = FParse::Param(FCommandLine::Get(), TEXT("HKOnline"));
+				// Point the menu mouse at a fraction across a menu item and click (hold for sliders).
+				auto Click = [&T, In, bOnline](const FString& Id, double Fx)
+				{
+					TSharedPtr<bool> Found = MakeShared<bool>(false);
+					T.Do([&T, Id, Fx, Found, bOnline]()
+					{
+						FVector2D P, S;
+						*Found = (bOnline || !Id.StartsWith(TEXT("mp"))) && AHKGame::MenuRect(Id, P, S);
+						if (*Found) T.Game()->TestMenuMouse = FVector2D(P.X + 6 + Fx * (S.X - 12), P.Y + S.Y / 2);
+						else UE_LOG(LogTemp, Display, TEXT("HK-TEST no menu item %s (not clicked)"), *Id);
+					});
+					T.Wait(.1);
+					// Aim again from the latest layout, let the menu draw once with it, then press.
+					T.Do([&T, Id, Fx, Found]()
+					{
+						FVector2D P, S;
+						if (*Found && AHKGame::MenuRect(Id, P, S)) T.Game()->TestMenuMouse = FVector2D(P.X + 6 + Fx * (S.X - 12), P.Y + S.Y / 2);
+					});
+					T.Wait(.1);
+					T.Do([In, Found]() { if (auto I = In(); I && *Found) I->SimulateMouse(0, 0, 0, true); });
+					T.Wait(.15);
+					T.Do([In, Found]() { if (auto I = In(); I && *Found) I->SimulateMouse(0, 0, 0, false); });
+					T.Wait(.15);
+				};
+				// Hold keys for a stretch of game time (the game caps each frame at 50 ms like the web, so slow frames
+				// move less per real second); the game time used is logged with the distance.
+				TSharedPtr<double> Held = MakeShared<double>(0);
+				auto HoldKeys = [&T, In, Held](TArray<FString> Codes, double GameSeconds)
+				{
+					T.Do([In, Codes, Held]() { *Held = 0; if (auto I = In()) for (const FString& C : Codes) I->SimulateKey(C, true); });
+					T.Steps.Add([In, Codes, Held, GameSeconds](double Dt)
+					{
+						*Held += FMath::Min(Dt, .05);
+						if (*Held < GameSeconds) return false;
+						if (auto I = In()) for (const FString& C : Codes) I->SimulateKey(C, false);
+						return true;
+					});
+					T.Wait(.2);
+				};
+				TSharedPtr<FVector> P0 = MakeShared<FVector>();
+				auto Mark = [&T, P0]() { T.Do([&T, P0]() { const AHKGame* G = T.Game(); *P0 = FVector(G->Player.X, G->Player.Z, G->Player.Yaw); }); };
+				auto Moved = [&T, P0]() { const AHKGame* G = T.Game(); return HK::Hypot(G->Player.X - P0->X, G->Player.Z - P0->Y); };
+
+				T.Wait(3);
+				T.Shot(TEXT("01-start-screen"));
+				T.Key(TEXT("Enter"));
+				T.Wait(1);
+				T.Expect(TEXT("keyboard: Enter starts the game"), [&T]() { return T.Game()->bStarted; });
+				// Open lawn in Torshovdalen, facing along the slope.
+				T.Do([&T]() { const FVector2D W = FHKData::Get().ToWorld(110, 40); T.Game()->Place(W.X, W.Y, 0); });
+				T.Wait(.5);
+				// W walks at 1.45 m/s, Shift + W runs at 3.6 m/s (game-main.js updateFoot).
+				Mark(); HoldKeys({TEXT("KeyW")}, 1.0);
+				T.Log([Moved, Held]() { return FString::Printf(TEXT("W for %.2f s of game time: %.2f m (%.2f m/s)"), *Held, Moved(), Moved() / *Held); });
+				T.Expect(TEXT("keyboard: W walks at 1.45 m/s"), [Moved, Held]() { return FMath::Abs(Moved() / *Held - 1.45) < .1; });
+				Mark(); HoldKeys({TEXT("ShiftLeft"), TEXT("KeyW")}, 1.0);
+				T.Log([Moved, Held]() { return FString::Printf(TEXT("Shift + W for %.2f s of game time: %.2f m (%.2f m/s)"), *Held, Moved(), Moved() / *Held); });
+				T.Expect(TEXT("keyboard: Shift + W runs at 3.6 m/s"), [Moved, Held]() { return FMath::Abs(Moved() / *Held - 3.6) < .25; });
+				T.Key(TEXT("Space"), .05);
+				T.Expect(TEXT("keyboard: Space jumps"), [&T]() { return T.Game()->Player.JumpY > .05 || T.Game()->Player.JumpV != 0; });
+				T.Wait(1);
+				T.Key(TEXT("KeyC"));
+				T.Wait(.3);
+				T.Expect(TEXT("keyboard: C crouches"), [&T]() { return T.Game()->Player.Stance == TEXT("crouch"); });
+				T.Key(TEXT("KeyC"));
+				T.Key(TEXT("KeyZ"));
+				T.Wait(.3);
+				T.Expect(TEXT("keyboard: Z lies prone"), [&T]() { return T.Game()->Player.Stance == TEXT("prone"); });
+				T.Key(TEXT("KeyZ"));
+				T.Wait(.3);
+				T.Expect(TEXT("back on your feet"), [&T]() { return T.Game()->Player.Stance == TEXT("stand"); });
+				// Mouse look: yaw -= dx * .0024 * mouse sensitivity.
+				Mark();
+				T.Do([In]() { if (auto I = In()) I->SimulateMouse(200, 0, -1, false); });
+				T.Wait(.2);
+				T.Expect(TEXT("mouse: 200 px to the right turns -0.48 rad at sensitivity 1"), [&T, P0]() { return FMath::Abs((T.Game()->Player.Yaw - P0->Z) + 200 * .0024 * T.Game()->Sensitivity.Mouse) < .01; });
+				T.Key(TEXT("KeyM"));
+				T.Wait(.5);
+				T.Expect(TEXT("keyboard: M opens the map"), [&T]() { return T.Game()->Map.bOpen; });
+				T.Key(TEXT("KeyM"));
+				T.Wait(.3);
+				T.Expect(TEXT("keyboard: M closes the map"), [&T]() { return !T.Game()->Map.bOpen; });
+				// Pause menu.
+				T.Key(TEXT("Escape"));
+				T.Wait(.5);
+				T.Expect(TEXT("keyboard: Escape pauses"), [&T]() { return T.Game()->bPaused; });
+				T.Shot(TEXT("02-pause"));
+				TSharedPtr<double> Vol = MakeShared<double>();
+				T.Do([Vol]() { *Vol = FHKMusic::Get().GetVolume(); });
+				T.Press(15);
+				T.Expect(TEXT("controller: D-pad right raises the music volume by 0.1"), [Vol]() { return FMath::Abs(FHKMusic::Get().GetVolume() - FMath::Min(1.0, *Vol + .1)) < .001; });
+				T.Press(14);
+				T.Expect(TEXT("controller: D-pad left lowers it again"), [Vol]() { return FMath::Abs(FHKMusic::Get().GetVolume() - *Vol) < .001; });
+				Click(TEXT("sensPad"), .52);
+				T.Log([&T]() { return FString::Printf(TEXT("sliders: pad %.2f, menu zoom %.3f, content %.0f"), T.Game()->Sensitivity.Pad, T.Game()->PauseZoom, T.Game()->PauseContentH); });
+				T.Expect(TEXT("mouse: controller sensitivity slider at 52 % = 1.70"), [&T]() { return FMath::Abs(T.Game()->Sensitivity.Pad - 1.7) < .001; });
+				Click(TEXT("sensMouse"), .2);
+				T.Expect(TEXT("mouse: mouse sensitivity slider at 20 % = 0.80"), [&T]() { return FMath::Abs(T.Game()->Sensitivity.Mouse - .8) < .001; });
+				Click(TEXT("musicVol"), .31);
+				T.Expect(TEXT("mouse: music volume slider at 31 % = 0.30"), []() { return FMath::Abs(FHKMusic::Get().GetVolume() - .3) < .001; });
+				Click(TEXT("quality"), .5);
+				T.Expect(TEXT("graphics: Balanced -> Sharp (100 %)"), [&T]() { return T.Game()->Quality == 2 && IConsoleManager::Get().FindConsoleVariable(TEXT("r.ScreenPercentage"))->GetFloat() == 100; });
+				Click(TEXT("quality"), .5);
+				T.Expect(TEXT("graphics: Sharp -> Fast (65 %)"), [&T]() { return T.Game()->Quality == 0 && IConsoleManager::Get().FindConsoleVariable(TEXT("r.ScreenPercentage"))->GetFloat() == 65; });
+				Click(TEXT("quality"), .5);
+				T.Expect(TEXT("graphics: Fast -> Balanced (75 %)"), [&T]() { return T.Game()->Quality == 1 && IConsoleManager::Get().FindConsoleVariable(TEXT("r.ScreenPercentage"))->GetFloat() == 75; });
+				T.Expect(TEXT("settings saved to settings.ini"), [SettingsFile]()
+				{
+					FString S;
+					return FFileHelper::LoadFileToString(S, *SettingsFile) && S.Contains(TEXT("look-sensitivity-pad=1.7")) && S.Contains(TEXT("look-sensitivity-mouse=0.8")) && S.Contains(TEXT("quality=1")) && S.Contains(TEXT("music-volume=0.3"));
+				});
+				T.Shot(TEXT("03-settings-changed"));
+				// The lobby section (only with -HKOnline; the test server from DefaultGame.ini).
+				auto Net = [&T, bOnline]() -> const FHKNet* { AHKOnline* O = T.Game()->GetOnline(); return bOnline && O && O->Mp() ? &O->Mp()->Net() : nullptr; };
+				T.Do([&T, Net]() { UE_LOG(LogTemp, Display, TEXT("HK-TEST online section: %s"), Net() ? TEXT("on (test server)") : TEXT("off, skipped")); });
+				TSharedPtr<FString> Own = MakeShared<FString>();
+				T.Do([&T, OldName]() { AHKOnline* O = T.Game()->GetOnline(); if (O && O->Mp()) *OldName = O->Mp()->Net().GetName(); });
+				auto IfOnline = [&T, Net](TFunction<void()> Fn) { T.Do([Net, Fn]() { if (Net()) Fn(); }); };
+				auto WaitOnline = [&T, Net](const FString& What, double MaxS, TFunction<bool(const FHKNet&)> Fn)
+				{
+					TSharedPtr<double> W = MakeShared<double>(0);
+					T.Steps.Add([Net, W, MaxS, Fn](double Dt) { *W += Dt; return !Net() || Fn(*Net()) || *W > MaxS; });
+					T.Do([&T, Net, What, Fn]() { if (Net()) { const bool bOk = Fn(*Net()); if (!bOk) T.Failures++; UE_LOG(LogTemp, Display, TEXT("HK-TEST %s %s  (%s)"), bOk ? TEXT("PASS") : TEXT("FAIL"), *What, *Net()->StatusText()); } });
+				};
+				WaitOnline(TEXT("online: in your own lobby with a 4-character code"), 20, [](const FHKNet& N) { return N.Online() && N.GetOwnCode().Len() == 4 && N.GetCode() == N.GetOwnCode(); });
+				IfOnline([Net, Own]() { *Own = Net()->GetOwnCode(); UE_LOG(LogTemp, Display, TEXT("HK-TEST own lobby code %s"), **Own); });
+				T.Shot(TEXT("04-lobby-section"));
+				// Controller code pad: triangle opens it at AAAA, up turns the first letter to B, cross joins BAAA.
+				T.Press(3);
+				T.Press(12);
+				T.Shot(TEXT("05-code-pad"));
+				T.Press(0);
+				WaitOnline(TEXT("online: the code pad joined lobby BAAA"), 20, [](const FHKNet& N) { return N.Online() && N.GetCode() == TEXT("BAAA"); });
+				T.Shot(TEXT("06-joined-by-code"));
+				T.Press(2);
+				WaitOnline(TEXT("online: square goes back to your own lobby"), 20, [Own](const FHKNet& N) { return N.Online() && N.GetCode() == *Own; });
+				// Keyboard: type a code into the field (lower case is accepted) and press Enter.
+				Click(TEXT("mpJoinCode"), .5);
+				IfOnline([In]() { if (auto I = In()) { I->TypedText += TEXT("cdef"); I->TextKeys.Add(FName("Enter")); } });
+				WaitOnline(TEXT("online: typing cdef + Enter joins lobby CDEF"), 20, [](const FHKNet& N) { return N.Online() && N.GetCode() == TEXT("CDEF"); });
+				Click(TEXT("mpHome"), .5);
+				WaitOnline(TEXT("online: the 'Back to my own lobby' button goes home"), 20, [Own](const FHKNet& N) { return N.Online() && N.GetCode() == *Own; });
+				// Name field.
+				Click(TEXT("mpName"), .5);
+				IfOnline([In]() { if (auto I = In()) { I->TypedText += TEXT(" 2"); I->TextKeys.Add(FName("Enter")); } });
+				T.Wait(.5);
+				WaitOnline(TEXT("online: the name field adds to the name and Enter keeps it"), 5, [](const FHKNet& N) { return N.GetName().EndsWith(TEXT(" 2")); });
+				// Microphone (a test tone with -HKVoiceTone).
+				Click(TEXT("mpMic"), .1);
+				T.Steps.Add([&T, bOnline, W = MakeShared<double>(0)](double Dt) { *W += Dt; AHKOnline* O = T.Game()->GetOnline(); return !bOnline || !O || !O->Mp() || O->Mp()->Mic() || *W > 15; });
+				T.Do([&T, bOnline]() { AHKOnline* O = T.Game()->GetOnline(); if (bOnline && O && O->Mp()) { const bool bOk = O->Mp()->Mic(); if (!bOk) T.Failures++; UE_LOG(LogTemp, Display, TEXT("HK-TEST %s online: the voice checkbox turns the microphone on"), bOk ? TEXT("PASS") : TEXT("FAIL")); } });
+				T.Shot(TEXT("07-mic-on"));
+				Click(TEXT("mpMic"), .1);
+				T.Wait(1);
+				// Resume with the mouse.
+				T.Log([&T]() { FVector2D P, S; AHKGame::MenuRect(TEXT("resume"), P, S); return FString::Printf(TEXT("resume button at (%.0f, %.0f) %.0fx%.0f, zoom %.3f"), P.X, P.Y, S.X, S.Y, T.Game()->PauseZoom); });
+				Click(TEXT("resume"), .5);
+				T.Wait(.3);
+				T.Expect(TEXT("mouse: Resume closes the menu"), [&T]() { return !T.Game()->bPaused; });
+				T.Do([&T, SettingsFile, Before, OldName]()
+				{
+					T.Game()->TestMenuMouse.Reset();
+					// Put the player's own settings and name back (no settings file if there was none).
+					const bool bOk = Before->IsSet() ? FFileHelper::SaveStringToFile(Before->GetValue(), *SettingsFile) : IFileManager::Get().Delete(*SettingsFile, false, true, true);
+					AHKOnline* O = T.Game()->GetOnline();
+					if (!OldName->IsEmpty() && O && O->Mp()) O->Mp()->Net().SetName(*OldName);
+					UE_LOG(LogTemp, Display, TEXT("HK-TEST settings %s (%s), name back to '%s'"), Before->IsSet() ? TEXT("restored") : TEXT("file removed"), bOk ? TEXT("ok") : TEXT("failed"), **OldName);
+				});
 			});
 
 			// Every vehicle: get in with square, drive with the simulated controller, read the HUD, get out.

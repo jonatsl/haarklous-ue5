@@ -187,6 +187,13 @@ public:
 	FString SpeedoText;                              // #speedo
 	bool bSpeedoAir = false;
 	FVector2D MenuMouse = FVector2D::ZeroVector;
+	// The pause menu shrinks to fit the screen (the web's panel scrolled instead): its height and zoom of last frame.
+	float PauseContentH = 0, PauseZoom = 1;
+	// Scripted tests: point the menu mouse somewhere instead of the OS cursor, find a menu button's rectangle (last
+	// frame, menu units), reach the online module.
+	TOptional<FVector2D> TestMenuMouse;
+	static bool MenuRect(const FString& Id, FVector2D& Pos, FVector2D& Size);
+	class AHKOnline* GetOnline() const { return Online; }
 	// Tests and photos: take over the camera pose.
 	bool bCameraOverride = false;
 	FVector OverridePos = FVector::ZeroVector;
