@@ -39,7 +39,7 @@ See `docs/ARCHITECTURE.md`. In short:
 - `powershell -File tools\build-unreal.ps1` - compile the C++ game.
 - `powershell -File tools\run-tests.ps1` - automation tests (the C++ port against the web code's own answers).
 - `powershell -File tools\run-game.ps1 -Test walkhome` - scripted play-through with a simulated DualShock 4; screenshots in `tools\out\shots\<test>`.
-- Play: `UnrealEditor.exe unreal\Haarklous\Haarklous.uproject -game` (a packaged build comes at the end).
+- `powershell -File tools\package-game.ps1` - packaged Shipping build in `dist\Haarklous-UE5\Windows\Haarklous.exe`.
 
 ## Licences of the data
 Map data © OpenStreetMap contributors (ODbL); height data © Kartverket (CC BY 4.0). Keep these credits in the game.
