@@ -1,7 +1,7 @@
 // Live voice test: the Unreal client's voice (HKVoice: the web's game-voice.js in a hidden CEF page) and a web client
 // (tools/net-test/web-client.mjs --voice, headless Chrome with a fake microphone) in one lobby on the test server.
 // Unreal sends a 440 Hz test tone; both sides must connect a WebRTC audio channel and hear the other.
-// Started by tools/net-test/run-voice.ps1 (needs rendering for CEF, so it runs with -game, not -nullrhi):
+// Started by tools/net-test/run-live.ps1 -Voice (needs rendering for CEF, so it runs with -game, not -nullrhi):
 //   -HKLiveServer=<ws(s)://...> -HKLiveLobby=<CODE> -HKLiveOut=<folder>
 #include "Misc/AutomationTest.h"
 #include "Misc/CommandLine.h"
@@ -190,7 +190,7 @@ bool FHKNetVoiceTest::RunTest(const FString& Parameters)
 	const TCHAR* Cmd = FCommandLine::Get();
 	if (!FParse::Value(Cmd, TEXT("HKLiveServer="), Run->Server, false) || !FParse::Param(Cmd, TEXT("HKVoiceTest")))
 	{
-		AddInfo(TEXT("Not run: needs -HKVoiceTest -HKLiveServer= (tools/net-test/run-voice.ps1)."));
+		AddInfo(TEXT("Not run: needs -HKVoiceTest -HKLiveServer= (tools/net-test/run-live.ps1 -Voice)."));
 		return true;
 	}
 	if (FHKNet::IsLiveServer(Run->Server)) { AddError(TEXT("Refusing to test against the live game server.")); return false; }

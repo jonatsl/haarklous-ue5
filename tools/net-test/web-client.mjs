@@ -39,7 +39,11 @@ const guard = `(() => {
     const h = new URL(url).hostname;if (h !== allow) throw new Error('blocked by the test: ' + url);
     const s = p === undefined ? new W(url) : new W(url, p);
     // Tap the lobby's fire messages for the shared-fire check.
-    s.addEventListener('message', e => {try {const m = JSON.parse(e.data);if (m.t === 'fire') (window.__hkFire = window.__hkFire || []).push(m);} catch {}});
+    s.addEventListener('message', e => {try {
+      const m = JSON.parse(e.data);if (m.t === 'fire') (window.__hkFire = window.__hkFire || []).push(m);
+      // Arrival times of other players' states and vehicle updates (rate and gaps).
+      if (m.t === 'st' || m.t === 'vs') (window.__hkIn = window.__hkIn || []).push([performance.now(), m.t, m.t === 'st' ? m.id : +m.v]);
+    } catch {}});
     return s;
   };
   window.WebSocket.prototype = W.prototype;Object.assign(window.WebSocket, {CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3});
@@ -62,6 +66,10 @@ try {
   const tl = Date.now();
   while (!(await evaluate('!!(window.haarklousGame && window.haarklousGame.walkWorld)').catch(() => false))) {if (Date.now() - tl > 240000) throw new Error('The game did not load');await sleep(500);}
   L(`game loaded in ${((Date.now() - tl) / 1000).toFixed(1)} s`);
+  // --delay-begin=N: join the lobby N s later (so the Unreal client is there first and gets the lower id, i.e. the
+  // voice offerer role of game-voice.js).
+  const delay = +arg('delay-begin', '0');
+  if (delay > 0) {L(`waiting ${delay} s before joining`);await sleep(delay * 1000);}
   await evaluate('haarklousGame.begin(); 0');
   // Watchers record when each condition is first true; the test acts once it sees the Unreal player.
   const setup = `(() => {
@@ -153,6 +161,9 @@ try {
       for (const n of names) result.checks[n] = {ok: W.seen[n] !== undefined, seconds: W.seen[n], note: W.notes[n]};
       result.unrealDone = W.seen.unrealDone !== undefined;result.pageLog = W.log;
       if (voiceMode) result.maxLevel = await evaluate('__hkTest.max');
+      result.arrivals = await evaluate(`(() => {const out = {};for (const t of ['st', 'vs']) {const a = (window.__hkIn || []).filter(x => x[1] === t).map(x => x[0]);if (a.length < 2) continue;
+        const gaps = a.slice(1).map((v, i) => v - a[i]);out[t] = {count: a.length, perSecond: +((a.length - 1) / ((a[a.length - 1] - a[0]) / 1000)).toFixed(2), maxGapMs: Math.round(Math.max(...gaps)), medianGapMs: Math.round(gaps.sort((x, y) => x - y)[gaps.length >> 1])};}return out;})()`);
+      if (result.arrivals) L('arrivals from Unreal: ' + JSON.stringify(result.arrivals));
       result.fps = await evaluate('haarklousGame.fps');
       exitCode = all ? 0 : 1;
       break;

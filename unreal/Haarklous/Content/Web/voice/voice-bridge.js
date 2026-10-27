@@ -32,11 +32,11 @@
   window.hkVoice = {
     setYou(id) {you = id;},
     peerJoined(id) {voice.peerJoined(id);},
-    peerLeft(id) {voice.peerLeft(id);meters.delete(id);},
+    peerLeft(id) {voice.peerLeft(id);meters.delete(id);lastEnergy.delete(id);},
     onSignal(from, json) {voice.onSignal(from, JSON.parse(json));},
     async setMic(on) {const ok = await voice.setMic(on);call('micresult', ok, voice.mic);},
     setVolume(id, v) {voice.setVolume(id, v);},
-    reset() {voice.reset();meters.clear();},
+    reset() {voice.reset();meters.clear();lastEnergy.clear();},
     pcm(b64) {
       const s = atob(b64), n = s.length >> 1;
       for (let i = 0; i < n; i++) {
@@ -47,12 +47,23 @@
     },
     unlock() {if (ctx.state !== 'running') ctx.resume().catch(() => {});for (const p of voice.peers.values()) if (p.audio.srcObject && p.audio.paused) p.audio.play().catch(() => {});}
   };
+  const lastEnergy = new Map();
   setInterval(async () => {
     const out = {ctx: ctx.state, mic: voice.mic, buffered: avail(), activation: !!(navigator.userActivation && navigator.userActivation.hasBeenActive), peers: []};
     for (const [id, p] of voice.peers) {
-      const st = {id, state: p.pc.connectionState, ice: p.pc.iceConnectionState, offerer: p.offerer, paused: p.audio.paused, stream: !!p.audio.srcObject, bytesIn: 0, bytesOut: 0, level: 0};
+      const st = {id, state: p.pc.connectionState, ice: p.pc.iceConnectionState, offerer: p.offerer, paused: p.audio.paused, stream: !!p.audio.srcObject, bytesIn: 0, bytesOut: 0, level: 0, rms: 0};
       try {st.level = level(id, p);} catch {}
-      try {(await p.pc.getStats()).forEach(r => {if (r.type === 'inbound-rtp' && r.kind === 'audio') {st.bytesIn = r.bytesReceived;st.energy = r.totalAudioEnergy;} if (r.type === 'outbound-rtp' && r.kind === 'audio') st.bytesOut = r.bytesSent;});} catch {}
+      try {(await p.pc.getStats()).forEach(r => {
+        if (r.type === 'inbound-rtp' && r.kind === 'audio') {
+          st.bytesIn = r.bytesReceived;st.energy = r.totalAudioEnergy;
+          // Average received level over the last second (WebRTC's own meter): sqrt(energy / duration).
+          const prev = lastEnergy.get(id), e = r.totalAudioEnergy || 0, d = r.totalSamplesDuration || 0;
+          if (prev && d > prev.d) st.rms = Math.sqrt(Math.max(0, e - prev.e) / (d - prev.d));
+          lastEnergy.set(id, {e, d});
+        }
+        if (r.type === 'outbound-rtp' && r.kind === 'audio') st.bytesOut = r.bytesSent;
+      });} catch {}
+      st.level = Math.max(st.level, st.rms);
       out.peers.push(st);
     }
     call('stats', JSON.stringify(out));

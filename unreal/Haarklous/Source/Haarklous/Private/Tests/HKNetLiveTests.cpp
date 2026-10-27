@@ -73,6 +73,9 @@ namespace
 		TMap<FString, FString> Notes;
 		struct FFireMsg { int32 By; double Level, T; };
 		TArray<FFireMsg> FireMsgs;
+		TArray<double> PingMs;              // round trips measured while states and vehicle updates flow
+		double ClaimSentAt = 0, NextPing = 0;
+		int32 PingsSent = 0;
 
 		double Now() const { return FPlatformTime::Seconds() - T0; }
 		void L(const FString& S)
@@ -131,6 +134,7 @@ namespace
 				return MakeShared<FHKTapSocket>(S, [this](const FString& Text)
 				{
 					const TSharedPtr<FJsonObject> M = HKJsonWire::Parse(Text);
+					if (M && HKJsonWire::Str(M, TEXT("t")) == TEXT("pong") && Mp) PingMs.Add(Mp->Net().DateNow() - HKJsonWire::Num(M, TEXT("c")));
 					const TSharedPtr<FJsonObject>* F = nullptr;
 					if (M && HKJsonWire::Str(M, TEXT("t")) == TEXT("fire") && M->TryGetObjectField(TEXT("fire"), F))
 						FireMsgs.Add({(int32)HKJsonWire::Num(M, TEXT("by")), HKJsonWire::Num(*F, TEXT("level")), HKJsonWire::Num(*F, TEXT("t"))});
@@ -180,15 +184,17 @@ namespace
 				if (!bClaim5Sent)
 				{
 					bClaim5Sent = true;
+					ClaimSentAt = FPlatformTime::Seconds();
 					Mp->Claim(5, TEXT("d"), [this](const FHKClaimResult& Res)
 					{
-						Check(TEXT("claim5Refused"), !Res.bOk && Res.By == WebId, FString::Printf(TEXT("ok=%d by=%d"), Res.bOk, Res.By));
+						Check(TEXT("claim5Refused"), !Res.bOk && Res.By == WebId, FString::Printf(TEXT("ok=%d by=%d, answer after %.0f ms"), Res.bOk, Res.By, (FPlatformTime::Seconds() - ClaimSentAt) * 1000));
 						if (!bClaim3Sent)
 						{
 							bClaim3Sent = true;
+							ClaimSentAt = FPlatformTime::Seconds();
 							Mp->Claim(3, TEXT("d"), [this](const FHKClaimResult& R3)
 							{
-								Check(TEXT("claim3Ok"), R3.bOk, FString::Printf(TEXT("ok=%d by=%d"), R3.bOk, R3.By));
+								Check(TEXT("claim3Ok"), R3.bOk, FString::Printf(TEXT("ok=%d by=%d, answer after %.0f ms"), R3.bOk, R3.By, (FPlatformTime::Seconds() - ClaimSentAt) * 1000));
 								if (R3.bOk) { Driving = 3; L(TEXT("driving vehicle 3")); }
 							});
 						}
@@ -206,7 +212,16 @@ namespace
 				for (const FFireMsg& F : FireMsgs) Note += FString::Printf(TEXT("%.3f by %d, "), F.Level, F.By);
 				Check(TEXT("fireShared"), FMath::Abs(B.Level - Expect) < .01 && FMath::Abs(Mp->FireLevel() - NowLevel) < .01, TEXT("levels ") + Note + FString::Printf(TEXT("now %.3f"), Mp->FireLevel()));
 			}
-			bool bAll = true;
+			// Round trips while our states (10 Hz) and the car's updates (12 Hz) are flowing.
+			if (Driving == 3 && PingsSent < 8 && Now() >= NextPing)
+			{
+				NextPing = Now() + .5;
+				PingsSent++;
+				TSharedPtr<FJsonObject> P = MakeShared<FJsonObject>();
+				P->SetStringField(TEXT("t"), TEXT("ping")); P->SetNumberField(TEXT("c"), Net.DateNow());
+				Net.Send(P);
+			}
+			bool bAll = PingMs.Num() >= 8;
 			for (const FString& N : Names) bAll &= Seen.Contains(N);
 			if (bAll && DriveT >= 4 && !bDoneSent) { bDoneSent = true; Mp->SendChat(TEXT("done-unreal")); L(TEXT("all checks seen; told the web client")); }
 			if ((bDoneSent && bWebDone && Now() > 1) || Now() > 240)
@@ -235,6 +250,13 @@ namespace
 			if (!bWebDone) Test->AddError(TEXT("the web client never reported done"));
 			J->SetStringField(TEXT("server"), Server); J->SetStringField(TEXT("lobby"), Lobby); J->SetObjectField(TEXT("checks"), C);
 			J->SetNumberField(TEXT("vsFrames"), VsFrames); J->SetBoolField(TEXT("webDone"), bWebDone);
+			J->SetField(TEXT("pingMs"), HKJsonWire::NumArray(PingMs));
+			if (PingMs.Num())
+			{
+				TArray<double> S = PingMs;
+				S.Sort();
+				L(FString::Printf(TEXT("round trips under load: median %.0f ms, max %.0f ms (%d pings)"), S[S.Num() / 2], S.Last(), S.Num()));
+			}
 			TArray<TSharedPtr<FJsonValue>> Lines;
 			for (const FString& S : LogLines) Lines.Add(MakeShared<FJsonValueString>(S));
 			J->SetArrayField(TEXT("log"), Lines);
@@ -257,6 +279,85 @@ namespace
 	private:
 		TSharedPtr<FHKLiveRun> Run;
 	};
+}
+
+namespace
+{
+	// A full lobby: five plain connections fill a fresh lobby, the sixth (a full FHKMultiplayer) must be refused and
+	// land back in its own lobby with the web's notice.
+	struct FHKFullRun
+	{
+		FAutomationTestBase* Test = nullptr;
+		FString Server, Lobby;
+		TArray<TUniquePtr<FHKNet>> Fillers;
+		TUniquePtr<FHKMultiplayer> Sixth;
+		TArray<FString> Notices;
+		double T0 = 0;
+		bool bSixthStarted = false, bDone = false;
+		bool Step()
+		{
+			const double T = FPlatformTime::Seconds() - T0;
+			int32 Online = 0;
+			for (const TUniquePtr<FHKNet>& N : Fillers) Online += N->Online() ? 1 : 0;
+			if (Online == 5 && !bSixthStarted)
+			{
+				bSixthStarted = true;
+				FHKMultiplayerContext Ctx;
+				Ctx.Notice = [this](const FString& S, double) { Notices.Add(S); UE_LOG(LogHaarklous, Display, TEXT("[live full] notice: %s"), *S); };
+				FHKNetOptions O = FHKNet::DefaultOptions();
+				O.bEnabled = true; O.Base = Server;
+				Sixth = MakeUnique<FHKMultiplayer>(Ctx, O);
+				UE_LOG(LogHaarklous, Display, TEXT("[live full] lobby %s has 5 players; the sixth (own lobby %s) tries to join"), *Lobby, *Sixth->Net().GetOwnCode());
+				Sixth->Net().Connect(Lobby);
+			}
+			if (Sixth) Sixth->Update(1.0 / 30);
+			const bool bBack = Sixth && Sixth->Net().Online() && Sixth->Net().GetCode() == Sixth->Net().GetOwnCode();
+			if (bBack || T > 60)
+			{
+				const FString Want = FString::Printf(TEXT("Lobby %s is full (5 players). Back in your own lobby."), *Lobby);
+				Test->TestTrue(TEXT("the five fillers got in"), Online == 5);
+				Test->TestTrue(TEXT("the sixth is back in its own lobby"), bBack);
+				Test->TestTrue(TEXT("the web's notice"), Notices.Contains(Want));
+				if (Sixth) Test->AddInfo(FString::Printf(TEXT("live full lobby: refused after %.1f s, now %s"), T, *Sixth->Net().StatusText()));
+				Sixth.Reset();
+				Fillers.Reset();
+				FHKStore::SetPathForTests(FString());
+				return true;
+			}
+			return false;
+		}
+	};
+
+	class FHKFullCommand : public IAutomationLatentCommand
+	{
+	public:
+		explicit FHKFullCommand(TSharedPtr<FHKFullRun> InRun) : Run(InRun) {}
+		virtual bool Update() override { return Run->Step(); }
+	private:
+		TSharedPtr<FHKFullRun> Run;
+	};
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHKNetLiveFullTest, "Haarklous.Net.LiveFull", EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+bool FHKNetLiveFullTest::RunTest(const FString& Parameters)
+{
+	TSharedPtr<FHKFullRun> Run = MakeShared<FHKFullRun>();
+	Run->Test = this;
+	if (!FParse::Value(FCommandLine::Get(), TEXT("HKLiveServer="), Run->Server, false)) { AddInfo(TEXT("Not run: needs -HKLiveServer= (tools/net-test/run-live.ps1).")); return true; }
+	if (FHKNet::IsLiveServer(Run->Server)) { AddError(TEXT("Refusing to test against the live game server.")); return false; }
+	FHKStore::SetPathForTests(FPaths::ProjectSavedDir() / TEXT("Tests") / TEXT("LocalStorage-live-full.json"));
+	Run->Lobby = FHKNet::RandomCode([]() { return (double)FMath::FRand(); });
+	FHKNetOptions O = FHKNet::DefaultOptions();
+	O.bEnabled = true; O.Base = Run->Server;
+	for (int32 i = 0; i < 5; i++)
+	{
+		Run->Fillers.Add(MakeUnique<FHKNet>(nullptr, nullptr, O));
+		Run->Fillers.Last()->SetName(FString::Printf(TEXT("Filler %d"), i + 1));
+		Run->Fillers.Last()->Connect(Run->Lobby);
+	}
+	Run->T0 = FPlatformTime::Seconds();
+	ADD_LATENT_AUTOMATION_COMMAND(FHKFullCommand(Run));
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHKNetLiveTest, "Haarklous.Net.Live", EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)

@@ -5,7 +5,7 @@
 #   add -Voice for the voice test (Haarklous.Net.Voice; the editor runs with -game because CEF needs rendering)
 # Without -Voice: Haarklous.Net.Live (states, chat, seats, doors, fire). Logs and summaries: tools\out\net-tests\.
 # Never points at the live game server.
-param([ValidateSet("local", "deployed")][string]$Mode = "local", [string]$Lobby = "", [int]$TimeoutS = 300, [switch]$Voice)
+param([ValidateSet("local", "deployed")][string]$Mode = "local", [string]$Lobby = "", [int]$TimeoutS = 300, [switch]$Voice, [int]$WebDelayS = 0)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $engine = "C:\Program Files\Epic Games\UE_5.8"
@@ -40,6 +40,7 @@ try {
   for ($i = 0; $i -lt 3600 -and -not $lock; $i++) { try { $lock = [System.IO.File]::Open($lockPath, 'OpenOrCreate', 'ReadWrite', 'None') } catch { Start-Sleep -Seconds 1 } }
   $webArgs = "`"$root\tools\net-test\web-client.mjs`" --page=`"$page`" --lobby=$Lobby --allow=$allow --out=`"$out`" --mode=$Mode --timeout=$TimeoutS"
   if ($Voice) { $webArgs += " --voice" }
+  if ($WebDelayS -gt 0) { $webArgs += " --delay-begin=$WebDelayS"; $tag += "-late" }
   $web = Start-Process -FilePath "node" -ArgumentList $webArgs -RedirectStandardOutput "$out\web-client-$tag.log" -RedirectStandardError "$out\web-client-$tag.err.log" -PassThru -WindowStyle Hidden
   $null = $web.Handle   # keeps the exit code readable later
   $ulog = "$out\unreal-client-$tag.log"
@@ -64,7 +65,9 @@ try {
   "--- Web client ---"
   Get-Content "$out\web-client-$tag.log"
   $u = Get-Content $ulog | Where-Object { $_ -match 'Result=\{Success\} Name=\{(Live|Voice)\}' }
-  if (-not $u -or $web.ExitCode -ne 0) { "LIVE TEST FAILED"; exit 1 }
+  $f = Get-Content $ulog | Where-Object { $_ -match 'Result=\{Fail' }
+  Get-Content $ulog | Where-Object { $_ -match 'live full lobby:' } | ForEach-Object { $_ -replace '^\[[^\]]*\]\[[^\]]*\]', '' }
+  if (-not $u -or $f -or $web.ExitCode -ne 0) { "LIVE TEST FAILED"; exit 1 }
   "LIVE TEST PASSED ($tag, lobby $Lobby)"
 } finally {
   if ($wrangler) { Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'wrangler' -and $_.CommandLine -match '8787' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } }
