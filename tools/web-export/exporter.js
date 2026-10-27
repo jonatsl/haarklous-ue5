@@ -68,11 +68,15 @@
   }
   const userFlags = o => {const u = o.userData || {}, f = {};for (const k of ['doorId', 'lockedDoor', 'partName', 'keep', 'merged']) if (u[k] !== undefined) f[k] = u[k];if (u.drink) f.drink = G.apt.drinks.indexOf(u.drink);return Object.keys(f).length ? f : undefined;};
 
-  /* One export: root object, a Map of moving parts (Object3D -> name). Every mesh belongs to its nearest named ancestor. */
+  /* One export: root object, a Map of moving parts (Object3D -> name). Every mesh belongs to its nearest named ancestor.
+   * Every ancestor of a moving part also becomes a node (named "~<type><n>"), so each node's pose is its true local pose
+   * relative to its real parent: code like hinge.rotation.y = a then means the same thing in C++ as in the web. */
   function exportRig(name, root, keys = new Map(), extra = {}) {
     root.updateMatrixWorld(true);
     const bin = new Bin(), nodes = [], nodeOf = new Map(), meshes = [], lights = [], skipped = {};
     nodes.push({name: 'root', parent: -1, matrix: M(root.matrixWorld), ...decompose(root.matrixWorld), visible: root.visible, type: root.type, objName: root.name});nodeOf.set(root, 0);
+    keys = new Map(keys);let anon = 0;
+    for (const o of [...keys.keys()]) for (let p = o.parent; p && p !== root; p = p.parent) if (!keys.has(p)) keys.set(p, `~${p.type}${anon++}`);
     root.traverse(o => {
       if (o === root || !keys.has(o)) return;
       let p = o.parent;while (p && !nodeOf.has(p)) p = p.parent;
