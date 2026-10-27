@@ -30,6 +30,8 @@ public:
 	virtual ~IHKEngineSound() {}
 	virtual void Set(double A, double B = 0) = 0;
 	virtual void Stop() = 0;
+	// The excavator's engine.hydraulics(flow) (0..1): hydraulic whine; no-op for other engines.
+	virtual void Hydraulics(double Flow) {}
 };
 
 class HAARKLOUS_API FHKAudio
