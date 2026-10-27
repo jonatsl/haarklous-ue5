@@ -22,7 +22,7 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
 ## This PC
 - AMD Ryzen 5 5600H with integrated Radeon graphics (2 GB shared video memory), 14 GB RAM, Windows 11. Performance target: 20–30 fps or better on this laptop.
 - So: no Lumen, no Nanite, no virtual shadow maps, no hardware ray tracing. Use static or stationary lighting, cascaded shadow maps, scalability Medium/Low, screen percentage around 70–80 %, and LODs plus HLOD/merged actors for the city.
-- Installed: Blender 5.2 (`C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`), Git LFS 3.7, Epic Games Launcher. **Unreal Engine 5.8.4** chosen (installed from the Epic launcher on 26 Oct 2026: Windows only, no other target platforms). Still to install: Visual Studio 2022 with the "Game development with C++" workload.
+- Installed: Blender 5.2 (`C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`), Git LFS 3.7, Epic Games Launcher. **Unreal Engine 5.8.4** chosen (installed from the Epic launcher on 26 Oct 2026: Windows only, no other target platforms). Visual Studio 2022 Community with "Game development with C++" (MSVC 14.44, Windows SDK 26100) is installed too.
 
 ## How to work (an agent cannot click through the editor reliably)
 - Game code in **C++** (text you can edit and review), not Blueprint graphs. Blueprints only as thin data or asset wrappers.
@@ -32,6 +32,11 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
 - Test everything yourself: automated tests for the logic plus scripted play-throughs with simulated input (like `reference/web-game/tests/browser-harness.js`), screenshots and logs, frame rate in the busiest places. Online features are tested only against the separate test server (see above).
 - Prefer scripts and the command line; computer use (controlling the screen) only for steps that exist only in a window (installers, first-time dialogs). Ask the user only when truly blocked, one question at a time.
 - Input: PS4 DualShock 4 over USB or Bluetooth is the main controller (Unreal does not see it as an Xbox pad by default: use the Windows RawInput plugin or Steam Input), plus keyboard and mouse. The controller works with the web version but is **not available right now**: build full support with the web version's mapping, test with keyboard, mouse and simulated controller input, and list the DualShock test as still to do.
+
+## Where things are (27 Oct 2026)
+- Architecture and conventions: `docs/ARCHITECTURE.md` (port 1:1 in the web frame, one conversion in `HKMath.h`, rigs, module rules).
+- Commands: see README "How it is built". Builds, tests and Unreal Python runs share one lock file (several helpers may run).
+- Helper sessions worked in git worktrees under `.claude/worktrees/` (ignored by git); their branches are merged into `main`.
 
 ## User preferences (carried over)
 - Ask **one question at a time**; when asking about something visual, show the image in the same message (absolute local path in Markdown).

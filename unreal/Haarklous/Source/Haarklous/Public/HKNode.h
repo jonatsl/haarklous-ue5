@@ -25,6 +25,10 @@ public:
 	// Optional visual payload: mesh key (asset name) and colour override, read by AHKRigActor.
 	FName MeshKey;
 	int32 UserIndex = -1;
+	// Interaction flags of exported parts (userData in the web): door id, locked flat door, drink index, label.
+	FString DoorId, PartName;
+	bool bLockedDoor = false;
+	int32 DrinkIndex = -1;
 
 	const FQuat& Quat() const { return Quaternion; }
 	const FVector& Rot() const { return Rotation; }

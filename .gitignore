@@ -18,3 +18,6 @@ tools/out/
 *.log
 .vscode/
 Thumbs.db
+
+# Claude Code worktrees of helper sessions
+.claude/

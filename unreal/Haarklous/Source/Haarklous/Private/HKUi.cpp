@@ -8,11 +8,11 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Rendering/SlateRenderer.h"
 
-const FLinearColor FHKUi::PanelBg(0.012f, 0.016f, 0.022f, 0.74f);
+const FLinearColor FHKUi::PanelBg(FLinearColor(FColor(0x11, 0x16, 0x1c, 0xe8)));   // --card #11161ce8
 const FLinearColor FHKUi::PanelLine(1, 1, 1, 0.14f);
 const FLinearColor FHKUi::TextMain(0.96f, 0.96f, 0.94f, 1);
 const FLinearColor FHKUi::TextDim(0.72f, 0.74f, 0.76f, 1);
-const FLinearColor FHKUi::Accent(0.93f, 0.55f, 0.22f, 1);
+const FLinearColor FHKUi::Accent(FLinearColor(FColor(0xd8, 0xb2, 0x5a)));   // --accent #d8b25a
 const FLinearColor FHKUi::Warn(0.92f, 0.22f, 0.18f, 1);
 const FLinearColor FHKUi::Good(0.36f, 0.78f, 0.45f, 1);
 
@@ -53,7 +53,7 @@ void FHKUi::Disc(UCanvas* C, const FVector2D& Centre, float Radius, const FLinea
 		T.V0_Color = T.V1_Color = T.V2_Color = Color;
 		Tris.Add(T);
 	}
-	FCanvasTriangleItem Item(Tris, nullptr);
+	FCanvasTriangleItem Item(Tris, GWhiteTexture);
 	Item.BlendMode = SE_BLEND_Translucent;
 	C->DrawItem(Item);
 }
@@ -88,7 +88,7 @@ void FHKUi::Panel(UCanvas* C, float X, float Y, float W, float H, const FLinearC
 			T.V0_Color = T.V1_Color = T.V2_Color = Bg;
 			Tris.Add(T);
 		}
-	FCanvasTriangleItem Item(Tris, nullptr);
+	FCanvasTriangleItem Item(Tris, GWhiteTexture);
 	Item.BlendMode = SE_BLEND_Translucent;
 	C->DrawItem(Item);
 }
@@ -99,10 +99,16 @@ void FHKUi::Frame(UCanvas* C, float X, float Y, float W, float H, float T, const
 	Rect(C, X, Y + T, T, H - 2 * T, Color); Rect(C, X + W - T, Y + T, T, H - 2 * T, Color);
 }
 
-FVector2D FHKUi::Measure(UCanvas* C, const FString& S, float Size, bool bBold)
+// The controller symbols of the web UI (□ ✕ ○ △) and arrows are drawn as small icons, so no special font is needed.
+static bool IsIcon(TCHAR Ch)
 {
-	if (S.IsEmpty()) return FVector2D::ZeroVector;
-	const float Sc = Scale(C);
+	return Ch == 0x25A1 || Ch == 0x2715 || Ch == 0x25CB || Ch == 0x25B3 || Ch == 0x2190 || Ch == 0x2192 || Ch == 0x2191 || Ch == 0x2193 || Ch == 0x25CF || Ch == 0x25CE;
+}
+
+static FVector2D MeasureRun(UCanvas* C, const FString& S, float Size, bool bBold)
+{
+	if (S.IsEmpty()) return FVector2D(0, Size * 1.25f);
+	const float Sc = FHKUi::Scale(C);
 	const FSlateFontInfo Info(UiFont(), FMath::Max(1, FMath::RoundToInt(Size * Sc)), bBold ? FName("Bold") : FName("Regular"));
 	if (FSlateApplication::IsInitialized() && FSlateApplication::Get().GetRenderer())
 	{
@@ -112,18 +118,86 @@ FVector2D FHKUi::Measure(UCanvas* C, const FString& S, float Size, bool bBold)
 	return FVector2D(S.Len() * Size * .52f, Size * 1.25f);
 }
 
+static void DrawIcon(UCanvas* C, TCHAR Ch, float X, float Y, float Size, const FLinearColor& Color)
+{
+	// Icon box: Size wide, centred on the text line.
+	const float R = Size * .36f, Cx = X + Size * .5f, Cy = Y + Size * .68f, T = FMath::Max(1.5f, Size * .1f);
+	switch (Ch)
+	{
+	case 0x25A1: FHKUi::Frame(C, Cx - R, Cy - R, 2 * R, 2 * R, T, Color); break;                                   // □
+	case 0x25CB: FHKUi::Circle(C, FVector2D(Cx, Cy), R, T, Color, 20); break;                                       // ○
+	case 0x25CF: FHKUi::Disc(C, FVector2D(Cx, Cy), R * .8f, Color, 16); break;                                     // ●
+	case 0x25CE: FHKUi::Circle(C, FVector2D(Cx, Cy), R, T, Color, 20); FHKUi::Disc(C, FVector2D(Cx, Cy), R * .4f, Color, 12); break;   // ◎
+	case 0x2715: FHKUi::Line(C, FVector2D(Cx - R, Cy - R), FVector2D(Cx + R, Cy + R), T, Color); FHKUi::Line(C, FVector2D(Cx - R, Cy + R), FVector2D(Cx + R, Cy - R), T, Color); break;   // ✕
+	case 0x25B3: { const FVector2D A(Cx, Cy - R), B(Cx + R, Cy + R * .8f), D(Cx - R, Cy + R * .8f); FHKUi::Line(C, A, B, T, Color); FHKUi::Line(C, B, D, T, Color); FHKUi::Line(C, D, A, T, Color); break; }   // △
+	default:
+	{
+		// Arrows ← → ↑ ↓
+		FVector2D Dir = Ch == 0x2190 ? FVector2D(-1, 0) : Ch == 0x2192 ? FVector2D(1, 0) : Ch == 0x2191 ? FVector2D(0, -1) : FVector2D(0, 1);
+		const FVector2D Tip(Cx + Dir.X * R, Cy + Dir.Y * R), Tail(Cx - Dir.X * R, Cy - Dir.Y * R), Side(-Dir.Y, Dir.X);
+		FHKUi::Line(C, Tail, Tip, T, Color);
+		FHKUi::Line(C, Tip, Tip - Dir * R * .7f + Side * R * .6f, T, Color);
+		FHKUi::Line(C, Tip, Tip - Dir * R * .7f - Side * R * .6f, T, Color);
+	}
+	}
+}
+
+FVector2D FHKUi::Measure(UCanvas* C, const FString& S, float Size, bool bBold)
+{
+	if (S.IsEmpty()) return FVector2D::ZeroVector;
+	TArray<FString> Lines;
+	S.ParseIntoArray(Lines, TEXT("\n"), false);
+	FVector2D Out(0, 0);
+	for (const FString& L : Lines)
+	{
+		float W = 0;
+		FString Run;
+		for (TCHAR Ch : L)
+		{
+			if (IsIcon(Ch)) { W += MeasureRun(C, Run, Size, bBold).X + Size; Run.Empty(); }
+			else Run.AppendChar(Ch);
+		}
+		W += MeasureRun(C, Run, Size, bBold).X;
+		Out.X = FMath::Max(Out.X, W);
+		Out.Y += Size * 1.25f;
+	}
+	return Out;
+}
+
 FVector2D FHKUi::Text(UCanvas* C, const FString& S, float X, float Y, float Size, const FLinearColor& Color, EHKAlign Align, bool bBold, bool bShadow)
 {
 	if (!C || S.IsEmpty()) return FVector2D::ZeroVector;
 	const float Sc = Scale(C);
-	FSlateFontInfo Info(UiFont(), FMath::Max(1, FMath::RoundToInt(Size * Sc)), bBold ? FName("Bold") : FName("Regular"));
-	FVector2D Sz = FVector2D::ZeroVector;
-	if (Align != EHKAlign::Left) Sz = Measure(C, S, Size, bBold);
-	const float Ox = Align == EHKAlign::Center ? -Sz.X / 2 : Align == EHKAlign::Right ? -Sz.X : 0;
-	FCanvasTextItem Item(FVector2D((X + Ox) * Sc, Y * Sc), FText::FromString(S), Info, Color);
-	if (bShadow) { Item.EnableShadow(FLinearColor(0, 0, 0, 0.7f * Color.A), FVector2D(1.5f, 1.5f)); }
-	C->DrawItem(Item);
-	return FVector2D(Item.DrawnSize.X / Sc, Item.DrawnSize.Y / Sc);
+	const FSlateFontInfo Info(UiFont(), FMath::Max(1, FMath::RoundToInt(Size * Sc)), bBold ? FName("Bold") : FName("Regular"));
+	TArray<FString> Lines;
+	S.ParseIntoArray(Lines, TEXT("\n"), false);
+	FVector2D Total(0, 0);
+	float Ly = Y;
+	for (const FString& L : Lines)
+	{
+		const float Lw = Measure(C, L, Size, bBold).X;
+		float Cx = X + (Align == EHKAlign::Center ? -Lw / 2 : Align == EHKAlign::Right ? -Lw : 0);
+		FString Run;
+		auto Flush = [&]()
+		{
+			if (Run.IsEmpty()) return;
+			FCanvasTextItem Item(FVector2D(Cx * Sc, Ly * Sc), FText::FromString(Run), Info, Color);
+			if (bShadow) Item.EnableShadow(FLinearColor(0, 0, 0, 0.7f * Color.A), FVector2D(1.5f, 1.5f));
+			C->DrawItem(Item);
+			Cx += MeasureRun(C, Run, Size, bBold).X;
+			Run.Empty();
+		};
+		for (TCHAR Ch : L)
+		{
+			if (IsIcon(Ch)) { Flush(); if (bShadow) DrawIcon(C, Ch, Cx + 1.2f, Ly + 1.2f, Size, FLinearColor(0, 0, 0, .6f * Color.A)); DrawIcon(C, Ch, Cx, Ly, Size, Color); Cx += Size; }
+			else Run.AppendChar(Ch);
+		}
+		Flush();
+		Total.X = FMath::Max(Total.X, Lw);
+		Ly += Size * 1.25f;
+		Total.Y += Size * 1.25f;
+	}
+	return Total;
 }
 
 TArray<FString> FHKUi::Wrap(UCanvas* C, const FString& S, float Size, float MaxWidth, bool bBold)

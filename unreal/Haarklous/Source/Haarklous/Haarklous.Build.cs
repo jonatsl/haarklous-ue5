@@ -10,5 +10,7 @@ public class Haarklous : ModuleRules
 			"Slate", "SlateCore", "ApplicationCore", "Json", "JsonUtilities", "WebSockets",
 			"ImageWrapper", "RenderCore", "RHI", "AudioMixer", "SignalProcessing", "Projects", "UMG"
 		});
+		// DualShock 4 over Windows HID (HKInput.cpp).
+		if (Target.Platform == UnrealTargetPlatform.Win64) PublicSystemLibraries.AddRange(new string[] { "hid.lib", "setupapi.lib" });
 	}
 }
