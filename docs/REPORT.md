@@ -74,7 +74,8 @@ every check in every play-through.
 
 | Play-through | What it does | Result |
 | --- | --- | --- |
-| `walkhome` | street door, up four storeys to the 4th floor (feet at 0.00 m), entrance door, into the flat, a beer → 30 s drunk | 5 / 5 checks, 6 screenshots |
+| `walkhome` | street door, up four storeys to the 4th floor (feet at 0.00 m), entrance door, into the flat, a beer → 30 s drunk, a sip of aquavit (12 → 11 sips, +30 s) | 8 / 8 checks, 7 screenshots |
+| `stairwells` | in each of the 9 stair towers (17A and the eight neighbours) a stranger's flat door offers only "□ Try the door" and answers "Locked" | 19 / 19 checks |
 | `vehicles` | motorcycle (50 km/h in 2nd gear after 3 s), car (47 km/h), excavator (5.2 km/h), helicopter lift-off to 11 m and landing, plane lift-off at 92 km/h after 86.9 m (web: about 87 km/h after 76–87 m) | 9 / 9 checks, 8 screenshots |
 | `activities` | watch, photo camera and gallery, gear menu, FPV drone, map, quick chat, log on the fire, sitting and a beer, disc golf, petanque | 11 / 11 checks, 12 screenshots |
 | `mission` | prompt in the red ring, briefing, play, aim, fire, pause, leave | 3 / 3 checks, 6 screenshots |
@@ -104,7 +105,8 @@ tested with `npx wrangler dev`, then deployed to your Cloudflare account at
 `haarklous-ue5-test.server-smoke.workers.dev`. The live game `haarklous-online` was never touched or contacted.
 The real Unreal game and the web game served by the test Worker joined one lobby by its code and ran a scripted
 session (`tools
-et-testun-live.ps1 -Mode deployed -Game`) three times, each with 0 failures; the last run was on
+et-test
+un-live.ps1 -Mode deployed -Game`) three times, each with 0 failures; the last run was on
 the final build (27 Oct 2026, lobby BG28):
 
 - **Join by code:** both in one lobby (G3M8, BNU7 and BG28 in the three runs).
@@ -130,6 +132,48 @@ the final build (27 Oct 2026, lobby BG28):
 ![Unreal sees the web player on its pillion](img/net--C1-game-sees-web-on-pillion.jpg)
 ![The web game sees the Unreal player walking](img/net--web-deployed-A2-web-sees-game-walking.jpg)
 ![The web player on the pillion behind the Unreal rider (web view)](img/net--web-deployed-C3-web-pillion-behind-game-rider.jpg)
+
+### Checklist, item by item
+
+Every row of `docs/PORTING-CHECKLIST.md`, with what it is in Unreal, the tests that cover it (automation tests
+`Haarklous.<name>`; play-throughs `tools\run-game.ps1 -Test <name>`), and a picture from those tests. All passed on
+the final build.
+
+| Item | Built in Unreal | Tested by | Picture |
+| --- | --- | --- | --- |
+| World units and the one conversion | `HKMath.h` (`HK::ToUE`, `QuatToUE`) | `Core.Math`; marker mesh through Blender → FBX → Unreal | ![](img/shots--08-aerial-home.jpg) |
+| Local map frame (toWorld / toLocal) | `FHKData::ToWorld/ToLocal` | `World.TerrainAndFrame` (200/200 identical) | ![](img/shots--09-aerial-district.jpg) |
+| Terrain, walkable ±540 m | `FHKData::HeightWorld`, `SM_world_*`, `M_HK_Ground` | `World.TerrainAndFrame` (3,000 heights identical) | ![](img/fps--fps-park.jpg) |
+| Buildings from OSM | `SM_world_near_*` city tiles (Blender) | `shots` tour, `walkhome` | ![](img/shots--02-front-of-17A.jpg) |
+| Streets, paths, parks, lamps, trees, bushes | ground mask, `AHKGame::SpawnTrees` | `shots` tour, `fps` | ![](img/shots--03-firepit.jpg) |
+| Sky, sun, hills, fjord | `build_level.py`, `M_HK_Clouds`, `world_far` | `shots` (11-sky, 09-aerial) | ![](img/shots--11-sky.jpg) |
+| Walk 1.45 / run 3.6 m/s, crouch, prone, jump 3.1 m/s | `AHKGame::UpdateFoot` | `menus` (1.45 and 3.60 m/s measured, jump, crouch, prone); `walkhome` | ![](img/walkhome--01-street-door.jpg) |
+| Look sensitivity, saved | `AHKGame::SetSens`, settings.ini | `menus` (sliders, mouse look, file) | ![](img/menus--03-settings-changed.jpg) |
+| Collision: walls, steps, doors | `FHKWalkWorld` | `World.WalkCollision` (all identical); `walkhome` up four storeys | ![](img/walkhome--03-entrance-door.jpg) |
+| Drunk effect | `M_HK_Drunk`, sway in `UpdateFoot` | `walkhome` (+30 s), `drunk` (30 s, 90 s) | ![](img/drunk--03-drunk-90s.jpg) |
+| The flat (frozen kitchen and bedroom), doors, lights | `SM_apartment__*`, rig `apartment` | `walkhome`, `shots` (living room, kitchen, bedroom) | ![](img/shots--05-apartment-living.jpg) |
+| Six beers, aquavit (12 sips) | `AHKGame::Drink` | `walkhome`: beer → 30 s; aquavit 12 → 11 sips, +30 s | ![](img/walkhome--07-aquavit.jpg) |
+| Own stairwell, street door, own flat door | rig `stair_own` | `walkhome` (street door, 4th floor, entrance door); `stairwells` (other flats locked) | ![](img/walkhome--02-door-open.jpg) |
+| Eight neighbouring stair towers, locked flat doors | rigs `stair_b0..7`, `TowerAt` | `stairwells`: a locked flat door in each of the 9 towers, "□ Try the door" → "Locked" | ![](img/stairwells--01-locked-door.jpg) |
+| Motorcycle | `FHKMotorcycle` | `Vehicles.Motorcycle*` (within 5e-10); `vehicles` (50 km/h, gear 2) | ![](img/vehicles--01-motorcycle.jpg) |
+| Cars | `FHKCar` | `Vehicles.Car*`; `vehicles` (47 km/h) | ![](img/vehicles--03-car.jpg) |
+| Excavator | `FHKExcavator` | `Vehicles.Excavator`; `vehicles` (5.2 km/h) | ![](img/vehicles--04-excavator.jpg) |
+| Helicopter and plane | `FHKHelicopter`, `FHKPlane` | `Vehicles.Helicopter*`, `Vehicles.Plane`; `vehicles` (lift-off, landing) | ![](img/vehicles--08-plane-chase.jpg) |
+| FPV drone | `FHKDrone` | `Vehicles.Drone*`; `activities` | ![](img/activities--06-drone.jpg) |
+| Vehicle list (seed 1707) | `HKVehicles::CreateAll` | `Vehicles.List` (41 identical) | ![](img/shots--04-helipad.jpg) |
+| □ in/out, engine sounds | `TryDrive/ExitVehicle`, `HKAudioImpl` | `vehicles`; `Audio.*` | ![](img/vehicles--05-helicopter.jpg) |
+| Disc golf | `FHKDiscGolf` | `Minigames.DiscGolf`; `activities` | ![](img/activities--11-discgolf-flight.jpg) |
+| Petanque against Arne | `FHKPetanque` | `Minigames.Petanque`; `activities` | ![](img/activities--12-petanque.jpg) |
+| Hostage-rescue mission | `FHKMission`, `AHKMissionFx` | `Mission.*` (3 web missions replayed); `mission` | ![](img/mission--03-aim.jpg) |
+| Firepit | `FHKFire`, `AHKFireEffects` | `Fire.*`; `activities` (log, sit, beer) | ![](img/activities--09-firepit-sitting.jpg) |
+| Photo camera, gallery, gear menu, watch, map | `HKGameExtras.cpp` | `activities`; `menus` (M map) | ![](img/activities--04-gallery.jpg) |
+| Music and sounds | `HKSynth`, `HKMusicPlayer` | `Audio.*` (71/71 match the browser) | (sound) |
+| Lobby client, own code, join by code | `FHKNet` | `Net.*`; `online` with the web game; `menus` online | ![](img/menus--04-lobby-section.jpg) |
+| Remote avatars, passengers, shared doors and fire | `FHKMultiplayer`, `HKAvatars`, `AHKOnline` | `online` (both ways) | ![](img/net--B1-game-passenger-seat-web-driving.jpg) |
+| Chat and voice | chat in `HKGameExtras.cpp`, `FHKWebVoice` | `online` (both ways), `Net.Voice`; `activities` quick chat | ![](img/net--C1-game-sees-web-on-pillion.jpg) |
+| Lobby settings: code pad, name, voice | `AHKOnline` pause-menu section | `menus` online (code pad, typed code, home, name, microphone) | ![](img/menus--05-code-pad.jpg) |
+| DualShock 4 plus keyboard and mouse | `FHKInputProcessor` | `Input.*`; simulated DualShock 4 in every play-through; `menus` keyboard and mouse. **Real controller: you.** | ![](img/menus--02-pause.jpg) |
+| Start screen, pause, settings, credits | `HKGameHud.cpp` | `menus` (start, pause, sliders, quality, saved, Resume) | ![](img/shots--00-start-screen.jpg) |
 
 ## Frame rates on this laptop
 

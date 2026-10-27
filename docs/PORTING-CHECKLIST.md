@@ -36,10 +36,13 @@ simulated DualShock 4 (`tools\run-game.ps1 -Test <name>`, `HKTestScripts.cpp`), 
 - [x] The 4th-floor flat exactly as `apartment-data.js` (frozen kitchen and bedroom), doors, lights. — exported web
   geometry (`SM_apartment__*`), rig `apartment` (doors, drinks), static lamps with the web's values; screenshots
   `walkhome/04-hall`, `05-beer`.
-- [x] Six beers on the worktop, aquavit (12 sips). — `AHKGame::Drink`; play-through `walkhome`.
+- [x] Six beers on the worktop, aquavit (12 sips). — `AHKGame::Drink`; play-through `walkhome` (a beer → 30 s drunk;
+  the aquavit starts with 12 sips, a sip leaves 11 and adds 30 s).
 - [x] Own stairwell: street door opens, stairs to the 4th floor, flat doors locked except the own. — rig `stair_own`;
-  play-through `walkhome` (prompts "□ Open street door", "□ Open entrance door").
-- [x] Eight neighbouring stair towers with locked flat doors. — rigs `stair_b0..7`, `Towers`, `TowerAt`.
+  play-through `walkhome` (prompts "□ Open street door", "□ Open entrance door"); play-through `stairwells` (the other
+  flats in 17A are locked).
+- [x] Eight neighbouring stair towers with locked flat doors. — rigs `stair_b0..7`, `Towers`, `TowerAt`; play-through
+  `stairwells`: in each of the 9 towers a flat door offers only "□ Try the door" and answers "Locked".
 
 ## Vehicles (`HKVehicles`, `HKAircraft`)
 - [x] Honda CBF600S: lean, 6 gears, bars and wheel, hands, pillion. — `FHKMotorcycle`; tests `Vehicles.Motorcycle*`

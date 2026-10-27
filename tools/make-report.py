@@ -26,11 +26,36 @@ def source(name):
     return p if os.path.exists(p) else None
 
 
+THUMBS = {}
+
+
+def thumb(name):
+    """Small embedded picture for a table cell (cached, the same picture is embedded once per use)."""
+    if name not in THUMBS:
+        src = source(name)
+        if not src:
+            print('missing picture', name)
+            THUMBS[name] = ''
+        else:
+            im = Image.open(src).convert('RGB')
+            im.thumbnail((320, 200))
+            buf = io.BytesIO(); im.save(buf, 'JPEG', quality=72)
+            THUMBS[name] = 'data:image/jpeg;base64,' + base64.b64encode(buf.getvalue()).decode()
+    return THUMBS[name]
+
+
 def inline(s):
+    pics = []
+
+    def keep(m):
+        pics.append((m.group(1), m.group(2)))
+        return f'@@PIC{len(pics) - 1}@@'
+    s = re.sub(r'!\[([^\]]*)\]\(img/([^)]+)\.jpg\)', keep, s)
     s = html.escape(s)
     s = re.sub(r'`([^`]+)`', r'<code>\1</code>', s)
     s = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', s)
     s = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', s)
+    s = re.sub(r'@@PIC(\d+)@@', lambda m: f'<img class="thumb" src="{thumb(pics[int(m.group(1))][1])}" alt="{html.escape(pics[int(m.group(1))][0])}">', s)
     return s
 
 
@@ -96,7 +121,9 @@ h1{font-size:28px;margin:0 0 8px}h2{margin-top:40px;border-bottom:1px solid var(
 code{font:13px/1.4 Consolas,monospace;background:rgba(127,127,127,.15);padding:1px 4px;border-radius:4px}
 a{color:var(--acc)}figure{margin:16px 0}img{max-width:100%;border-radius:6px;border:1px solid var(--line)}
 figcaption{color:var(--mut);font-size:14px;margin-top:4px}table{border-collapse:collapse;margin:12px 0;width:100%}
-th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{background:rgba(127,127,127,.1)}"""
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{background:rgba(127,127,127,.1)}
+img.thumb{width:160px;max-width:100%;display:block;margin:2px 0}
+@media (max-width:700px){table{font-size:13px}img.thumb{width:110px}}"""
     page = f'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Haarklous UE5 report</title><style>{css}</style></head><body>{"".join(out)}</body></html>'
     open(OUT, 'w', encoding='utf-8').write(page)
     print('wrote', OUT, f'{len(page) / 1e6:.1f} MB')

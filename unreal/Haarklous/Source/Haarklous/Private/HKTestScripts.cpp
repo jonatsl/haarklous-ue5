@@ -7,7 +7,9 @@
 #include "HKInput.h"
 #include "HKMath.h"
 #include "HKNet.h"
+#include "HKNode.h"
 #include "HKOnlineGame.h"
+#include "HKRigActor.h"
 #include "HKVehicles.h"
 #include "Engine/Engine.h"
 #include "HAL/FileManager.h"
@@ -317,6 +319,83 @@ namespace
 				});
 			});
 
+			// The nine stair towers (own 17A first): in each, a flat door that is not ours is locked, as in the web.
+			FHKTestScripts::All().Add(TEXT("stairwells"), [](AHKTestDriver& T)
+			{
+				T.Wait(3);
+				T.Press(0);
+				T.Wait(1);
+				struct FDoor { int32 Tower = -1; FVector Centre = FVector::ZeroVector; };
+				TSharedPtr<TArray<FDoor>> Locked = MakeShared<TArray<FDoor>>();
+				T.Do([&T, Locked]()
+				{
+					AHKGame* G = T.Game();
+					TSet<int32> Seen;
+					for (TActorIterator<AHKRigActor> It(T.GetWorld()); It; ++It)
+						for (UActorComponent* AC : It->GetComponents())
+						{
+							UPrimitiveComponent* C = Cast<UPrimitiveComponent>(AC);
+							FHKNode* N = C ? It->NodeOfComponent(C) : nullptr;
+							bool bLocked = false;
+							for (FHKNode* P = N; P; P = P->Parent) { if (!P->DoorId.IsEmpty()) break; if (P->bLockedDoor) { bLocked = true; break; } }
+							if (!bLocked) continue;
+							const FVector W = HK::FromUE(C->Bounds.Origin);
+							int32 Ti = -1; FVector L;
+							if (!G->TowerAt(W.X, W.Z, W.Y - 1.0, Ti, L) || Seen.Contains(Ti)) continue;
+							Seen.Add(Ti);
+							Locked->Add({Ti, W});
+						}
+					Locked->Sort([](const FDoor& A, const FDoor& B) { return A.Tower < B.Tower; });
+					UE_LOG(LogTemp, Display, TEXT("HK-TEST %d towers, a locked flat door found in %d of them"), G->Towers.Num(), Locked->Num());
+				});
+				T.Expect(TEXT("a locked flat door in each of the 9 stair towers"), [&T, Locked]() { return T.Game()->Towers.Num() == 9 && Locked->Num() == 9; });
+				for (int32 k = 0; k < 9; k++)
+				{
+					// Stand 1 m from the door toward the middle of the stairwell (the game may push you out of a wall), then
+					// keep looking at the door from wherever you stand.
+					T.Do([&T, Locked, k]()
+					{
+						if (!Locked->IsValidIndex(k)) return;
+						AHKGame* G = T.Game();
+						const FDoor& D = (*Locked)[k];
+						const FHKTower& Tw = G->Towers[D.Tower];
+						const FVector L = Tw.Inverse.TransformPoint(D.Centre);
+						FVector2D Dir(.1 - L.X, 8.0 - L.Z);
+						Dir.Normalize();
+						const FVector P = Tw.Matrix.TransformPoint(FVector(L.X + Dir.X, L.Y, L.Z + Dir.Y));
+						G->Place(P.X, P.Z, 0, D.Centre.Y - G->Player.EyeNow);
+					});
+					TSharedPtr<double> Held = MakeShared<double>(0);
+					T.Steps.Add([&T, Locked, k, Held](double Dt)
+					{
+						if (!Locked->IsValidIndex(k)) return true;
+						AHKGame* G = T.Game();
+						const FVector C = (*Locked)[k].Centre;
+						const FVector E(G->Player.X, G->Player.Feet + G->Player.EyeNow, G->Player.Z);
+						G->Player.Yaw = FMath::Atan2(-(C.X - E.X), -(C.Z - E.Z));
+						G->Player.Pitch = FMath::Atan2(C.Y - E.Y, HK::Hypot(C.X - E.X, C.Z - E.Z));
+						*Held += Dt;
+						return *Held > .6;
+					});
+					T.Log([&T, k, Locked]()
+					{
+						AHKGame* G = T.Game();
+						const FVector C = Locked->IsValidIndex(k) ? (*Locked)[k].Centre : FVector::ZeroVector;
+						TArray<FHitResult> Hits;
+						FCollisionQueryParams Q(SCENE_QUERY_STAT(HKTest), true);
+						G->GetWorld()->LineTraceMultiByChannel(Hits, HK::ToUE(G->CamPos), HK::ToUE(G->CamPos + (C - G->CamPos) * 1.5), ECC_GameTraceChannel1, Q);
+						FString Names;
+						for (const FHitResult& H : Hits) Names += (H.GetComponent() ? H.GetComponent()->GetName() : FString(TEXT("?"))) + TEXT(" ");
+						const AHKGame::FLookHit L = G->LookTarget();
+						return FString::Printf(TEXT("tower %d: prompt '%s', door (%.2f, %.2f, %.2f), eye (%.2f, %.2f, %.2f), look hit %d locked %d, trace: %s"), k, *G->LastPromptText(), C.X, C.Y, C.Z, G->CamPos.X, G->CamPos.Y, G->CamPos.Z, L.bHit, L.bLocked, *Names);
+					});
+					T.Expect(FString::Printf(TEXT("tower %d%s: a stranger's flat door offers only '□ Try the door'"), k, k == 0 ? TEXT(" (17A)") : TEXT("")), [&T]() { return T.Game()->LastPromptText() == TEXT("□ Try the door"); });
+					if (k == 1) T.Shot(TEXT("01-locked-door"));
+					T.Press(2);
+					T.Expect(FString::Printf(TEXT("tower %d: it is locked"), k), [&T]() { return T.Game()->LastNoticeText().StartsWith(TEXT("Locked")); });
+				}
+			});
+
 			// Every vehicle: get in with square, drive with the simulated controller, read the HUD, get out.
 			FHKTestScripts::All().Add(TEXT("vehicles"), [](AHKTestDriver& T)
 			{
@@ -595,6 +674,61 @@ namespace
 				T.Expect(TEXT("drunk 30 s after a beer"), [&T]() { return T.Game()->Drunk > 29 && T.Game()->Drunk <= 30; });
 				T.Wait(3);
 				T.Shot(TEXT("06-drunk"));
+				// The aquavit on the TV bench: 12 sips, each +30 s drunk.
+				TSharedPtr<int32> Aq = MakeShared<int32>(-1);
+				TSharedPtr<double> DrunkBefore = MakeShared<double>(0);
+				T.Do([&T, Aq]()
+				{
+					AHKGame* G = T.Game();
+					for (int32 i = 0; i < G->Drinks.Num(); i++) if (G->Drinks[i].Kind != TEXT("beer") && G->Drinks[i].Object) *Aq = i;
+					UE_LOG(LogTemp, Display, TEXT("HK-TEST aquavit: drink %d, %d sips"), *Aq, *Aq >= 0 ? G->Drinks[*Aq].Sips : 0);
+				});
+				T.Expect(TEXT("the aquavit has 12 sips"), [&T, Aq]() { return *Aq >= 0 && T.Game()->Drinks[*Aq].Sips == 12; });
+				T.Steps.Add([&T, Aq](double)
+				{
+					AHKGame* G = T.Game();
+					if (*Aq < 0) return true;
+					const FVector B = G->Drinks[*Aq].Object->GetWorldPosition();
+					const FVector2D Dir = FVector2D(B.X - G->Player.X, B.Z - G->Player.Z);
+					if (Dir.Size() > .9) { G->Player.Yaw = FMath::Atan2(-Dir.X, -Dir.Y); if (TSharedPtr<FHKInputProcessor> In = FHKInputProcessor::Get()) In->SimulatedPad.Axes[1] = -1; return false; }
+					if (TSharedPtr<FHKInputProcessor> In = FHKInputProcessor::Get()) In->SimulatedPad.Axes[1] = 0;
+					return true;
+				});
+				T.Do([&T, Aq, DrunkBefore]()
+				{
+					AHKGame* G = T.Game();
+					if (*Aq < 0) return;
+					const FVector B = G->Drinks[*Aq].Object->GetWorldPosition() + FVector(0, .1, 0);
+					const FVector E = FVector(G->Player.X, G->Player.Feet + G->Player.EyeNow, G->Player.Z);
+					G->Player.Yaw = FMath::Atan2(-(B.X - E.X), -(B.Z - E.Z));
+					G->Player.Pitch = FMath::Atan2(B.Y - E.Y, HK::Hypot(B.X - E.X, B.Z - E.Z));
+				});
+				T.Wait(.5);
+				T.Log([&T]() { return TEXT("prompt: ") + T.Game()->LastPromptText(); });
+				T.Shot(TEXT("07-aquavit"));
+				T.Do([&T, DrunkBefore]() { *DrunkBefore = T.Game()->Drunk; });
+				// Drunk, you sway: keep the bottle in view while square goes down and up.
+				TSharedPtr<double> Sip = MakeShared<double>(0);
+				TSharedPtr<bool> SawPrompt = MakeShared<bool>(false);
+				T.Steps.Add([&T, Aq, Sip, SawPrompt](double Dt)
+				{
+					if (*Sip > .05 && *Sip <= .15 && T.Game()->LastPromptText().StartsWith(TEXT("□ Take a sip of"))) *SawPrompt = true;
+					AHKGame* G = T.Game();
+					TSharedPtr<FHKInputProcessor> In = FHKInputProcessor::Get();
+					*Sip += Dt;
+					if (*Aq >= 0)
+					{
+						const FVector B = G->Drinks[*Aq].Object->GetWorldPosition() + FVector(0, .1, 0);
+						const FVector E = FVector(G->Player.X, G->Player.Feet + G->Player.EyeNow, G->Player.Z);
+						G->Player.Yaw = FMath::Atan2(-(B.X - E.X), -(B.Z - E.Z));
+						G->Player.Pitch = FMath::Atan2(B.Y - E.Y, HK::Hypot(B.X - E.X, B.Z - E.Z));
+					}
+					if (In) { In->SimulatedPad.Buttons[2] = (*Sip > .15 && *Sip < .3) ? 1 : 0; In->SimulatedPad.Pressed[2] = In->SimulatedPad.Buttons[2] > .5; }
+					return *Sip > .5;
+				});
+				T.Expect(TEXT("prompt to take a sip of the aquavit just before square"), [SawPrompt]() { return *SawPrompt; });
+				T.Log([&T]() { return TEXT("notice: ") + T.Game()->LastNoticeText(); });
+				T.Expect(TEXT("a sip: 11 sips left and +30 s drunk"), [&T, Aq, DrunkBefore]() { return *Aq >= 0 && T.Game()->Drinks[*Aq].Sips == 11 && T.Game()->Drunk - *DrunkBefore > 29; });
 			});
 		}
 	} GRegister;
