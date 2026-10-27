@@ -6,6 +6,9 @@
 #include "HKInput.h"
 #include "HKMath.h"
 #include "HKVehicles.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/StaticMeshActor.h"
+#include "EngineUtils.h"
 
 namespace
 {
@@ -38,6 +41,14 @@ namespace
 				T.Pose(40, 70, 90, Toward(40, 90, 0, 0), -.55); T.Shot(TEXT("08-aerial-home"));
 				T.Pose(-60, 120, 120, Toward(-60, 120, 60, -60), -.45); T.Shot(TEXT("09-aerial-district"));
 				Ground(T, -116.5, 0, 1.7, .5236, 0); T.Shot(TEXT("10-airstrip"));
+				// The sky with and without the cloud dome (a sphere mesh around the world).
+				Ground(T, 6, 24, 1.7, 2.5, .6); T.Shot(TEXT("11-sky"));
+				T.Do([&T]()
+				{
+					for (TActorIterator<AStaticMeshActor> It(T.GetWorld()); It; ++It)
+						if (It->GetStaticMeshComponent()->GetStaticMesh() && It->GetStaticMeshComponent()->GetStaticMesh()->GetName() == TEXT("Sphere")) It->SetActorHiddenInGame(true);
+				});
+				T.Shot(TEXT("12-sky-without-dome"));
 				T.FreeCamera();
 			});
 

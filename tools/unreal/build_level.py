@@ -111,8 +111,13 @@ def lights():
     lc.set_editor_property('cascade_distribution_exponent', 3.0)
     lc.set_editor_property('shadow_bias', 0.4)
     atm = spawn(unreal.SkyAtmosphere, 'Sky atmosphere', None, 'Generated/Lighting')
+    # Brighter than the physical default with this low sun intensity, toward the web's light-blue sky gradient.
+    try:
+        atm.get_component_by_class(unreal.SkyAtmosphereComponent).set_editor_property('sky_luminance_factor', unreal.LinearColor(2.6, 2.6, 2.6, 1))
+    except Exception as e:
+        log('sky luminance', e)
     # Clouds of the web's sky shader on a large dome over the physical sky (cheap: one translucent mesh).
-    dome = spawn(unreal.StaticMeshActor, 'Cloud dome', unreal.Transform(unreal.Vector(0, 0, 0), unreal.Rotator(0, 0, 0), unreal.Vector(36000, 36000, 36000)), 'Generated/Lighting')
+    dome = spawn(unreal.StaticMeshActor, 'Cloud dome', unreal.Transform(unreal.Vector(0, 0, 0), unreal.Rotator(0, 0, 0), unreal.Vector(60000, 60000, 60000)), 'Generated/Lighting')
     dc = dome.static_mesh_component
     dc.set_mobility(unreal.ComponentMobility.MOVABLE)
     dc.set_static_mesh(unreal.load_asset('/Engine/BasicShapes/Sphere'))
@@ -134,6 +139,11 @@ def lights():
     fc.set_editor_property('fog_density', 0.0025)
     fc.set_editor_property('fog_height_falloff', 0.08)
     fc.set_editor_property('fog_max_opacity', 0.75)
+    # The web's sky dome had fog off: stop the fog before the sky (beyond 20 km), so the sky and clouds stay clear.
+    try:
+        fc.set_editor_property('fog_cutoff_distance', 2000000.0)
+    except Exception as e:
+        log('fog cutoff', e)
     fc.set_editor_property('fog_inscattering_luminance', srgb_hex(0xc6d3dc))   # web fog colour
     fc.set_editor_property('start_distance', 3000.0)
     pp = spawn(unreal.PostProcessVolume, 'Post process', None, 'Generated/Lighting')

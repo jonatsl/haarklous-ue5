@@ -26,6 +26,20 @@ Blender files use (x, −z, y) of the web frame (metres, z up), which the FBX im
 3. Blender scripts (`tools/blender/*.py`, run headless) build better-looking assets from the plan and export FBX;
    Unreal Python scripts (`tools/unreal/*.py`) import them, make materials and build the level.
 
+## Look of the world (what changed from the web, on purpose)
+- **Ground:** one material `M_HK_Ground` blends grass, asphalt, gravel and sand (textures from
+  `tools/blender/make_textures.py`) by the web's surface classes and tints them with the web's own map painting.
+- **Trees and bushes:** new Blender models (`foliage()` in `build_assets.py`) at the web's exact positions and sizes,
+  drawn as instanced meshes (`AHKGame::SpawnTrees`, lists in `Content/Data/instances`).
+- **Sky:** Unreal's sky atmosphere and height fog instead of the web's gradient dome; the web's clouds (same formula,
+  baked into `T_Clouds`) on an unlit dome (`M_HK_Clouds`, no fog, as the web drew its sky without fog).
+- **Horizon:** the web drew its far scene (18 km plane, hills, fjord) in a separate pass behind the district. In one
+  Unreal scene the plane would cut through the district, so `horizon_with_hole()` cuts a hole over the district
+  terrain whose rim follows the terrain's edge heights.
+- **Lighting:** stationary sun along the web's `sunDir` with cascaded shadows, stationary sky light, baked indirect
+  light (Lightmass, `tools/unreal/build-lighting.ps1`), static lamps with the web's values. No Lumen, Nanite, virtual
+  shadow maps or ray tracing (integrated Radeon laptop).
+
 ## Core C++ (Source/Haarklous)
 | File | What |
 | --- | --- |

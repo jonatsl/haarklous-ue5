@@ -52,12 +52,13 @@ def uv_transform(mat_id):
     return (t['repeat'][0], t['repeat'][1], t['offset'][0], t['offset'][1])
 
 
-def horizon_with_hole(pos, nor, uv):
+def horizon_with_hole(pos, nor, uv, exp, bin_data):
     """The web's 18 km horizon plane was drawn in a separate pass behind the district; in one Unreal scene it would cut
-    through the mapped area, so it gets a hole over the district (+-600 m in the map frame, where the far terrain is)."""
+    through the mapped area, so it gets a hole over the district terrain (+-600 m in the map frame). The hole's rim
+    follows the terrain's edge heights (-42..29 m) and slopes out to the web's plane height, so there is no gap or
+    overhang between them to look through (Unreal's sky is dark below the horizon; the web drew sky behind the gap)."""
     data = json.load(open(os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data', 'surroundings.json'), encoding='utf-8'))
     th, gx, gz = data['geo']['theta'], data['geo']['x'], data['geo']['z']
-    to_world = lambda x, s: (x * math.cos(th) + s * math.sin(th) + gx, -x * math.sin(th) + s * math.cos(th) + gz)
     o, a, b = pos[0], pos[1] - pos[0], pos[2] - pos[0]          # corners of the plane: o, o+a, o+b (+ o+a+b)
     y = float(pos[:, 1].mean())
     def uv_at(x, z):
@@ -66,25 +67,37 @@ def horizon_with_hole(pos, nor, uv):
         u, v = np.linalg.solve(M, np.array([x - o[0], z - o[2]]))
         return uv[0] + (uv[1] - uv[0]) * u + (uv[2] - uv[0]) * v
     outer = [pos[0], pos[1], pos[3], pos[2]] if len(pos) >= 4 else list(pos)
-    H = 600.0
-    inner = [to_world(*c) for c in ((-H, -H), (H, -H), (H, H), (-H, H))]
-    # Order the inner corners like the outer ones (by angle around the centre).
     cx, cz = np.mean([p[0] for p in outer]), np.mean([p[2] for p in outer])
-    ang = lambda p: math.atan2(p[1] - cz, p[0] - cx)
     outer = sorted(outer, key=lambda p: math.atan2(p[2] - cz, p[0] - cx))
-    inner = sorted(inner, key=ang)
-    P = [np.array([p[0], y, p[2]]) for p in outer] + [np.array([p[0], y, p[1]]) for p in inner]
+    # The rim: the district terrain's outermost vertices, in order around the district, 0.3 m below the edge.
+    terrain = next(m for m in exp['meshes'] if m.get('name') == 'Terrain (district)')
+    tp = array(bin_data, terrain['geo']['pos'], np.float32).reshape(-1, 3).astype(np.float64)
+    dx, dz = tp[:, 0] - gx, tp[:, 2] - gz
+    lx, lz = dx * math.cos(th) - dz * math.sin(th), dx * math.sin(th) + dz * math.cos(th)
+    r = np.maximum(np.abs(lx), np.abs(lz))
+    rim = np.where(r > r.max() - 0.5)[0]
+    rim = rim[np.argsort(np.arctan2(tp[rim, 2] - cz, tp[rim, 0] - cx))]
+    P = [np.array([p[0], y, p[2]]) for p in outer] + [tp[k] - [0, 0.3, 0] for k in rim]
     U = [uv_at(p[0], p[2]) for p in P]
+    # Each rim vertex joins the outer corner nearest to it by angle; where that changes, a triangle fills the corner.
+    oang = np.array([math.atan2(p[2] - cz, p[0] - cx) for p in outer])
+    def corner(p):
+        d = np.abs((math.atan2(p[2] - cz, p[0] - cx) - oang + math.pi) % (2 * math.pi) - math.pi)
+        return int(np.argmin(d))
+    n = len(rim)
+    cs = [corner(P[4 + k]) for k in range(n)]
     tris = []
-    for i in range(4):
-        j = (i + 1) % 4
-        tris += [[i, j, 4 + j], [i, 4 + j, 4 + i]]
+    for k in range(n):
+        k1 = (k + 1) % n
+        c0, c1 = cs[k], cs[k1]
+        tris.append([4 + k, 4 + k1, c1])
+        if c0 != c1:
+            tris.append([4 + k, c1, c0])
     tris = np.array(tris, dtype=np.int64)
     P, U = np.array(P), np.array(U)
-    # Keep the plane facing up (+y).
-    t = tris[0]
-    if np.cross(P[t[1]] - P[t[0]], P[t[2]] - P[t[0]])[1] < 0:
-        tris = tris[:, [0, 2, 1]]
+    # Keep every triangle facing up (+y).
+    up = np.cross(P[tris[:, 1]] - P[tris[:, 0]], P[tris[:, 2]] - P[tris[:, 0]])[:, 1] < 0
+    tris[up] = tris[up][:, [0, 2, 1]]
     return P, np.tile([0.0, 1.0, 0.0], (len(P), 1)), U, None, tris
 
 
@@ -185,7 +198,7 @@ def gather(exp, bin_data, mesh_indices, slots):
         idx = array(bin_data, g['idx'], np.uint32).astype(np.int64) if 'idx' in g else np.arange(n, dtype=np.int64)
         tris = idx[: (len(idx) // 3) * 3].reshape(-1, 3)
         if m.get('type') == 'PlaneGeometry' and (m.get('params') or {}).get('width', 0) >= 10000:
-            pos, nor, uv, col, tris = horizon_with_hole(pos, nor, uv)
+            pos, nor, uv, col, tris = horizon_with_hole(pos, nor, uv, exp, bin_data)
         if g.get('flip'):
             tris = tris[:, [0, 2, 1]]
         tmat = np.zeros(len(tris), dtype=np.int64)   # index into mats

@@ -1,50 +1,86 @@
 # Porting checklist – what the Unreal version must do
 
-Everything below exists in the web game (`reference/web-game/`) and must work the same in Unreal. Take exact values from the files named; the numbers here are only reminders. Tick items off (`[x]`) as they are ported and verified, and note the Unreal class or asset next to them.
+Everything below exists in the web game (`reference/web-game/`) and works the same in Unreal. Each item names the
+Unreal class or asset and how it was verified. "Tests" = automation tests in `Source/Haarklous/Private/Tests`
+(`tools\run-tests.ps1`, compared against answers recorded from the web code); "play-through" = scripted run with a
+simulated DualShock 4 (`tools\run-game.ps1 -Test <name>`, `HKTestScripts.cpp`), screenshots in `tools\out\shots\<name>`.
 
 ## World and coordinates
-- [ ] World units = metres of the apartment model: the 4th-floor apartment floor is y = 0, the street at the front door about y = −10 (web uses y up; convert to Unreal's z up, centimetres, and left-handed axes in one place only).
-- [ ] Local map frame: x = metres east, s = metres south of the address node 59.936404 N, 10.776657 E; rotation `geo.theta` and offsets in `surroundings-data.js` / `surroundings.js` (`toWorld`, `toLocal`). The stair-door height 84.9 m a.s.l. maps to y −9.975.
-- [ ] Terrain: Kartverket DTM (`assets/osm/kartverket-dtm-2m.tif`, and the 4 m grid ±600 m baked into `surroundings-data.js`). Walkable area ±540 m around the address.
-- [ ] Buildings: OpenStreetMap footprints and heights (`surroundings-data.js` `buildings`, generator `generate-surroundings.py`); brick blocks with hip roofs, plaster and sheds; the own building is special (`data.own`, squeezed to 10.32 m depth, cut around the apartment and stair tower).
-- [ ] Streets, paths, parks, playgrounds, courtyard (benches, hedges, trees), street lamps, trees and bushes from the data; aerial imagery was only a live web texture – use real materials instead.
-- [ ] Sky, sun direction (`sunDir` in `game-main.js`), distant hills, Oslofjord to the south.
+- [x] World units = metres of the apartment model, y up, converted in one place. — `HKMath.h` (`HK::ToUE`, `QuatToUE`,
+  `TransformToUE`); test `Haarklous.Core.Math`; Blender→FBX→Unreal axis chain checked with a marker mesh.
+- [x] Local map frame (`toWorld`, `toLocal`, theta, offsets; stair door 84.9 m = y −9.975). — `FHKData::ToWorld/ToLocal`;
+  test `World.TerrainAndFrame` (200/200 identical).
+- [x] Terrain from the Kartverket grid, walkable ±540 m. — `FHKData::HeightWorld` (3000/3000 heights identical to the
+  web); terrain meshes `SM_world_near__root_t*` / `SM_world_far__root_t*`; ground material `M_HK_Ground` (grass,
+  asphalt, gravel, sand blended by the map's surface mask, tinted by the web's map painting).
+- [x] Buildings from OSM (brick with hip roofs, plaster, sheds, own building cut around the flat). — exported web geometry
+  rebuilt in Blender (`tools/blender/build_assets.py`), 100 m city tiles; screenshots `shots/08-aerial-home`, `09-aerial-district`.
+- [x] Streets, paths, parks, playgrounds, courtyard, lamps, trees and bushes. — ground mask (`exporter-ground.js`),
+  courtyard props in the city tiles, trees and bushes as instanced Blender models (`foliage()` in `build_assets.py`,
+  same positions and sizes as the web; `Content/Data/instances`), `AHKGame::SpawnTrees`.
+- [x] Sky, sun direction, distant hills, Oslofjord. — `build_level.py`: stationary sun along `sunDir`, sky atmosphere,
+  clouds from the web sky's formula (`M_HK_Clouds`), hills and fjord from the web's far scene (horizon cut out over the district).
 
-## Player (`game-main.js` `updateFoot`, `walk-collision.js`)
-- [ ] First person; walk 1.45 m/s, run 3.6 m/s (R2 held or L3 toggle), crouch (tap ○) and prone (hold ○) with their speed factors and eye heights, jump (✕).
-- [ ] Look sensitivity settings (controller and mouse), saved.
-- [ ] Collision: walls solid, step onto stairs and kerbs (step 0.36 m), doors as moving obstacles.
-- [ ] Drunk effect: each beer or sip +30 s; blur, double vision, sway, drifting walking and steering (`drunkLevel`).
+## Player (`AHKGame::UpdateFoot`, `FHKWalkWorld`)
+- [x] First person; walk 1.45 / run 3.6 m/s, crouch and prone, jump 3.1 m/s. — `HKGame.cpp` (port of `updateFoot`);
+  play-through `walkhome` (street door → 4 storeys → flat, feet 0.00 m on the 4th floor).
+- [x] Look sensitivity (controller and mouse), saved. — `AHKGame::SetSens`, `Saved/Haarklous/settings.ini`; pause menu sliders.
+- [x] Collision: walls, steps 0.36 m, doors as moving obstacles. — `FHKWalkWorld` (port of `walk-collision.js`): test
+  `World.WalkCollision` – 2500 moves (largest difference 0 m), 3000 stand/support/ceiling checks, 2000 hit checks,
+  150 spawns, 483 boundary pieces all identical; doors in `UpdateDynamic`.
+- [x] Drunk effect (+30 s per beer or sip; blur, double vision, sway, drift). — `M_HK_Drunk` post-process + sway/drift in
+  `UpdateFoot`; play-through `walkhome` (beer → 30 s).
 
-## Apartment and stairwells (`apartment-data.js`, `game-apartment.js`, `furnishings.js`, `stairwell.js`)
-- [ ] The 4th-floor apartment exactly as in `apartment-data.js` (frozen kitchen + bedroom design), living room and bathroom furnishing, opening doors, lights.
-- [ ] Drinks: six beers on the kitchen worktop, aquavit on the TV bench (12 sips).
-- [ ] Own stairwell: street door of 17A opens normally, stairs to the 4th floor, one flat door left and right per landing, only the own front door opens.
-- [ ] Eight neighbouring buildings with enterable stairwells (`data.enterable`), their flat doors locked.
+## Apartment and stairwells
+- [x] The 4th-floor flat exactly as `apartment-data.js` (frozen kitchen and bedroom), doors, lights. — exported web
+  geometry (`SM_apartment__*`), rig `apartment` (doors, drinks), static lamps with the web's values; screenshots
+  `walkhome/04-hall`, `05-beer`.
+- [x] Six beers on the worktop, aquavit (12 sips). — `AHKGame::Drink`; play-through `walkhome`.
+- [x] Own stairwell: street door opens, stairs to the 4th floor, flat doors locked except the own. — rig `stair_own`;
+  play-through `walkhome` (prompts "□ Open street door", "□ Open entrance door").
+- [x] Eight neighbouring stair towers with locked flat doors. — rigs `stair_b0..7`, `Towers`, `TowerAt`.
 
-## Vehicles (`game-vehicles.js`, `game-aircraft.js`)
-- [ ] Honda CBF600S (2005, no top box): lean physics (leans into the turn), six-gear engine note, bars and front wheel turn the right way, hands on the grips, pillion seat.
-- [ ] Cars (hatchbacks, 7 colours): bicycle-model steering, LHD wheel turning at most about 55°, hands at ten and two, passenger seat.
-- [ ] Excavator: L1/L2 left track, R1/R2 right track, ISO joysticks (left stick swing/stick, right stick boom/bucket), digging fills the bucket, dumping makes piles.
-- [ ] Helicopter (H125 style) and two-seat sport plane: Mode 2 sticks, rotor spool-up, crash and reset rules, rotor-strike check, chase camera (R3/V), cockpit hands, passenger seat.
-- [ ] FPV drone from the hold-△ menu: angle and acro modes, battery, on-screen display, works indoors.
-- [ ] Vehicle placement: 5 cars, motorcycle, excavator, helipad (26, 14), airstrip (−116.5, 0) plus 25 cars and 7 motorcycles generated with the seeded generator in `game-main.js` (seed 1707). **Keep the exact list and order**: multiplayer identifies vehicles by their index.
-- [ ] □ to get in/out (only when stopped; aircraft only when landed), engines and sounds.
+## Vehicles (`HKVehicles`, `HKAircraft`)
+- [x] Honda CBF600S: lean, 6 gears, bars and wheel, hands, pillion. — `FHKMotorcycle`; tests `Vehicles.Motorcycle*`
+  (all values within 5e-10 of the web); play-through `vehicles` (50 km/h in 2nd gear after 3 s).
+- [x] Cars (7 colours): bicycle steering, LHD wheel ≤ 55°, hands at ten and two, passenger seat. — `FHKCar`; tests
+  `Vehicles.Car*`; play-through `vehicles`.
+- [x] Excavator: tracks, ISO joysticks, digging and piles. — `FHKExcavator`; test `Vehicles.Excavator`; play-through `vehicles`.
+- [x] Helicopter and two-seat plane: Mode 2, spool-up, crashes, chase camera, cockpit hands, passenger seat. —
+  `FHKHelicopter`, `FHKPlane`; tests `Vehicles.Helicopter*`, `Vehicles.Plane`; play-through `vehicles` (plane lifts
+  off at 92 km/h after 86.9 m; web: about 87 km/h after 76–87 m).
+- [x] FPV drone (hold △): angle and acro, battery, OSD, works indoors. — `FHKDrone`; tests `Vehicles.Drone*`;
+  play-through `activities` (`06-drone` with the OSD).
+- [x] Vehicle list in the web's order (5 cars, bike, excavator, helipad, airstrip, seed 1707: 25 cars + 7 bikes). —
+  `HKVehicles::CreateAll`; test `Vehicles.List` (all 41 identical to the web).
+- [x] □ in/out (stopped / landed), engine sounds. — `AHKGame::TryDrive/ExitVehicle` (`HKGameModules.cpp`); play-through `vehicles`.
 
 ## Activities
-- [ ] Disc golf: two ~70 m par-3 holes in Torshovdalen (`game-minigames.js`).
-- [ ] Petanque against the waiting opponent Arne: real rules, aim scatter, score HUD.
-- [ ] Hostage rescue mission (`case-game.js`): start at the red ring beside the entrance (world 4.8, 14.2), hostage in the apartment, 3–5 hostiles in the stairwell and apartment who shoot back, pistol and health HUD only during the mission; Leave keeps you where you are.
-- [ ] Firepit in the park in front of the building (world −2.7, 34.7): five benches (sit, R2 for a beer), woodpile (throw a log: bigger fire, burns down 1 level per 90 s, max 6), beer crate.
-- [ ] Photo camera with gallery (tap △), hold-△ menu (camera or FPV drone), wristwatch on D-pad ↑ showing the PC time, map on the touchpad (no vehicles on it).
-- [ ] Music (`game-music.js`): calm 2:30 open-world loop plus one loop each for disc golf, petanque and the mission; ambience and sounds (`game-audio.js`). Keep how they sound unless the user wants new ones.
+- [x] Disc golf: two ~70 m par-3 holes. — `FHKDiscGolf`; test `Minigames.DiscGolf` (51,524 + 102,653 checks identical);
+  play-through `activities`.
+- [x] Petanque against Arne: rules, scatter, score HUD. — `FHKPetanque`; test `Minigames.Petanque` (231,507 checks);
+  play-through `activities`.
+- [x] Hostage rescue mission: ring at (4.8, 14.2), hostage, 3–5 hostiles, pistol and health HUD only in the mission,
+  Leave keeps you where you are. — `FHKMission`, `AHKMissionFx`, viewmodel; tests `Mission.*` (three recorded web
+  missions replay identically, 1,770 frames); play-through `mission`.
+- [x] Firepit at (−2.7, 34.7): benches, beer, woodpile, fire levels. — `FHKFire`, `AHKFireEffects`; tests `Fire.*`;
+  play-through `activities`.
+- [x] Photo camera with gallery, gear menu, wristwatch (PC time), map without vehicles. — `HKGameExtras.cpp`;
+  play-through `activities` (`01-watch`, `02`–`04` camera and gallery, `05-gear-menu`, `07-map`).
+- [x] Music and sounds, the same as the web. — `HKSynth` (Web Audio engine in C++), `HKAudioImpl`, `HKMusicPlayer`;
+  tests `Audio.*` (71/71 sounds match browser renders, music loops 0.00 dB from Chrome).
 
-## Online (built, off by default; tested only against the separate test server `haarklous-ue5-test`)
-- [ ] Lobby client speaking the protocol in `cloud/src/index.js` (`hello`, `welcome`, `st`, `vs`, `claim`, `release`, `chat`, `door`, `fire`, `name`, `mic`, `rtc`, `ping`) over WebSockets; own 4-character lobby code, join by code, up to 5 players (`game-net.js`).
-- [ ] Remote players as avatars with name tags and chat bubbles, remote-driven vehicles smoothed, one driver and one passenger per vehicle, shared doors and fire (`game-multiplayer.js`, `game-avatars.js`).
-- [ ] Chat (Enter/T, Share for quick chat) and lobby-wide voice chat (`game-voice.js`; voice may need a different technique in Unreal – ask before choosing).
-- [ ] Settings: see your lobby code, join another by code (controller code pad), name, voice on/off.
+## Online (built, off by default; tested only against `haarklous-ue5-test`)
+- [x] Lobby client with the same protocol, own code, join by code, up to 5 players. — `FHKNet`; tests `Net.*`
+  (wire JSON byte-identical, 219/219 session steps identical); live tests on `wrangler dev` and the deployed test server.
+- [x] Remote avatars with name tags and bubbles, smoothed vehicles, one driver and one passenger, shared doors and fire. —
+  `FHKMultiplayer`, `HKAvatars`, `AHKOnline`; live tests (see `docs/ONLINE.md`).
+- [x] Chat and voice. — chat in `HKGameExtras.cpp`; voice = the web's own `game-voice.js` in a hidden browser page
+  (`FHKWebVoice`, `Content/Web/voice`), tested both ways with a test tone and Chrome's fake microphone.
+- [x] Settings: lobby code, join by code (controller code pad), name, voice. — `AHKOnline` pause-menu section.
 
 ## Controls and screens
-- [ ] DualShock 4 (USB and Bluetooth) mapping as in `reference/web-game/README.md` and the start/pause screens of `index.html`, keyboard and mouse too.
-- [ ] Start screen, pause/settings (sensitivity, music volume, graphics quality), credits for OpenStreetMap and Kartverket.
+- [x] DualShock 4 (USB and Bluetooth) with the web mapping, plus keyboard and mouse. — `FHKInputProcessor` (raw HID
+  reports, XInput fallback, keyboard/mouse like `readInput`); tests `Input.*`. **Still to do by the user: a real DualShock 4.**
+- [x] Start screen, pause/settings (sensitivity, music volume, graphics quality), credits. — `HKGameHud.cpp`
+  (`00-start-screen`). The web's "aerial imagery" option is not used: the ground has real materials instead.

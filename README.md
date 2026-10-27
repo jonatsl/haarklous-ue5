@@ -16,6 +16,14 @@ Open pull requests in the web game at snapshot time (port them once merged, afte
 
 Refresh after changes in the web game: `powershell -File tools\refresh-reference.ps1`.
 
+## How to start the game
+- **Packaged build:** `dist\Haarklous-UE5\Windows\Haarklous.exe` (make it with `powershell -File tools\package-game.ps1`).
+- **From the project (no packaging):**
+  `"C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe" unreal\Haarklous\Haarklous.uproject -game -dx11`.
+- Controls are the web game's: DualShock 4 (USB or Bluetooth, plug it in before starting) or keyboard and mouse.
+- **Online is off.** To try it against the test server only: start with `-HKOnline` (server
+  `wss://haarklous-ue5-test.server-smoke.workers.dev`, see `docs/ONLINE.md`). Never point it at the live game.
+
 ## Tools (installed on this PC)
 Unreal Engine 5.8.4, Visual Studio 2022 with "Game development with C++", Blender 5.2, Node 24, Python 3.12, Chrome.
 

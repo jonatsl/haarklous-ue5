@@ -207,9 +207,20 @@ def bark():
     save('T_Bark_N', normal_map(fib * 4 - cracks * 3, 2.0), srgb=False)
 
 
+def clouds():
+    """Sky clouds like the web's sky shader: c = smoothstep(.5, .78, fbm), shade .92 + .08 * fbm(3x); alpha = c * .85."""
+    v = fbm(1.9, 61)
+    w = fbm(2.3, 62)
+    c = np.clip((v - 0.5) / 0.28, 0, 1)
+    c = c * c * (3 - 2 * c)
+    shade = 0.92 + 0.08 * w
+    rgba = np.stack([shade, shade, shade, c * 0.85], axis=-1)
+    save_rgba('T_Clouds', rgba)
+
+
 os.makedirs(OUT, exist_ok=True)
 bpy.ops.wm.read_factory_settings(use_empty=True)
-for make in (grass, asphalt, gravel, sand, bark):
+for make in (grass, asphalt, gravel, sand, bark, clouds):
     make()
 # The web's two crown tone sets and its bush tones (surroundings.js leafMats / bushMat).
 leaves('T_LeavesA', 51, [(0x3f, 0x5f, 0x2a), (0x4f, 0x72, 0x32), (0x5d, 0x82, 0x38), (0x36, 0x52, 0x2a), (0x6a, 0x8c, 0x3e)])
