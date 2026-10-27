@@ -26,8 +26,10 @@ Refresh after changes in the web game: `powershell -File tools\refresh-reference
   `wss://haarklous-ue5-test.server-smoke.workers.dev`, see `docs/ONLINE.md`). Never point it at the live game.
 
 ## Frame rates (27 Oct 2026, this laptop, 2240 × 1400 full screen, quality "Balanced")
-Home 38.9 fps, firepit 32.2, park 32.3, street 32.1, flying 35.6 (averages; slowest 1 % of frames 23–27 fps).
-Measure again with `powershell -File tools\run-game.ps1 -Test fps -Res 2240x1400 -Fullscreen`. Details: `docs/REPORT.md`.
+Packaged game: home 39.5 fps, firepit 32.1, park 32.2, street 31.8, flying 35.3 (averages; slowest 1 % of frames
+23–31 fps; a second run within 0.7 fps). Measure again: `dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps
+-hkout=<folder> -fullscreen -ResX=2240 -ResY=1400` (results in `<folder>\fps.txt`), or in the editor build
+`powershell -File tools\run-game.ps1 -Test fps -Res 2240x1400 -Fullscreen`. Details: `docs/REPORT.md`.
 
 ## Tools (installed on this PC)
 Unreal Engine 5.8.4, Visual Studio 2022 with "Game development with C++", Blender 5.2, Node 24, Python 3.12, Chrome.

@@ -183,22 +183,28 @@ the final build.
 
 ## Frame rates on this laptop
 
-Measured on 27 Oct 2026 with `tools\run-game.ps1 -Test fps -Res 2240x1400 -Fullscreen`: full screen at the
-laptop's own resolution (2240 × 1400), graphics quality "Balanced" (the default, 75 % screen percentage), baked
-lighting, nothing else running. At each place the camera turns one full circle in 12 seconds, so every direction
-counts.
+Measured on 27 Oct 2026 in **the packaged game you start** (`dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps
+-fullscreen -ResX=2240 -ResY=1400`, results in `tools\out\shots\fps-packaged\fps.txt`): full screen at the laptop's
+own resolution (2240 × 1400), graphics quality "Balanced" (the default, 75 % screen percentage), baked lighting,
+nothing else running. At each place the camera turns one full circle in 12 seconds, so every direction counts.
+Two runs:
 
-| Place | Average | Slowest 1 % of frames | Slowest single frame |
+| Place | Average (run 1 / run 2) | Slowest 1 % of frames | Slowest single frame |
 | --- | --- | --- | --- |
-| Home (apartment, looking into the living room and out of the windows) | **38.9 fps** | 24.4 fps | 15.1 fps |
-| Firepit (fire, smoke, cars and the block behind) | **32.2 fps** | 24.1 fps | 20.8 fps |
-| The park (Torshovdalen, the most trees) | **32.3 fps** | 24.9 fps | 21.7 fps |
-| The street outside 17A | **32.1 fps** | 23.4 fps | 20.2 fps |
-| Flying (110 m above the district) | **35.6 fps** | 27.0 fps | 21.9 fps |
+| Home (apartment, looking into the living room and out of the windows) | **39.5 / 39.6 fps** | 30.2 / 30.8 fps | 26.1 / 18.3 fps |
+| Firepit (fire, smoke, cars and the block behind) | **32.1 / 32.6 fps** | 24.1 / 23.1 fps | 21.5 / 20.5 fps |
+| The park (Torshovdalen, the most trees) | **32.2 / 32.6 fps** | 24.0 / 25.6 fps | 18.9 / 22.2 fps |
+| The street outside 17A | **31.8 / 32.5 fps** | 23.7 / 25.9 fps | 19.0 / 24.6 fps |
+| Flying (110 m above the district) | **35.3 / 35.6 fps** | 27.6 / 28.0 fps | 22.2 / 21.2 fps |
 
-All places stay above the 20 fps goal on average and in the slowest 1 % of frames. The one slow frame at home
-(15 fps) is a single hitch while turning, not a steady rate. During the online test, with a second game (the web
-version in software-rendered Chrome) running on the same laptop, the Unreal game still averaged 19.6 fps.
+Every place stays above the 20 fps goal on average and in the slowest 1 % of frames; single frames dip to about
+18–19 fps at most. The same test in the editor build (`tools\run-game.ps1 -Test fps -Res 2240x1400 -Fullscreen`)
+gave the same picture: home 39.5, firepit 33.4, park 35.2, street 35.3, flying 40.3 fps. Its first run right after a
+build showed a few one-off stalls at home while caches warmed up (average still 26.9 fps); the runs after that did
+not.
+
+The lower numbers in the online test (about 16–20 fps) were measured while a second game, the web version in a
+headless Chrome that draws in software, ran on the same laptop to play against; they are not the game's own speed.
 The "Fast" (65 %, no shadows) and "Sharp" (100 %) settings were not measured.
 
 ![Frame-rate test: the park](img/fps--fps-park.jpg)

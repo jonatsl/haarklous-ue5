@@ -78,7 +78,12 @@ namespace
 				{
 					const FIntPoint S = GEngine->GameViewport && GEngine->GameViewport->Viewport ? GEngine->GameViewport->Viewport->GetSizeXY() : FIntPoint::ZeroValue;
 					const IConsoleVariable* Sp = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ScreenPercentage"));
-					return FString::Printf(TEXT("fps viewport %dx%d, screen percentage %.0f, quality %d"), S.X, S.Y, Sp ? Sp->GetFloat() : 0.f, T.Game()->Quality);
+					const FString Line = FString::Printf(TEXT("fps viewport %dx%d, screen percentage %.0f, quality %d"), S.X, S.Y, Sp ? Sp->GetFloat() : 0.f, T.Game()->Quality);
+					// Also to <out>/fps.txt: a Shipping build has no log lines.
+					const FString File = FPaths::Combine(T.OutDir, TEXT("fps.txt"));
+					IFileManager::Get().MakeDirectory(*T.OutDir, true);
+					FFileHelper::SaveStringToFile(Line + LINE_TERMINATOR, *File);
+					return Line;
 				});
 				auto Sweep = [&T](const FString& Label, double X, double Y, double Z, double Pitch)
 				{
@@ -107,7 +112,9 @@ namespace
 						TArray<double> F = A->Frames;
 						F.Sort();
 						const double Avg = F.Num() / A->T, Low = 1 / F[FMath::Min(F.Num() - 1, (int32)(F.Num() * .99))], Worst = 1 / F.Last();
-						UE_LOG(LogTemp, Display, TEXT("HK-TEST fps %s: average %.1f, 1%% low %.1f, slowest frame %.1f fps (%d frames, %.1f s)"), *Label, Avg, Low, Worst, F.Num(), A->T);
+						const FString Line = FString::Printf(TEXT("fps %s: average %.1f, 1%% low %.1f, slowest frame %.1f fps (%d frames, %.1f s)"), *Label, Avg, Low, Worst, F.Num(), A->T);
+						UE_LOG(LogTemp, Display, TEXT("HK-TEST %s"), *Line);
+						FFileHelper::SaveStringToFile(Line + LINE_TERMINATOR, *FPaths::Combine(T.OutDir, TEXT("fps.txt")), FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), FILEWRITE_Append);
 						return true;
 					});
 				};
