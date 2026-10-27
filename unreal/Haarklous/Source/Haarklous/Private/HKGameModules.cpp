@@ -8,6 +8,8 @@
 #include "HKFire.h"
 #include "HKMath.h"
 #include "HKMinigames.h"
+#include "HKMission.h"
+#include "HKMissionFx.h"
 #include "HKRigActor.h"
 #include "HKUi.h"
 #include "HKVehicles.h"
@@ -16,6 +18,10 @@
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "SceneView.h"
+#include "Engine/StaticMeshActor.h"
+#include "Engine/World.h"
+#include "EngineUtils.h"
+#include "Materials/MaterialInterface.h"
 
 namespace
 {
@@ -522,4 +528,103 @@ void AHKGame::DrawModuleHud(UCanvas* C)
 		FHKUi::Text(C, TEXT("-+-"), Sz.X / 2, Sz.Y / 2 - 14, 22, FLinearColor(Ink.R, Ink.G, Ink.B, .85f), EHKAlign::Center, true);
 		if (!Osd.Warn.IsEmpty()) FHKUi::Text(C, Osd.Warn, Sz.X / 2, Sz.Y * .3f, 20, FLinearColor(FColor(0xff, 0x5a, 0x4f)), EHKAlign::Center, true);
 	}
+}
+
+// ---------- Hostage rescue mission (case-game.js mount(ctx)) ----------
+bool AHKGame::ShootQuery(const FVector& Origin, const FVector& Dir, double MaxDist, FHKShotHit& Hit) const
+{
+	// The web raycasts against the visible, opaque meshes of the apartment and the own stairwell (shootTargets).
+	TArray<FHitResult> Hits;
+	FCollisionQueryParams Q(SCENE_QUERY_STAT(HKShoot), true);
+	Q.bReturnFaceIndex = true;
+	const FVector From = HK::ToUE(Origin), To = From + HK::DirToUE(Dir.GetSafeNormal()) * MaxDist * 100;
+	GetWorld()->LineTraceMultiByChannel(Hits, From, To, ECC_Visibility, Q);
+	Hits.Sort([](const FHitResult& A, const FHitResult& B) { return A.Distance < B.Distance; });
+	const AHKRigActor* AptA = ActorOfRig.FindRef(TEXT("apartment"));
+	const AHKRigActor* StairA = ActorOfRig.FindRef(TEXT("stair_own"));
+	for (const FHitResult& H : Hits)
+	{
+		UPrimitiveComponent* C = H.GetComponent();
+		if (!C || !C->IsVisible()) continue;
+		const AActor* A = H.GetActor();
+		bool bOurs = A == AptA || A == StairA;
+		if (const UStaticMeshComponent* M = Cast<UStaticMeshComponent>(C))
+		{
+			const FString Path = M->GetStaticMesh() ? M->GetStaticMesh()->GetPathName() : FString();
+			if (Cast<AStaticMeshActor>(A) && (Path.Contains(TEXT("/Meshes/apartment/")) || Path.Contains(TEXT("/Meshes/stair_own/")))) bOurs = true;
+			if (bOurs && H.FaceIndex >= 0)
+			{
+				int32 Section = 0;
+				const UMaterialInterface* Mat = M->GetMaterialFromCollisionFaceIndex(H.FaceIndex, Section);
+				if (Mat && IsTranslucentBlendMode(Mat->GetBlendMode())) continue;   // glass does not stop the ray
+			}
+		}
+		if (!bOurs) continue;
+		Hit.Distance = H.Distance / 100;
+		Hit.Point = HK::FromUE(H.ImpactPoint);
+		Hit.Normal = HK::DirFromUE(H.ImpactNormal);
+		Hit.Component = C;
+		return true;
+	}
+	return false;
+}
+
+void AHKGame::SetupMission()
+{
+	FHKData& Data = FHKData::Get();
+	FHKMissionContext C;
+	C.CloseAllDoors = [this]() { CloseAllDoors(); };
+	C.RebuildWalkWorld = [this]() { UpdateDynamic(); };
+	C.WalkWorld = [&Data]() { return &Data.WalkWorld; };
+	C.Doors = []() { return HKMissionData::Doors(); };
+	C.SpawnAreas = []() { return HKMissionData::SpawnAreas(); };
+	C.StairSpawns = []() { return HKMissionData::StairSpawns(); };
+	C.MissionStart = []() { return HKMissionData::MissionStart(); };
+	C.Entrance = []() { return HKMissionData::Entrance(); };
+	C.CameraPosition = [this]() { return CamPos; };
+	C.CameraQuaternion = [this]() { return CamQuat; };
+	C.CameraAspect = []() { FVector2D Vp(1920, 1080); if (GEngine && GEngine->GameViewport) GEngine->GameViewport->GetViewportSize(Vp); return Vp.Y > 0 ? Vp.X / Vp.Y : 16.0 / 9; };
+	C.GetFov = [this]() { return Fov; };
+	C.SetFov = [this](double V) { Fov = V; };
+	C.Stance = [this]() { return Player.Stance; };
+	C.SetPose = [this](double X, double Z, double Yaw, double Tilt, double Y) { Place(X, Z, Yaw, Y); };
+	C.UseDoorAhead = [this]() { return Interact(true); };
+	C.Leave = [this]()
+	{
+		// "leave: () => {const yaw = player.yaw; place(player.x, player.z, yaw, player.feet); updateDynamic(); notice(...)}"
+		const double Yaw = Player.Yaw;
+		Place(Player.X, Player.Z, Yaw, Player.Feet);
+		UpdateDynamic();
+		Fov = 70;
+		Notice(InApartment() ? TEXT("Mission over \u2013 you are home. Make yourself comfortable.") : TEXT("Mission over."), 4);
+	};
+	C.GetSensitivity = [this](const FString& K) { return K == TEXT("pad") ? Sensitivity.Pad : Sensitivity.Mouse; };
+	C.SetSensitivity = [this](const FString& K, double V) { SetSens(K, V); };
+	C.StepSensitivity = [this](const FString& K, int32 D) { SetSens(K, (K == TEXT("pad") ? Sensitivity.Pad : Sensitivity.Mouse) + D * .1); };
+	C.Shoot = [this](const FVector& O, const FVector& D, double Max, FHKShotHit& H) { return ShootQuery(O, D, Max, H); };
+	Mission = MakeUnique<FHKMission>(C);
+	MissionActive = [this]() { return Mission->IsActive(); };
+	MissionPlaying = [this]() { return Mission->GetState() == TEXT("play"); };
+	MissionCanMove = [this]() { return Mission->CanMove(); };
+	MissionMoveScale = [this]() { return Mission->MoveScale(); };
+	LookScaleExtra = [this]() { return Mission->LookScale(); };
+	PromptBlocked = [this]() { return Mission->IsActive() && Mission->GetState() != TEXT("play"); };
+	ExtraDynamic = [this]() { return Mission->Obstacles(); };
+	HideCrosshair = [this]() { return Mission->IsActive(); };
+	StartMission = [this]()
+	{
+		// "if (photo.active) photo.toggle(); caseGame.start(false); notice('');"
+		if (Photo.bActive) PhotoToggle();
+		Mission->Start(false);
+		Notice(FString());
+	};
+	MissionRoute = [this]()
+	{
+		if (!Mission->IsActive()) return;
+		if (Mission->RouteInput(Frame)) Player.Mode = TEXT("foot");
+	};
+	FActorSpawnParameters SP;
+	SP.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	MissionFx = GetWorld()->SpawnActor<AHKMissionFx>(AHKMissionFx::StaticClass(), FTransform::Identity, SP);
+	MissionFx->Bind(Mission.Get(), this);
 }

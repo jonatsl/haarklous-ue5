@@ -598,7 +598,7 @@ void FHKExcavator::Update(double Dt, const FHKVehicleInput& In)
 		if (Engine)
 		{
 			Engine->Set(1000 + 1000 * FMath::Max(Flow, FMath::Abs(Speed) / 1.6), FMath::Max(Flow, FMath::Abs(Speed) / 1.6));
-			// web: this.engine.hydraulics(flow). IHKEngineSound has no hydraulics() yet; LastFlow carries the value.
+			Engine->Hydraulics(Flow);   // this.engine.hydraulics(flow)
 		}
 		LastFlow = Flow;
 		Pose();

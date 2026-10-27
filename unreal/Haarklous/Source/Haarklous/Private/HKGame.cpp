@@ -152,6 +152,7 @@ void AHKGame::BuildWorld()
 	SpawnTrees();
 	SpawnOverlay();
 	SetupModules();
+	SetupMission();
 	// Drunk effect: a post-process material (blur, double image, saturation) on the camera.
 	if (UMaterialInterface* M = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Haarklous/Materials/M_HK_Drunk.M_HK_Drunk")))
 	{
@@ -379,7 +380,9 @@ void AHKGame::ToggleDoor(FHKDoor& D)
 	SetDoor(D, D.bOpen ? 1 : 0);
 	const TArray<FHKPt> Me = {FHKPt(Player.X - .2, Player.Z - .2), FHKPt(Player.X + .2, Player.Z - .2), FHKPt(Player.X + .2, Player.Z + .2), FHKPt(Player.X - .2, Player.Z + .2)};
 	if (MaxY > Player.Feet && MinY < Player.Feet + 1.8 && PolygonsOverlap(Poly, Me)) { Notice(TEXT("Step back from the door, then try again.")); return; }
-	// (Mission actors in the door's path are checked here once the mission module is merged.)
+	if (Mission && Mission->IsActive())
+		for (const FHKObstacle& O : Mission->ActorObstacles())
+			if (PolygonsOverlap(Poly, O.Points)) { Notice(TEXT("Someone is standing in the door’s path.")); return; }
 	D.bAnim = true; D.AnimFrom = D.bOpen ? 1 : 0; D.AnimTo = Target; D.AnimT = 0;
 	int32 Tw; FVector L;
 	FHKAudio::Get().Sfx(Target ? TEXT("doorOpen") : TEXT("doorClose"), FHKSfxOpts(1, TowerAt(Player.X, Player.Z, Player.Feet, Tw, L) ? .6 : .1));
@@ -601,7 +604,10 @@ void AHKGame::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 	// "const dt = Math.min(clock.getDelta(), .05)"
 	const double Dt = FMath::Min((double)DeltaSeconds, FixedDt > 0 ? FixedDt : .05);
+	bDynamicEveryFrame = Mission && Mission->IsActive();
 	Frame_(FixedDt > 0 ? FixedDt : Dt);
+	// The mission runs its own requestAnimationFrame loop in the web, on real time.
+	if (Mission) Mission->Tick(FixedDt > 0 ? FixedDt : DeltaSeconds);
 }
 
 void AHKGame::Frame_(double Dt)

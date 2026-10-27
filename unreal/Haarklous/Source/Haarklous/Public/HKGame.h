@@ -9,6 +9,7 @@
 #include "HKAircraft.h"
 #include "HKMinigames.h"
 #include "HKFire.h"
+#include "HKMission.h"
 #include "HKGame.generated.h"
 
 class AHKRigActor;
@@ -249,6 +250,8 @@ public:
 	void StartMinigame(class FHKMinigame* G);
 	FHKVehicleInput FlightSticks(double Dl) const;
 	void SetClip(double NearM);
+	TUniquePtr<FHKMission> Mission;
+	bool ShootQuery(const FVector& Origin, const FVector& Dir, double MaxDist, FHKShotHit& Hit) const;
 	UFUNCTION() void DrawDialRT(UCanvas* C, int32 W, int32 H);
 
 	// Test driver access.
@@ -332,4 +335,6 @@ private:
 	double VehicleCullT = 0, OsdT = 0;
 	struct FOsd { bool bShow = false; FString Tl, Tr, Bl, Br, Warn; double Battery = 0; } Osd;
 	void AddDirtPile(double X, double Z, double R);
+	void SetupMission();
+	UPROPERTY() TObjectPtr<class AHKMissionFx> MissionFx;
 };

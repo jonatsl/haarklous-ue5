@@ -79,6 +79,7 @@ void AHKGame::DrawHud(UCanvas* C)
 	if (bStarted) DrawModuleHud(C);
 	if (HudExtra) HudExtra(C);
 	if (bStarted) DrawExtras(C);
+	if (Mission && Mission->IsActive()) Mission->DrawHud(C);
 	if (!bStarted) DrawStart(C);
 	else if (bPaused) DrawPause(C);
 }
@@ -93,7 +94,8 @@ void AHKGame::DrawWorldHud(UCanvas* C)
 	if (!PromptAction.Text.IsEmpty() && !bPaused)
 	{
 		const FVector2D T = FHKUi::Measure(C, PromptAction.Text, 18, true);
-		const float W = T.X + 32, X = Sz.X / 2 - W / 2, Y = Sz.Y * .84f - 40;
+		// #prompt sits 16 % from the bottom (24 % during the mission, above its HUD).
+		const float W = T.X + 32, X = Sz.X / 2 - W / 2, Y = Sz.Y * ((MissionActive && MissionActive()) ? .76f : .84f) - 40;
 		FHKUi::Panel(C, X, Y, W, 40, FLinearColor(0, 0, 0, .6f), 20);
 		FHKUi::Text(C, PromptAction.Text, Sz.X / 2, Y + 8, 18, FHKUi::TextMain, EHKAlign::Center, true);
 	}
