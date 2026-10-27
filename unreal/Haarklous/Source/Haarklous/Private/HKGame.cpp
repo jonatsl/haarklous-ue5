@@ -7,6 +7,7 @@
 #include "HKRigActor.h"
 #include "HKUi.h"
 #include "HKVehicle.h"
+#include "HKOnlineGame.h"
 #include "Haarklous.h"
 #include "Camera/CameraComponent.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
@@ -153,6 +154,13 @@ void AHKGame::BuildWorld()
 	SpawnOverlay();
 	SetupModules();
 	SetupMission();
+	// Online play (game-net.js, game-multiplayer.js, avatars, voice); off unless enabled. Wraps some hooks, so it comes last.
+	Online = AHKOnline::Setup(this);
+	if (Online)
+	{
+		Online->Clickable = [](const FString& Id, float X, float Y, float W, float H) { RegisterClickable(Id, X, Y, W, H); };
+		OnMenuClick = [this](const FString& Id) { Online->MenuClick(Id); };
+	}
 	// Drunk effect: a post-process material (blur, double image, saturation) on the camera.
 	if (UMaterialInterface* M = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Haarklous/Materials/M_HK_Drunk.M_HK_Drunk")))
 	{

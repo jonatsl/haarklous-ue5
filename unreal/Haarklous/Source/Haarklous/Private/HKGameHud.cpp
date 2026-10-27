@@ -71,6 +71,8 @@ namespace
 	}
 }
 
+void AHKGame::RegisterClickable(const FString& Id, float X, float Y, float W, float H) { Clickable(Id, X, Y, W, H); }
+
 void AHKGame::DrawHud(UCanvas* C)
 {
 	if (!C) return;

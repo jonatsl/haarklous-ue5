@@ -111,6 +111,16 @@ def lights():
     lc.set_editor_property('cascade_distribution_exponent', 3.0)
     lc.set_editor_property('shadow_bias', 0.4)
     atm = spawn(unreal.SkyAtmosphere, 'Sky atmosphere', None, 'Generated/Lighting')
+    # Clouds of the web's sky shader on a large dome over the physical sky (cheap: one translucent mesh).
+    dome = spawn(unreal.StaticMeshActor, 'Cloud dome', unreal.Transform(unreal.Vector(0, 0, 0), unreal.Rotator(0, 0, 0), unreal.Vector(36000, 36000, 36000)), 'Generated/Lighting')
+    dc = dome.static_mesh_component
+    dc.set_mobility(unreal.ComponentMobility.MOVABLE)
+    dc.set_static_mesh(unreal.load_asset('/Engine/BasicShapes/Sphere'))
+    clouds_mat = unreal.load_asset('/Game/Haarklous/Materials/M_HK_Clouds')
+    if clouds_mat:
+        dc.set_material(0, clouds_mat)
+    dc.set_editor_property('cast_shadow', False)
+    dc.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
     sky = spawn(unreal.SkyLight, 'Sky light', unreal.Transform(unreal.Vector(0, 0, 3000), unreal.Rotator(0, 0, 0), unreal.Vector(1, 1, 1)), 'Generated/Lighting')
     sc = sky.light_component
     sc.set_mobility(unreal.ComponentMobility.STATIONARY)

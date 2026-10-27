@@ -182,6 +182,7 @@ public:
 	TFunction<float(UCanvas*, float, float, float)> DrawLobby;   // pause menu multiplayer section (x, y, w) -> new y
 	TFunction<bool(const FHKInputFrame&)> LobbyInput;            // controller code pad etc. in the pause menu
 	TFunction<void(const FString&)> OnMenuClick;
+	static void RegisterClickable(const FString& Id, float X, float Y, float W, float H);   // pause-menu hit areas
 	FString SpeedoText;                              // #speedo
 	bool bSpeedoAir = false;
 	FVector2D MenuMouse = FVector2D::ZeroVector;
@@ -336,5 +337,6 @@ private:
 	struct FOsd { bool bShow = false; FString Tl, Tr, Bl, Br, Warn; double Battery = 0; } Osd;
 	void AddDirtPile(double X, double Z, double R);
 	void SetupMission();
+	UPROPERTY() TObjectPtr<class AHKOnline> Online;
 	UPROPERTY() TObjectPtr<class AHKMissionFx> MissionFx;
 };
