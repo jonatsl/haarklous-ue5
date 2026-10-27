@@ -45,7 +45,7 @@ check `server/wrangler.toml` says `haarklous-ue5-test`, then `npx wrangler deplo
   (the game's microphone is a 440 Hz tone with `-HKVoiceTone`). Screenshots: `tools/out/net-tests/shots-<mode>-game/`
   (game side) and `web-<mode>-*.png` (web side).
 - `-Game -RealMic`: the same with the laptop's real microphone instead of the tone, while alternating beeps play
-  through the speakers. `powershell -File toolsun-game.ps1 -Test mic` only opens the microphone the way the voice
+  through the speakers. `powershell -File tools\run-game.ps1 -Test mic` only opens the microphone the way the voice
   chat does and logs the level for 5 seconds.
 - The headless web page runs requestAnimationFrame about once a second (hidden page), so the test client runs frames
   on a timer like the web's own `tests/browser-harness.js`; next to the game it still renders slowly and its game time

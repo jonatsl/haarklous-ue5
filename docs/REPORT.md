@@ -208,8 +208,7 @@ The "Fast" (65 %, no shadows) and "Sharp" (100 %) settings were not measured.
   ("Mikrofonrekke (Realtek(R) Audio)") and sent its sound, but the microphone itself gave only silence, also to a
   separate recording program, while Windows shows it switched on at 42 %. It is probably muted with the laptop's
   microphone key (often F4 with a small light). Unmute it and talk in a lobby, or run
-  `powershell -File tools
-et-testun-live.ps1 -Mode deployed -Game -RealMic`.
+  `powershell -File tools\net-test\run-live.ps1 -Mode deployed -Game -RealMic`.
 - **No DualShock 4 was connected** while I worked (checked on 27 Oct 2026), so the real controller is still untested.
 - **Decide on the web-game bugs** in `docs/GAMEPLAY-IDEAS.md` (they are copied 1:1, as the rules say):
   petanque never ends after 13 points, petanque can freeze when no boule is left, and vehicle obstacles appear one
