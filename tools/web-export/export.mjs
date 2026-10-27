@@ -1,5 +1,5 @@
 // Export the web game's geometry, materials and gameplay data for the Unreal version.
-//   node tools/web-export/export.mjs [--only=geometry|data|tests]
+//   node tools/web-export/export.mjs [--only=geometry|data|tests] [--script=reference-foo.js]
 // Runs reference/web-game/haarklous-game.html in headless Chrome (network blocked: it never talks to any server),
 // injects hooks.js before the page and exporter.js / game-data.js after it has loaded, and writes:
 //   tools/out/web-export/*.json + *.bin + textures/*.png   (geometry for Blender)
@@ -65,12 +65,19 @@ try {
   const jobs = [];
   if (!only || only === 'geometry') jobs.push(['exporter.js', geoOut]);
   if (!only || only === 'data') jobs.push(['game-data.js', dataOut]);
-  if (!only || only === 'tests') jobs.push(['reference-tests.js', path.join(dataOut, 'tests')]);
-  for (const [script, outDir] of jobs) {
+  // Reference answers for the C++ tests: reference-tests.js plus one reference-<module>.js per ported module.
+  if (!only || only === 'tests') for (const f of fs.readdirSync(here).filter(f => /^reference-.+\.js$/.test(f)).sort()) jobs.push([f, path.join(dataOut, 'tests')]);
+  const pick = (process.argv.find(a => a.startsWith('--script=')) || '').slice(9);
+  for (const [script, outDir] of jobs.filter(([s]) => !pick || s === pick)) {
     if (!fs.existsSync(path.join(here, script))) {console.log(`(skipping ${script}: not written yet)`);continue;}
     await evaluate('window.__hkFiles = {}; window.__hkLog = []; window.__hkDone = false; 0');
     const t1 = Date.now();
     await evaluate(fs.readFileSync(path.join(here, script), 'utf8'));
+    if (script === 'exporter.js') {
+      // Extra geometry exports written by the module ports (exporter-<module>.js), then the shared material table.
+      for (const extra of fs.readdirSync(here).filter(f => /^exporter-.+\.js$/.test(f)).sort()) {await evaluate(fs.readFileSync(path.join(here, extra), 'utf8'));console.log('  + ' + extra);}
+      await evaluate('window.__hkExport.finish(); 0');
+    }
     while (!(await evaluate('!!window.__hkDone'))) await sleep(300);
     for (const line of await evaluate('__hkLog')) console.log('  ' + line);
     fs.mkdirSync(outDir, {recursive: true});

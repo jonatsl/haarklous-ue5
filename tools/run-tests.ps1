@@ -7,7 +7,14 @@ $project = Join-Path $root "unreal\Haarklous\Haarklous.uproject"
 $report = Join-Path $root "tools\out\test-report"
 New-Item -ItemType Directory -Force $report | Out-Null
 $log = Join-Path $report "tests.log"
+# Same lock as tools/build-unreal.ps1: builds and test runs take turns (several helpers share this PC's 14 GB).
+$lockPath = Join-Path $env:TEMP "haarklous-ue5-build.lock"
+$lock = $null
+for ($i = 0; $i -lt 3600 -and -not $lock; $i++) { try { $lock = [System.IO.File]::Open($lockPath, 'OpenOrCreate', 'ReadWrite', 'None') } catch { Start-Sleep -Seconds 1 } }
+if (-not $lock) { throw "Could not get the build lock" }
+try {
 & "$engine\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" $project -nullrhi -unattended -nosplash -nopause -nosound "-ExecCmds=Automation RunTests $Filter;Quit" "-TestExit=Automation Test Queue Empty" "-ReportExportPath=$report" "-abslog=$log" -stdout 2>&1 | Out-Null
+} finally { $lock.Close() }
 $lines = Get-Content $log
 $lines | Where-Object { $_ -match 'LogAutomationController: (Display|Error|Warning).*(Test Completed|Result=|match the web|largest|Error|: \d+ / \d+)' -or $_ -match 'TEST COMPLETE|Tests? (passed|failed)' } | ForEach-Object { $_ -replace '^\[[^\]]*\]\[[^\]]*\]', '' } | Select-Object -Last 80
 $failed = ($lines | Where-Object { $_ -match 'Result=\{Fail' }).Count

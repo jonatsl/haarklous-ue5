@@ -148,8 +148,11 @@
     exportRig('misc', misc, keys);
     list.forEach((o, i) => parents[i].add(o));G.scene.remove(misc);
   }
-  files.materials = {json: JSON.stringify({materials: mats, textures: texs.map(t => ({...t, png: undefined}))}), bin: null};
-  texs.forEach(t => {if (t.png) files['tex_' + t.id] = {json: t.png, bin: null};});
-  log.push(`materials: ${mats.length}, textures: ${texs.length}`);
-  window.__hkDone = true;
+  // Extra exports (tools/web-export/exporter-*.js) run next and use window.__hkExport; finish() writes the material table.
+  window.__hkExport = {exportRig, keysOf, matRef, files, log, finish() {
+    files.materials = {json: JSON.stringify({materials: mats, textures: texs.map(t => ({...t, png: undefined}))}), bin: null};
+    texs.forEach(t => {if (t.png) files['tex_' + t.id] = {json: t.png, bin: null};});
+    log.push(`materials: ${mats.length}, textures: ${texs.length}`);
+    window.__hkDone = true;
+  }};
 })();

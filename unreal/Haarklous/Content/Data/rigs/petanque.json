@@ -1,0 +1,1 @@
+{"rig":"petanque","source":"petanque","levelStatic":false,"nodes":[{"name":"root","parent":-1,"pos":[0,0,0],"quat":[0,0,0,1],"scale":[1,1,1],"visible":true,"mesh":"SM_petanque__root","slots":["MI_wood_7a5a3a","MI_concrete_b9ad97","MI_fabric_4a4a45","MI_leather_2a1d14","MI_fabric_3a5f8a","MI_Standard_d9a989_1011","MI_fabric_d8d2c0"]}],"lights":[]}
