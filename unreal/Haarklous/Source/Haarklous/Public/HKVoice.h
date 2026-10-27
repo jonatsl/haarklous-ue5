@@ -69,7 +69,7 @@ public:
 	TSharedPtr<FJsonObject> LastStats;
 	double LastStatsAt = 0;
 	// Received level (RMS 0..1) and connection state of one peer from the last stats.
-	double PeerLevel(int32 Id, FString* OutState = nullptr, double* OutBytesIn = nullptr) const;
+	virtual double PeerLevel(int32 Id, FString* OutState = nullptr, double* OutBytesIn = nullptr) const override;
 
 private:
 	void Js(const FString& Code);

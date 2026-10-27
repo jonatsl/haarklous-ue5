@@ -56,9 +56,9 @@ try {
       if (-not $p.WaitForExit(600000)) { $p.Kill() }
     } elseif ($Game) {
       $uargs = "`"$project`" -game -windowed -ResX=1280 -ResY=720 -nosplash -dx11 -NoLoadingScreen -hktest=online `"-hkout=$out\shots-$tag`" " +
-        "-HKOnline -HKServer=$server -HKLobby=$Lobby `"-abslog=$ulog`""
+        "-HKOnline -HKVoiceTone -HKServer=$server -HKLobby=$Lobby `"-abslog=$ulog`""
       $p = Start-Process -FilePath "$engine\Engine\Binaries\Win64\UnrealEditor.exe" -ArgumentList $uargs -PassThru
-      if (-not $p.WaitForExit(900000)) { $p.Kill() }
+      if (-not $p.WaitForExit(1800000)) { $p.Kill() }
     } else {
       & "$engine\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" $project -nullrhi -unattended -nosplash -nopause -nosound "-ExecCmds=Automation RunTests Haarklous.Net.Live;Quit" "-TestExit=Automation Test Queue Empty" `
         "-HKLiveServer=$server" "-HKLiveLobby=$Lobby" "-HKLiveOut=$out" "-abslog=$ulog" -stdout 2>&1 | Out-Null
