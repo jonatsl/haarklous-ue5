@@ -89,20 +89,16 @@ def main():
     off = np.round((surf - base) * 100).astype('<i2')
     firm_off = np.round((firm - base) * 100).astype('<i2')
     rock = 450
-    # Gate: the middle of the side whose outside is nearest the paths (local +s side faces the park paths here).
+    # Gate: on the north-west side (local s0), where the park outside is within 1.5 m of the pad, so vehicles drive in
+    # and out on a gentle slope (the user asked for a drivable entrance, 28 Oct 2026); 10.5 m wide (three fence panels).
+    # The site offices stay by the east fence, where the first gate was.
     sides = {'x0': (X0, None), 'x1': (X0 + W, None), 's0': (None, S0), 's1': (None, S0 + D)}
-    best, gate_side = 1e9, 's0'
+    gate_side, gate_c = 's0', -43.25
     pts = []
     for rd in s['roads']:
         if rd['k'] in ('footway', 'path', 'cycleway', 'service', 'residential', 'track'):
             pts += list(np.array(rd['p']).reshape(-1, 2))
     pts = np.array(pts)
-    for name, (sx, sz) in sides.items():
-        mx = sx if sx is not None else X0 + W / 2
-        mz = sz if sz is not None else S0 + D / 2
-        d = np.hypot(pts[:, 0] - mx, pts[:, 1] - mz).min()
-        if d < best:
-            best, gate_side = d, name
     W_ = lambda x, z: [round(v, 3) for v in to_world(x, z)]
 
     def yaw_to(fx, fz):           # web yaw whose forward (-sin, -cos) points along (fx, fz)
@@ -116,7 +112,7 @@ def main():
     machines = [
         {'kind': 'excavator', 'at': (pcx - pw / 2 - 2.5, pcs + 2.0), 'face': (1, 0)},
         {'kind': 'hauler', 'at': (pcx - pw / 2 + 1.1, pcs + pd / 2 + 3.5), 'face': (1, 0)},  # body beside the excavator, free road east
-        {'kind': 'tipper', 'at': (X0 + W * 0.5, S0 + D * 0.6), 'face': (-1, 0)},
+        {'kind': 'tipper', 'at': (gate_c, S0 + 12.0), 'face': (0, -1)},                   # by the gate, ready to drive out
         {'kind': 'dozer', 'at': (X0 + W * 0.36, S0 + D * 0.66), 'face': (0, 1)},
         {'kind': 'loader', 'at': (X0 + W * 0.8, S0 + D * 0.55 + 10.5), 'face': (0, -1)},  # facing a stockpile
         {'kind': 'crane', 'at': (X0 + 8.0, S0 + 9.0), 'face': (1, 0)},             # loads within reach of its boom
@@ -141,19 +137,41 @@ def main():
         for k in range(L - 1):
             a, b = np.array(p[k]), np.array(p[k + 1])
             mid = (a + b) / 2
-            if name == gate_side and abs(k - (L - 1) / 2) < 1.6:
+            if name == gate_side and abs(mid[0] - gate_c) < 5.3:
                 continue
             props.append({'kind': 'fence', 'x': W_(*mid)[0], 'z': W_(*mid)[1], 'yaw': wyaw(-dirv[1], dirv[0]), 'len': round(float(np.hypot(*(b - a))), 3)})
-    gx_, gs_ = (X0 + W / 2, S0) if gate_side == 's0' else (X0 + W / 2, S0 + D) if gate_side == 's1' else (X0, S0 + D / 2) if gate_side == 'x0' else (X0 + W, S0 + D / 2)
-    inward = {'s0': (0, 1), 's1': (0, -1), 'x0': (1, 0), 'x1': (-1, 0)}[gate_side]
+    # The office area by the east fence (where the first gate was).
+    gx_, gs_ = X0 + W, S0 + D / 2
+    inward = (-1, 0)
     along = (inward[1], -inward[0])
     def at(o_in, o_along):
         return (gx_ + inward[0] * o_in + along[0] * o_along, gs_ + inward[1] * o_in + along[1] * o_along)
     for k, (oi, oa, kind) in enumerate([(4.5, 11, 'office'), (4.5, 17.5, 'office'), (4.5, -11, 'office_wc'), (7.0, -16.5, 'toilet'),
-                                        (2.0, 6.5, 'sign'), (2.0, -6.5, 'sign'), (12.0, 20, 'pallets'), (14.5, 20, 'pallets'),
+                                        (12.0, 20, 'pallets'), (14.5, 20, 'pallets'),
                                         (12.0, 23, 'pipes'), (18, -18, 'skip'), (3, 24.5, 'light'), (3, -24.5, 'light')]):
         lx, ls = at(oi, oa)
         props.append({'kind': kind, 'x': W_(lx, ls)[0], 'z': W_(lx, ls)[1], 'yaw': wyaw(*inward)})
+    # The gate: signs either side (facing out), the two gate leaves swung open outside, a light.
+    for oa in (-7.0, 7.0):
+        props.append({'kind': 'sign', 'x': W_(gate_c + oa, S0 + 2.0)[0], 'z': W_(gate_c + oa, S0 + 2.0)[1], 'yaw': wyaw(0, 1)})
+    for sx in (-1, 1):
+        hinge = gate_c + sx * 5.25
+        lx, ls = hinge - sx * .15, S0 - 1.8
+        props.append({'kind': 'fence', 'x': W_(lx, ls)[0], 'z': W_(lx, ls)[1], 'yaw': wyaw(-1, 0), 'len': 3.5})
+    # Access track: gravel from the gate out to the nearest park path (points in the world with the ground height).
+    def ground_at(x, z):
+        return float(ground + rel(np.array(x), np.array(z)))
+    outside = pts[pts[:, 1] < S0 - 8]
+    q = outside[np.argmin(np.hypot(outside[:, 0] - gate_c, outside[:, 1] - S0))]
+    # A smooth curve (quadratic Bezier): straight out of the gate, then bending round to the path; a point every ~1 m.
+    p0, p2 = np.array([gate_c, S0 + .2]), np.array([float(q[0]), float(q[1])])
+    p1 = np.array([gate_c, S0 - max(6.0, (S0 - p2[1]) * .6)])
+    steps = max(2, int(math.ceil(np.linalg.norm(p1 - p0) + np.linalg.norm(p2 - p1))))
+    track = []
+    for t in np.linspace(0, 1, steps + 1):
+        x, z = (1 - t) ** 2 * p0 + 2 * (1 - t) * t * p1 + t * t * p2
+        wx, wz = to_world(x, z)
+        track.append([round(wx, 3), round(ground_at(x, z) + .04, 3), round(wz, 3)])
     for (lx, ls) in ((X0 + 1.5, S0 + D - 1.5), (X0 + W - 1.5, S0 + D - 1.5)):
         props.append({'kind': 'light', 'x': W_(lx, ls)[0], 'z': W_(lx, ls)[1], 'yaw': wyaw(*inward)})
     # Crane loads near the tower crane: brick pallets, a bundle of steel beams, a concrete skip.
@@ -164,11 +182,11 @@ def main():
     out = {'rect': {'x0': X0, 's0': S0, 'w': W, 'd': D}, 'cell': CELL, 'nx': nx, 'ns': ns,
            'offsets': base64.b64encode(off.tobytes()).decode(), 'firm': base64.b64encode(firm_off.tobytes()).decode(), 'rock': rock, 'padLevel': round(pad, 3),
            'pit': {'x': pcx, 's': pcs, 'w': pw, 'd': pd, 'depth': depth},
-           'gate': gate_side, 'machines': out_m, 'props': props, 'loads': loads}
+           'gate': {'side': gate_side, 'centre': gate_c, 'width': 10.5}, 'track': track, 'machines': out_m, 'props': props, 'loads': loads}
     json.dump(out, open(os.path.join(DATA, 'site.json'), 'w'))
     print(f'HK: site {W:.0f} x {D:.0f} m, pad at {pad:.2f} m (terrain {base.min():.1f}..{base.max():.1f}), '
           f'cut {-(surf - base).clip(None, 0).sum() * CELL * CELL:.0f} m3, fill {(surf - base).clip(0).sum() * CELL * CELL:.0f} m3, '
-          f'gate {gate_side}, {len(props)} props, centre {to_world(X0 + W / 2, S0 + D / 2)}')
+          f'gate {gate_side} at x {gate_c}, track {len(track)} m, {len(props)} props, centre {to_world(X0 + W / 2, S0 + D / 2)}')
 
 
 main()

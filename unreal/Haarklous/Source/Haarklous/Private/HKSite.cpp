@@ -58,6 +58,10 @@ bool FHKDirtField::Load(const FString& Path)
 		}
 	};
 	ReadPlaced(TEXT("machines"), Machines); ReadPlaced(TEXT("props"), Props); ReadPlaced(TEXT("loads"), Loads);
+	if (const TSharedPtr<FJsonObject>* Gate; J->TryGetObjectField(TEXT("gate"), Gate))
+	{
+		GateC = HKJson::Num(*Gate, TEXT("centre")); GateW = HKJson::Num(*Gate, TEXT("width"));
+	}
 	for (int32 t = 0; t < TilesX() * TilesS(); t++) DirtyTiles.Add(t);
 	// Let the stockpiles settle once before the game starts.
 	Touch(0, 0, NX - 1, NS - 1);

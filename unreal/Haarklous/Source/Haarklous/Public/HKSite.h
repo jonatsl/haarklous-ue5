@@ -57,6 +57,7 @@ public:
 	// Site layout from site.json (world frame).
 	struct FPlaced { FString Kind; double X = 0, Z = 0, Yaw = 0, Len = 0; };
 	TArray<FPlaced> Machines, Props, Loads;
+	double GateC = 0, GateW = 0;   // the gate: a gap in the fence on the s = S0 side at local x GateC, GateW wide
 
 private:
 	bool bLoaded = false;

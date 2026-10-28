@@ -440,7 +440,9 @@ void AHKGame::UpdateDynamic()
 	for (FHKVehicle* V : VehicleList)
 		if (V && V != Player.Vehicle) for (const FHKObstacle& O : V->Footprint()) { List.Add(O); VList.Add(O); }
 	if (ExtraDynamic) List.Append(ExtraDynamic());
-	if (Paintball) List.Append(Paintball->Obstacles());
+	// The construction site's fence and the paintball yard's walls, net and cover stop people and vehicles alike.
+	List.Append(SiteObstacles); VList.Append(SiteObstacles);
+	if (Paintball) { List.Append(Paintball->Obstacles()); VList.Append(Paintball->Obstacles()); }
 	Data.WalkWorld.SetDynamic(List);
 	// "Other vehicles block the one being driven; it must never collide with its own (parked) footprint."
 	// (Only the vehicle worlds that exist already, like the web's vehicleWorlds.forEach.)

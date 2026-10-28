@@ -211,8 +211,13 @@ def glow_material():
 
 
 def glass_material():
+    # Cab and office windows: see-through tinted glass (translucent, both sides, lit like a surface so it reflects).
     g = G('M_HK_SiteGlass')
-    g.out(g.vector('Color', (.02, .025, .03, 1)), unreal.MaterialProperty.MP_BASE_COLOR)
+    g.m.set_editor_property('blend_mode', unreal.BlendMode.BLEND_TRANSLUCENT)
+    g.m.set_editor_property('two_sided', True)
+    g.m.set_editor_property('translucency_lighting_mode', unreal.TranslucencyLightingMode.TLM_SURFACE)
+    g.out(g.vector('Color', (.05, .07, .08, 1)), unreal.MaterialProperty.MP_BASE_COLOR)
+    g.out(g.scalar('Opacity', .12), unreal.MaterialProperty.MP_OPACITY)   # each pane is a thin box: two faces
     g.out(g.scalar('Roughness', .05), unreal.MaterialProperty.MP_ROUGHNESS)
     g.out(g.scalar('Specular', .9), unreal.MaterialProperty.MP_SPECULAR)
     return g.finish()
@@ -296,13 +301,15 @@ def instances(paint, pbr, glow, glass, mesh, image):
     out['MI_Site_Wood'] = mi('MI_Site_Wood', paint, {'Color': (*lin(150, 115, 75), 1)}, {'Roughness': .85, 'Grime': .4})
     out['MI_Site_Brick'] = mi('MI_Site_Brick', pbr, {'Color': (1.0, .75, .65, 1), 'UVScale': (.5, .5, 0, 0)}, {},
                               {'Albedo': 'T_Brick_D', 'Normal': 'T_Brick_N', 'Rough': 'T_Brick_R'})
+    out['MI_Site_Gravel'] = mi('MI_Site_Gravel', pbr, {'Color': (1.0, 1.0, 1.0, 1), 'UVScale': (.4, .4, 0, 0)}, {'RoughScale': 1.1},
+                               {'Albedo': 'T_Gravel_D', 'Normal': 'T_Gravel_N', 'Rough': 'T_Gravel_R'})
     out['MI_Site_Soil'] = mi('MI_Site_Soil', pbr, {'Color': (.85, .8, .75, 1), 'UVScale': (.6, .6, 0, 0)}, {'RoughScale': 1.1},
                              {'Albedo': 'T_Soil_D', 'Normal': 'T_Soil_N', 'Rough': 'T_Soil_R'})
     out['MI_Site_Light'] = mi('MI_Site_Light', glow, {'Color': (1, .95, .85, 1)}, {'Glow': 3.0})
     out['MI_Site_Beacon'] = mi('MI_Site_Beacon', glow, {'Color': (1, .45, .02, 1)}, {'Glow': 4.0})
     out['MI_Site_Glass'] = mi('MI_Site_Glass', glass)
     out['MI_Site_Mesh'] = mi('MI_Site_Mesh', mesh)
-    out['MI_Site_Banner'] = mi('MI_Site_Banner', image, {'UVScale': (-1 / 3.3, 1 / .9, 0, 0), 'UVOffset': (.5, .65 / .9, 0, 0)}, {},
+    out['MI_Site_Banner'] = mi('MI_Site_Banner', image, {'UVScale': (1 / 3.3, 1 / .9, 0, 0), 'UVOffset': (.5, .65 / .9, 0, 0)}, {},
                                {'Image': 'T_SiteBanner'})
     out['MI_Site_Sign'] = mi('MI_Site_Sign', image, {'UVScale': (1.0, 1 / .7, 0, 0), 'UVOffset': (.5, 1.15 / .7, 0, 0)}, {},
                              {'Image': 'T_SiteSign'})

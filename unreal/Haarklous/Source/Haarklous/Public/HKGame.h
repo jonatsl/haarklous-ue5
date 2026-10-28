@@ -247,6 +247,7 @@ public:
 	TUniquePtr<FHKDirtField> Site;
 	UPROPERTY() TObjectPtr<AHKSiteActor> SiteActor;
 	UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> SiteProps;
+	TArray<FHKObstacle> SiteObstacles;   // the fence panels (the gate is the way in and out, on foot and driving)
 	void SetupSite();
 	void SpillSoil(double X, double Z, double Volume);
 	void SyncSiteLoads();

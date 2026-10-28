@@ -638,6 +638,23 @@ def props():
     sk2 = Mesh(); cyl(sk2, (0, .2, 0), (0, 1.5, 0), .55, 'MI_Site_Skip', seg=16, r2=.85)
     cyl(sk2, (0, 0, 0), (0, .2, 0), .3, DK, seg=10)
     meshes['SM_Load_skip'] = sk2
+    # The gravel access track from the gate to the park path (world coordinates, ground heights from site.json).
+    site = json.load(open(os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data', 'site.json')))
+    tr = Mesh()
+    P = [np.array(p, float) for p in site.get('track', [])]
+    def side(i):   # the track's half-width vector at point i (across the mean direction there, so the strip joins up)
+        a, b = P[max(0, i - 1)], P[min(len(P) - 1, i + 1)]
+        d = np.array([b[0] - a[0], b[2] - a[2]]); d /= max(1e-6, np.linalg.norm(d))
+        return np.array([-d[1], 0, d[0]]) * 2.25
+    for i in range(len(P) - 1):
+        a, b, na, nb = P[i], P[i + 1], side(i), side(i + 1)
+        la, ra, lb, rb = a + na, a - na, b + nb, b - nb
+        if np.cross(ra - la, lb - la)[1] > 0:   # faces up
+            tr.quad(la, ra, rb, lb, 'MI_Site_Gravel')
+        else:
+            tr.quad(la, lb, rb, ra, 'MI_Site_Gravel')
+    if len(tr.P):
+        meshes['SM_Site_track'] = tr
     bpy.ops.wm.read_factory_settings(use_empty=True)
     for k, m in meshes.items():
         build_object(k, m, 0)

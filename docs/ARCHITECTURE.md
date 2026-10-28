@@ -126,7 +126,7 @@ drive like real machines, and soil that can be moved realistically.
   on the far terrain's 8 m grid; `build_assets.py` (`drop_site_terrain`) cuts the terrain mesh open there.
   `tools/make-site.py` writes `Content/Data/site.json`: the soil (0.25 m cells: surface, compacted level "firm"),
   a level pad blended into the slopes, an 18 x 12 m foundation pit 2.6 m deep with a ramp, three loose stockpiles,
-  the machines' places, fence panels with a gate, site offices, toilet, signs, pallets, pipes, skip, floodlights and
+  the machines' places, fence panels with a gate and a gravel track to the park path, site offices, toilet, signs, pallets, pipes, skip, floodlights and
   four crane loads.
 - Soil (`HKSite`): `FHKDirtField` height field; tools cut (soil above an oriented rectangle's bottom) and deposit;
   loose soil slides to 34 degrees; volume is conserved (what is cut is carried until it is put down). `AHKSiteActor`
@@ -140,7 +140,18 @@ drive like real machines, and soil that can be moved realistically.
   articulated hauler and 8x4 tipper (tipping bodies), all-terrain crane (outriggers, slew, luff, telescope, hoist),
   tower crane (slewing inertia, trolley, hook pendulum); power, grip, rolling resistance by ground, slope, brakes and
   gearboxes. Machines come after the web's vehicle list, so web players simply do not see them.
-- Test: `tools\run-game.ps1 -Test site` (each machine driven with the simulated pad; soil conserved; fps).
+- Way in and out (user, 28 Oct 2026: "there must be an entrance to the site so i can drive in and out"): a 10.5 m
+  gate on the north-west fence (the s = S0 side, local x -48.5..-38; `gate` in site.json), its two leaves swung open
+  outwards, the site signs beside it. That side is the only one level with the park (the old gate on the x1 side sat
+  on a 4.4 m bank). A 4.5 m gravel track (`track` in site.json, mesh `SM_Site_track` in world coordinates, drawn by
+  `HKGameSite.cpp`) runs from the gate to the nearest park path. The fence panels are walk and vehicle obstacles
+  (`AHKGame::SiteObstacles`, added in `UpdateDynamic`), so the gate is the only way in for people and machines; the
+  paintball yard's walls, net and cover now stop vehicles too. The tipper waits just inside the gate, facing out.
+- Cab glass: `M_HK_SiteGlass` is translucent, two-sided, lit as a surface (opacity 0.12 a face, dark tint, glossy),
+  so you can see out of every cab and the site offices' windows (user, 28 Oct 2026: the opaque windows made the
+  machines unusable from the cab).
+- Test: `tools\run-game.ps1 -Test site` (each machine driven with the simulated pad; soil conserved; the tipper drives
+  out through the gate and reverses back in; the fence blocks people and vehicles beside the gate; fps).
 
 ## People (28 Oct 2026)
 - MakeHuman figures (CC0) made headless with the MPFB 2 add-on in a private Blender profile (`tools\setup-people.ps1`,

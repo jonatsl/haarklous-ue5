@@ -46,6 +46,31 @@ void AHKGame::SetupSite()
 		const FQuat Q = HK::AxisAngle(FVector(0, 1, 0), P.Yaw);
 		C->SetWorldTransform(HK::TransformToUE(FVector(P.X, D.GroundWorld(P.X, P.Z) - .02, P.Z), Q, Scale));
 		SiteProps.Add(C);
+		// Fence panels block walking and driving (a thin box along the panel); the gate is a gap in them.
+		if (P.Kind == TEXT("fence"))
+		{
+			FHKObstacle O;
+			const double L = (P.Len > 0 ? P.Len : 3.5) / 2, T = .08, C0 = FMath::Cos(P.Yaw), S0 = FMath::Sin(P.Yaw);
+			for (const FVector2D& K : {FVector2D(-L, -T), FVector2D(L, -T), FVector2D(L, T), FVector2D(-L, T)})
+				O.Points.Add(FHKPt(P.X + K.X * C0 + K.Y * S0, P.Z - K.X * S0 + K.Y * C0));
+			const double G = D.GroundWorld(P.X, P.Z);
+			O.MinY = G - 1.5; O.MaxY = G + 2.1; O.Kind = TEXT("fence");
+			O.Prepare();
+			SiteObstacles.Add(O);
+		}
+	}
+	// The gravel access track from the gate to the park path (a mesh in world coordinates).
+	if (UStaticMesh* Track = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Haarklous/Meshes/site/SM_Site_track.SM_Site_track")))
+	{
+		UStaticMeshComponent* C = NewObject<UStaticMeshComponent>(this);
+		C->SetStaticMesh(Track);
+		C->SetMobility(EComponentMobility::Movable);
+		C->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		C->SetCastShadow(false);
+		C->SetCullDistance(30000);
+		C->RegisterComponent();
+		C->SetWorldTransform(HK::TransformToUE(FVector::ZeroVector, FQuat::Identity, FVector::OneVector));
+		SiteProps.Add(C);
 	}
 	// Machines: after the web's vehicles (web players ignore numbers they do not have).
 	FHKSiteMachine::Site = Field;

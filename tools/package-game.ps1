@@ -1,11 +1,12 @@
 # Package a standalone Windows build of the game (cook + stage + pak) into dist\Haarklous-UE5\.
-#   powershell -File tools\package-game.ps1 [-Config Shipping|Development]
-# Start it with dist\Haarklous-UE5\Windows\Haarklous.exe (online stays off; see README).
-param([string]$Config = "Shipping")
+#   powershell -File tools\package-game.ps1 [-Config Shipping|Development] [-Out <folder>]
+# Start it with dist\Haarklous-UE5\Windows\Haarklous.exe (online stays off; see README). -Out packages somewhere else
+# (for example while the packaged game is running and its files are in use).
+param([string]$Config = "Shipping", [string]$Out = "")
 $root = Split-Path -Parent $PSScriptRoot
 $engine = "C:\Program Files\Epic Games\UE_5.8"
 $project = Join-Path $root "unreal\Haarklous\Haarklous.uproject"
-$out = Join-Path $root "dist\Haarklous-UE5"
+$out = if ($Out) { $Out } else { Join-Path $root "dist\Haarklous-UE5" }
 $logDir = Join-Path $root "tools\out\logs"; New-Item -ItemType Directory -Force $logDir | Out-Null
 $lockPath = Join-Path $env:TEMP "haarklous-ue5-build.lock"
 $lock = $null

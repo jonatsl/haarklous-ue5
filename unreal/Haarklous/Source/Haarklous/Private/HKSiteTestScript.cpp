@@ -1,7 +1,7 @@
 // Scripted play-through "site" (-hktest=site): the construction site (new feature, 28 Oct 2026). Overview shots, then
 // every machine driven with the simulated controller the way an operator would: the excavator digs in the pit and loads
 // the hauler, the hauler drives off and tips, the dozer pushes into a stockpile, the wheel loader scoops from one, the
-// tipper truck drives, the mobile crane sets its outriggers and raises its boom, the tower crane lifts a pallet of
+// tipper truck drives out through the gate and backs in again, the mobile crane sets its outriggers and raises its boom, the tower crane lifts a pallet of
 // bricks and sets it down. Checks that soil is conserved (the site's soil plus what buckets and bodies carry) and
 // measures the frame rate at the site. Screenshots go to the -hkout folder; results are HK-TEST lines in the log.
 #include "HKTestDriver.h"
@@ -360,19 +360,68 @@ namespace HKSiteTest
 				Conserved(TEXT("loading"));
 				GetOut(T, TEXT("loader"));
 
-				// ---- Tipper truck: a short drive and a turn ----
+				// ---- Tipper truck: out through the gate onto the gravel track, then back in (reversing) ----
+				// The tipper stands just inside the gate facing out. Steering toward a point on the gate's centre line;
+				// L is the truck's position in the site frame (local x, s; the gate is at s = S0).
 				auto Tp = [&T]() { return Find<FHKDumpTruck>(T, TEXT("tipper")); };
+				auto Loc = [&T, Tp]() { return FHKData::Get().ToLocal(Tp()->X, Tp()->Z); };
+				auto GateAt = [&T](double Ds) { const FHKDirtField& S = *T.Game()->Site; return FHKData::Get().ToWorld(S.GateC, S.S0 + Ds); };
+				// Steer for a point: forward, the nose; reversing, the tail (the steering works the other way round).
+				auto SteerFor = [Tp](const FVector2D& At, bool bReverse)
+				{
+					const FHKDumpTruck* D = Tp();
+					const double Err = Wrap(Bearing(D->X, D->Z, At.X, At.Y) - D->Yaw - (bReverse ? PI : 0));
+					return (float)FMath::Clamp((bReverse ? 2.5 : -2.5) * Err, -1.0, 1.0);
+				};
 				Board(T, TEXT("tipper"));
+				T.Log([&T, Loc]() { const FHKDirtField& S = *T.Game()->Site; return FString::Printf(TEXT("tipper %.1f m inside the gate, %.1f m from its centre line (gate %.1f m wide)"), Loc().Y - S.S0, Loc().X - S.GateC, S.GateW); });
+				T.Expect(TEXT("site: there is a gate"), [&T]() { return T.Game()->Site->GateW > 8; });
+				// The fence keeps vehicles and people out except at the gate.
+				T.Expect(TEXT("site: the fence blocks a vehicle, the gate does not"), [&T]()
+				{
+					const FHKDirtField& S = *T.Game()->Site;
+					FHKData& D = FHKData::Get();
+					const FVector2D Fence = D.ToWorld(S.GateC + 15, S.S0), Gate = D.ToWorld(S.GateC, S.S0);
+					const FHKWalkWorld& W = D.VehicleWorld(1.4);
+					return !W.CanStand(FHKPt(Fence.X, Fence.Y), 1.2, D.GroundWorld(Fence.X, Fence.Y)) && W.CanStand(FHKPt(Gate.X, Gate.Y), 1.2, D.GroundWorld(Gate.X, Gate.Y));
+				});
+				T.Expect(TEXT("site: the fence blocks a person, the gate does not"), [&T]()
+				{
+					const FHKDirtField& S = *T.Game()->Site;
+					FHKData& D = FHKData::Get();
+					const FVector2D Fence = D.ToWorld(S.GateC - 20, S.S0), Gate = D.ToWorld(S.GateC + 3, S.S0);
+					return !D.WalkWorld.CanStand(FHKPt(Fence.X, Fence.Y), 1.6, D.GroundWorld(Fence.X, Fence.Y)) && D.WalkWorld.CanStand(FHKPt(Gate.X, Gate.Y), 1.6, D.GroundWorld(Gate.X, Gate.Y));
+				});
 				T.Do([V, Tp]()
 				{
 					V->Target = [Tp]() { const FHKDumpTruck* D = Tp(); return FVector(D->X, D->Y + 1.5, D->Z); };
 					V->Yaw = Tp()->Yaw + 2.5; V->Dist = 16; V->Up = 5;
 				});
-				For(T, V, 3, []() { Pad().Buttons[7] = 1; });
-				T.Log([&T]() { return TEXT("tipper after 3 s: ") + T.Game()->SpeedoText; });
-				For(T, V, 1.5, []() { Pad().Buttons[7] = .4f; Pad().Axes[0] = -.7f; });
-				Snap(T, V, TEXT("15-tipper"));
-				Act(T, V, TEXT("tipper: stop"), 8, [Tp](double) { Pad().Buttons[6] = 1; return FMath::Abs(Tp()->Speed) < .2; });
+				Snap(T, V, TEXT("15-tipper-at-gate"));
+				// The driver's view: the open gate through the windscreen.
+				T.Do([&T]() { T.Game()->bCameraOverride = false; });
+				T.Wait(.5);
+				T.Shot(TEXT("15b-tipper-cab-gate"));
+				Act(T, V, TEXT("tipper: out through the gate"), 20, [&T, Tp, Loc, GateAt, SteerFor](double)
+				{
+					Pad().Buttons[7] = .5f; Pad().Axes[0] = SteerFor(GateAt(-14), false);
+					return Loc().Y - T.Game()->Site->S0 < -8;
+				});
+				T.Log([&T]() { return TEXT("tipper outside: ") + T.Game()->SpeedoText; });
+				Act(T, V, TEXT("tipper: stop outside"), 8, [Tp](double) { Pad().Buttons[6] = 1; return FMath::Abs(Tp()->Speed) < .2; });
+				T.Expect(TEXT("tipper: drove out of the site"), [&T, Tp]() { return !T.Game()->Site->Contains(Tp()->X, Tp()->Z); });
+				T.Log([&T, Loc]() { return FString::Printf(TEXT("tipper %.1f m outside the gate, %.1f m off its centre line"), T.Game()->Site->S0 - Loc().Y, Loc().X - T.Game()->Site->GateC); });
+				T.Do([V, Tp]() { V->Yaw = Tp()->Yaw + 2.6; V->Dist = 20; V->Up = 7; });
+				Snap(T, V, TEXT("15c-tipper-outside"));
+				// Back in, reversing through the gate.
+				Act(T, V, TEXT("tipper: back in through the gate"), 30, [&T, Loc, GateAt, SteerFor](double)
+				{
+					Pad().Buttons[6] = .5f; Pad().Axes[0] = SteerFor(GateAt(14), true);
+					return Loc().Y - T.Game()->Site->S0 > 9;
+				});
+				Act(T, V, TEXT("tipper: stop inside"), 8, [Tp](double) { Pad().Buttons[7] = 1; return FMath::Abs(Tp()->Speed) < .2; });
+				T.Expect(TEXT("tipper: back inside the site"), [&T, Tp]() { return T.Game()->Site->Contains(Tp()->X, Tp()->Z, 2); });
+				Snap(T, V, TEXT("15d-tipper-back-in"));
 				GetOut(T, TEXT("tipper"));
 
 				// ---- Mobile crane: outriggers down, boom up and out, slew ----

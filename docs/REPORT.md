@@ -14,7 +14,8 @@ Battlefield-style light.
 28 October 2026, later: three new things you asked for (see "Construction site, real people and paintball"): a big
 construction site with seven working machines and soil you can dig, push, load and tip; real-looking people instead
 of the jointed figures; and an urban paintball / reball course with a lobby, team deathmatch and capture the flag for
-up to 6 v 6 (online on the test server, which now takes 12 players a lobby).
+up to 6 v 6 (online on the test server, which now takes 12 players a lobby). Then: the machines' windows are
+see-through, and the site has a gate with a gravel road so you can drive in and out.
 
 ## How to start the game
 
@@ -380,6 +381,17 @@ its natural slope. No soil is lost (checked in the test after every machine).
 ![The mobile crane on its outriggers](img/site--16-mobile-crane.jpg)
 ![The tower crane lifting a pallet of bricks](img/site--18-tower-crane-lift.jpg)
 
+**See-through cabs and a way in and out** (your two wishes, 28 Oct 2026): every cab window (and the site offices'
+windows) is now tinted, glossy glass you can see through, so you can work the machines from the driver's seat. The
+site has a 10.5 m gate on the north-west side, the one side that is level with the park, with its leaves swung open,
+the site signs beside it and a gravel road to the nearest park path. The fence now stops people and vehicles
+everywhere else (the paintball yard's walls and net stop vehicles too). The tipper truck waits just inside the gate:
+in the test it drives out through the gate onto the road and reverses back in.
+
+![From the excavator's seat](img/site--08-excavator-cab.jpg)
+![From the tipper's seat, driving out through the gate](img/site--15b-tipper-cab-gate.jpg)
+![The tipper outside the gate on the gravel road](img/site--15c-tipper-outside.jpg)
+
 **Real people:** the player figures (as other players see you) are now MakeHuman people (free CC0 assets, built
 by a script in Blender): twelve different people, one for each player in a full lobby, with their own faces, skin,
 hair and builds, a knit sweater in the player's colour and dark trousers. Their skeleton follows the web avatar's joints, so walking, crouching, lying, sitting, driving, riding,
@@ -426,7 +438,10 @@ its window loses focus, like the web game does.
 site 52.9 / 32.3, paintball course 70.3 / 38.1 (86 with a game going in the play-through), home 72.3 / 48.3, firepit
 59.2 / 42.3, park 60.3 / 38.1, street 61.0 / 40.5, flying 63.8 / 35.7. The packaged Shipping build (same window):
 site 59.3 / 36.5, paintball course 76.6 / 43.2, home 75.4 / 59.2, firepit 59.5 / 42.0, park 62.0 / 41.4, street
-63.3 / 48.0, flying 65.3 / 42.6. All well above the 20-30 fps target.
+63.3 / 48.0, flying 65.3 / 42.6. All well above the 20-30 fps target. After the see-through cab glass the fps test
+was run again while a packaged copy of the game was open at the same time, so every place was slower (home 42.9,
+park 39.7, paintball 39.7, site 32.2); the site keeps the same share of the home frame rate as before, so the glass
+costs next to nothing.
 
 ![Frame-rate test: the construction site](img/fps--fps-site.jpg)
 ![Frame-rate test: the paintball course](img/fps--fps-paintball.jpg)
