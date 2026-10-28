@@ -486,7 +486,7 @@ void FHKNet::HandleMessage(IHKSocket* Sock, const FString& Text)
 	if (T == TEXT("welcome"))
 	{
 		YouId = (int32)HKJsonWire::Num(M, TEXT("you")); Slot = (int32)HKJsonWire::Num(M, TEXT("slot"));
-		if (M->HasTypedField<EJson::Number>(TEXT("max"))) MaxPlayers = (int32)HKJsonWire::Num(M, TEXT("max"));   // the web shows 5
+		if (M->HasTypedField<EJson::Number>(TEXT("max"))) MaxPlayers = (int32)HKJsonWire::Num(M, TEXT("max"));
 		Offset = HKJsonWire::Num(M, TEXT("now")) - Options.DateNow();
 		Players.Reset();
 		const TArray<TSharedPtr<FJsonValue>>* List;

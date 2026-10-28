@@ -4,7 +4,7 @@
 porting checklist is built and ticked; the game logic is a line-by-line C++ port of the web game, checked against the
 web code's own answers; every feature was played through with a simulated DualShock 4; online play was tested
 together with the web game on the separate test server, including voice with your real microphone. What still needs
-you: a test with the real DualShock 4 (none was connected).
+you: a test with the real DualShock 4 (none was connected). Update 28 Oct 2026: you tested it, it works.
 
 28 October 2026: a photo-real pass on top (see "Photo-real pass" below): every building looks like the real one
 (salmon brick or coloured plaster, deep windows, balconies, chimneys), real 3D grass, scanned materials from free
@@ -431,16 +431,13 @@ site 59.3 / 36.5, paintball course 76.6 / 43.2, home 75.4 / 59.2, firepit 59.5 /
 
 ## What still needs you
 
-- **Paintball online for real:** the test server takes 12 players a lobby; the live server still takes 5. Before
-  paintball goes online for everyone, the live Worker needs the same two-line change. That is your call; I have not
-  touched it.
+- **Online for everyone:** a lobby holds 12 players (your decision, the whole lobby). The test server already does,
+  and you can play online today: start the game with `-HKOnline` (it joins the test server), share the 4-letter code,
+  friends with the same build join it (`-HKOnline -HKLobby=CODE` or the code pad); the web game at
+  https://haarklous-ue5-test.server-smoke.workers.dev joins the same lobbies (without the site and paintball). The
+  live server (haarklous-online) still holds 5; changing it is yours to do, I never touch it.
 - **Your three new issues** (jonatsl/haarklous-ue5 #1 paintball cover that may look see-through, #2 street lamps,
   #3 the Torshovdalen sculpture) are filed, not started.
-- **Test with your real DualShock 4** (USB and Bluetooth). The controller code reads the same raw reports the
-  browser uses and is tested with recorded reports and a simulated pad, but not with the real controller.
-- **No DualShock 4 was connected** while I worked (checked on 27 Oct 2026; you confirmed it is not here), so the real
-  controller is still untested. When you have it: plug it in (or pair it), start the game and play; the mapping is the
-  web version's. If a button does something unexpected, tell me which one.
 - **Buildings further away:** the blocks around 17A have their real colour in OpenStreetMap; most others do not,
   so their brick or plaster colour is a believable Torshov guess, the same for one block. If one you know looks
   wrong, tell me its street and colour (one line in `tools/make-building-map.py`).

@@ -75,7 +75,7 @@ simulated DualShock 4 (`tools\run-game.ps1 -Test <name>`, `HKTestScripts.cpp`), 
   tests `Audio.*` (71/71 sounds match browser renders, music loops 0.00 dB from Chrome).
 
 ## Online (built, off by default; tested only against `haarklous-ue5-test`)
-- [x] Lobby client with the same protocol, own code, join by code, up to 5 players. — `FHKNet`; tests `Net.*`
+- [x] Lobby client with the same protocol, own code, join by code, up to 5 players (12 since 28 Oct 2026, the user's decision; the server's limit is used). — `FHKNet`; tests `Net.*`
   (wire JSON byte-identical, 219/219 session steps identical); live tests on `wrangler dev` and the deployed test server
   (play-through `online`: the real game and the web game in one lobby, twice in a row, 0 failures).
 - [x] Remote avatars with name tags and bubbles, smoothed vehicles, one driver and one passenger, shared doors and fire. —
@@ -97,7 +97,7 @@ simulated DualShock 4 (`tools\run-game.ps1 -Test <name>`, `HKTestScripts.cpp`), 
   reports, XInput fallback, keyboard/mouse like `readInput`); tests `Input.DualShock4Reports`, `Input.StandardMapping`;
   every play-through drives the game with a simulated DualShock 4; play-through `menus` uses keyboard and mouse
   (Enter starts, W walks 1.45 m/s, Shift + W runs 3.60 m/s, Space jumps, C crouches, Z prone, M map, Escape pause,
-  mouse look and clicks). **Still to do by the user: a real DualShock 4.**
+  mouse look and clicks). The user tested the real DualShock 4 on 28 Oct 2026: it works.
 - [x] Start screen, pause/settings (sensitivity, music volume, graphics quality), credits. — `HKGameHud.cpp`;
   play-through `menus`: start screen, pause with Escape, D-pad ←/→ music volume ±0.1, sliders, graphics quality
   Balanced → Sharp (100 %) → Fast (65 %) → Balanced (75 %), settings saved to settings.ini, Resume; the map-data credits

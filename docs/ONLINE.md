@@ -19,7 +19,7 @@ Port of the web game's `game-net.js`, `game-multiplayer.js`, `game-avatars.js` a
 | `Tests/HKNetVoiceTests.cpp` | `Haarklous.Net.Voice` (live voice), `Haarklous.Net.VoicePage` (the page's `game-voice.js` is unchanged) |
 | `tools/web-export/exporter-avatars.js`, `rigs.d/avatars.json` | avatar and remote-drone rigs from the web code |
 | `tools/net-test/web-client.mjs`, `run-live.ps1` | headless web client (real web game, fake microphone, network limited to the test host) and the live test runner |
-| `server/` | the test server: copy of `reference/web-game/cloud/` with only `name = "haarklous-ue5-test"` changed; `public/index.html` = `reference/web-game/haarklous-game.html` |
+| `server/` | the test server: copy of `reference/web-game/cloud/` with only `name = "haarklous-ue5-test"` changed (and, the user's decision on 28 Oct 2026, 12 players a lobby instead of 5); `public/index.html` = `reference/web-game/haarklous-game.html` |
 
 ## Settings
 - `[Haarklous.Online] bOnlineEnabled`, `ServerBase` (DefaultGame.ini). Command line: `-HKOnline` / `-HKOffline`,

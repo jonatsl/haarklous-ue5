@@ -22,7 +22,9 @@ Refresh after changes in the web game: `powershell -File tools\refresh-reference
 - **From the project (no packaging):**
   `"C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe" unreal\Haarklous\Haarklous.uproject -game -dx11`.
 - Controls are the web game's: DualShock 4 (USB or Bluetooth, plug it in before starting) or keyboard and mouse.
-- **Online is off.** To try it against the test server only: start with `-HKOnline` (server
+- The real DualShock 4 works (tested by the user on 28 Oct 2026).
+- **Online is off.** To play online on the test server: start with `-HKOnline` (12 players a lobby; share the 4-letter
+  code, friends join with `-HKOnline -HKLobby=CODE` or the code pad, or in the web game at the test server's address) (server
   `wss://haarklous-ue5-test.server-smoke.workers.dev`, see `docs/ONLINE.md`). Never point it at the live game.
 
 ## Frame rates (28 Oct 2026, this laptop, 2240 × 1400 full screen, quality "Balanced")

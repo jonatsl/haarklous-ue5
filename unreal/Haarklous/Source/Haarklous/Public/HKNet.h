@@ -130,7 +130,7 @@ public:
 	bool Online() const { return Status == TEXT("online") && YouId != 0; }
 	int32 Others() const { return FMath::Max(0, Players.Num() - 1); }
 	const TArray<FHKNetPlayer>& GetPlayers() const { return Players; }   // in join order (the web's Map)
-	int32 Max() const { return MaxPlayers; }                          // players a lobby holds (the server's 'max'; 5 live)
+	int32 Max() const { return MaxPlayers; }                          // players a lobby holds (the server's 'max')
 	const FHKNetPlayer* Player(int32 Id) const;
 	double ServerNow() const { return Options.DateNow() + Offset; }
 	double DateNow() const { return Options.DateNow(); }
@@ -165,7 +165,7 @@ private:
 	TArray<TSharedPtr<IHKSocket>> Closing;
 	FString OwnCode, Name, Code, Want, Status = TEXT("offline");
 	int32 YouId = 0, Slot = 0, Retry = 0, Timer = 0, PingTimer = 0;
-	int32 MaxPlayers = 5;
+	int32 MaxPlayers = 12;            // the user's lobby cap (28 Oct 2026); the server's 'max' replaces it when it says
 	double Offset = 0;
 	bool bAlive = false;
 	TArray<FHKNetPlayer> Players;
