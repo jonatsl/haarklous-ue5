@@ -266,7 +266,9 @@ What changed (all made by scripts, details in `docs/ARCHITECTURE.md`):
   five-spoke alloy wheels with rounded tyres; seats, dashboard, steering wheel and hands are the web's.
   `tools/blender/car_model.py`. Motorcycle, excavator, helicopter and plane keep their shapes but get rounded,
   light-catching edges and smooth shading.
-- **Gutters:** half-round eaves gutters along every hipped roof (1,896 pieces).
+- **Gutters and cornices:** half-round eaves gutters along every hipped roof (1,896 pieces); a stepped cornice
+  under every roof edge with its shadow line, and a concrete ledge on every brick plinth (4,896 walls each), so
+  the blocks are no longer plain boxes.
 - **Road paint:** yellow centre dashes (Norwegian style) and white zebra crossings where footpaths cross the bigger
   streets; kerb stones follow the slope of the street.
 
@@ -292,9 +294,27 @@ What changed (all made by scripts, details in `docs/ARCHITECTURE.md`):
 Tried and left out: Unreal's volumetric clouds cost 3–5 fps on this laptop (slowest frames under 20) and looked no
 better than the sky photo.
 
+### Against Battlefield 4's rendering, feature by feature
+
+Battlefield 4 (Frostbite 3, 2013) ran on desktop graphics cards many times faster than this laptop's integrated
+Radeon. This is what its look is made of, and where this game now stands on this laptop:
+
+| Battlefield 4 | Here | |
+| --- | --- | --- |
+| Physically based materials from photographed surfaces | CC0 photo scans for brick, plaster, concrete, roofs, asphalt, lawn, bark and leaves | yes |
+| Detailed, irregular buildings | the web's footprints and heights, with deep windows (parallax), cornices, plinth ledges, balconies, gutters, downpipes, chimneys | partly: walls are still flat boxes under the detail |
+| Dense ground cover and grass | 3D grass from photographed tufts within 15 m, scanned lawn beyond | yes, within 15 m |
+| Trees with branches, leaves that let light through, wind | limbs, separate leaf masses, two-sided foliage light, wind sway | yes |
+| Detailed vehicles | new car body and wheels; the others keep their shapes with rounded edges | partly |
+| Sky with real clouds | a photographed sky, its sun on the game's sun | yes (static clouds) |
+| HBAO, bloom, lens flares, colour grading, chromatic fringe | SSAO, bloom, lens flares, grading, fringe, vignette | yes |
+| Screen-space reflections | in windows, paint and glass | yes |
+| Dynamic sun, shadows and bounce light | stationary sun with dynamic cascaded shadows; bounce light baked (Lightmass) | baked: fully dynamic global light is beyond this laptop at 20 fps |
+| Destruction, particles, decals | fire, smoke and sparks; no destruction (the web game has none) | not applicable |
+
 ## Frame rates on this laptop
 
-Measured on 28 Oct 2026, after the photo-real pass with the new cars, trees, gutters, the sky photo and the road paint, in **the
+Measured on 28 Oct 2026, after the photo-real pass with the new cars, trees, cornices, gutters, the sky photo and the road paint, in **the
 packaged game you start** (`dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps -fullscreen -ResX=2240 -ResY=1400`,
 results in `tools\out\shots\fps-packaged\fps.txt`): full screen at the laptop's own resolution (2240 × 1400),
 graphics quality "Balanced" (the default: 75 % screen percentage, screen-space reflections, lens flares; light
@@ -303,14 +323,14 @@ else running. At each place the camera turns one full circle in 12 seconds, so e
 
 | Place | Average (run 1 / run 2) | Slowest 1 % of frames | Slowest single frame |
 | --- | --- | --- | --- |
-| Home (apartment, looking into the living room and out of the windows) | **31.2 / 31.8 fps** | 26.0 / 25.2 fps | 18.7 / 19.3 fps |
-| Firepit (fire, smoke, cars, grass and the block behind) | **25.9 / 26.2 fps** | 20.9 / 21.4 fps | 14.7 / 16.6 fps |
-| The park (Torshovdalen, the most trees and grass) | **26.5 / 26.5 fps** | 21.3 / 20.7 fps | 17.6 / 17.5 fps |
-| The street outside 17A | **27.1 / 26.5 fps** | 21.7 / 20.6 fps | 17.6 / 16.9 fps |
-| Flying (110 m above the district) | **30.3 / 30.5 fps** | 22.3 / 25.4 fps | 17.6 / 17.3 fps |
+| Home (apartment, looking into the living room and out of the windows) | **30.9 / 31.0 fps** | 26.4 / 25.9 fps | 18.3 / 19.0 fps |
+| Firepit (fire, smoke, cars, grass and the block behind) | **25.3 / 25.5 fps** | 21.4 / 20.9 fps | 17.5 / 16.7 fps |
+| The park (Torshovdalen, the most trees and grass) | **25.8 / 25.9 fps** | 21.2 / 21.1 fps | 17.1 / 18.0 fps |
+| The street outside 17A | **26.4 / 26.5 fps** | 21.4 / 22.1 fps | 18.2 / 16.8 fps |
+| Flying (110 m above the district) | **29.2 / 29.2 fps** | 23.7 / 23.0 fps | 17.8 / 18.2 fps |
 
 Every place stays above the 20 fps goal on average and in the slowest 1 % of frames; single frames dip to 15–19 fps
-now and then. The photo-real pass costs 3–6 fps against the realism pass (home 37.3, firepit 29.7, park 29.8, street
+now and then. The photo-real pass costs 4–7 fps against the realism pass (home 37.3, firepit 29.7, park 29.8, street
 30.0, flying 33.8) and the original port (32–40 fps). Balconies, kerbs and the other details cost about 2–3 fps
 (after taking the shadows off kerbs, road paint and railings and laying kerbs as 2 m stones); reflections, contact
 shadows and light shafts about 1 fps each (so the last two are only on "Sharp"); the 3D grass under 1 fps. The

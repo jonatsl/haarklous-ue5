@@ -258,8 +258,8 @@ void AHKGame::SpawnTrees()
 			H->SetCastShadow(HKJson::Bool(O, TEXT("cast"), true));
 			// Details are small: shorter view distances, and kerb stones, road paint and railings cast no shadow.
 			const bool bDetail = FString(Rig) == TEXT("details"), bKerb = Asset == TEXT("SM_Kerb") || Asset == TEXT("SM_RoadDash") || Asset == TEXT("SM_ZebraStripe");
-			H->SetCullDistances(0, bDetail ? (Asset == TEXT("SM_Chimney") ? 60000 : bKerb ? 7000 : Asset == TEXT("SM_Downpipe") ? 9000 : Asset == TEXT("SM_Gutter") ? 20000 : 15000) : FString(Rig) == TEXT("world_far") ? 150000 : 90000);
-			if (bKerb || Asset == TEXT("SM_BalconyRail") || Asset == TEXT("SM_Gutter")) H->SetCastShadow(false);
+			H->SetCullDistances(0, bDetail ? (Asset == TEXT("SM_Chimney") ? 60000 : bKerb ? 7000 : Asset == TEXT("SM_Downpipe") ? 9000 : Asset == TEXT("SM_Gutter") ? 20000 : Asset == TEXT("SM_Cornice") ? 40000 : 15000) : FString(Rig) == TEXT("world_far") ? 150000 : 90000);
+			if (bKerb || Asset == TEXT("SM_BalconyRail") || Asset == TEXT("SM_Gutter") || Asset == TEXT("SM_Ledge")) H->SetCastShadow(false);
 			H->RegisterComponent();
 			TArray<FTransform> Xf;
 			for (const TSharedPtr<FJsonValue>& T : HKJson::Arr(O, TEXT("transforms")))

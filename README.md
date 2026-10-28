@@ -26,8 +26,8 @@ Refresh after changes in the web game: `powershell -File tools\refresh-reference
   `wss://haarklous-ue5-test.server-smoke.workers.dev`, see `docs/ONLINE.md`). Never point it at the live game.
 
 ## Frame rates (28 Oct 2026, this laptop, 2240 × 1400 full screen, quality "Balanced")
-Packaged game with the photo-real pass: home 31.2 fps, firepit 25.9, park 26.5, street 27.1, flying 30.3 (averages;
-slowest 1 % of frames 20.6–26 fps; a second run within 0.6 fps; before the photo-real pass 3–6 fps faster). Measure again: `dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps
+Packaged game with the photo-real pass: home 30.9 fps, firepit 25.3, park 25.8, street 26.4, flying 29.2 (averages;
+slowest 1 % of frames 20.9–26.4 fps; a second run within 0.2 fps; before the photo-real pass 4–7 fps faster). Measure again: `dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps
 -hkout=<folder> -fullscreen -ResX=2240 -ResY=1400` (results in `<folder>\fps.txt`), or in the editor build
 `powershell -File tools\run-game.ps1 -Test fps -Res 2240x1400 -Fullscreen`. Details: `docs/REPORT.md`.
 

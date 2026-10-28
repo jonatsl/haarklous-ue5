@@ -3,8 +3,8 @@
     blender -b --factory-startup -P tools/blender/build_details.py
 
 The real blocks around Haarklous plass (Street View, 27 Oct 2026) have cantilevered concrete balconies with black
-steel railings (some with solid panel fronts) stacked in columns, downpipes at the corners and brick chimneys on
-the ridges. The web has none of these, and they do not change the game: they have no collision and the player
+steel railings (some with solid panel fronts) stacked in columns, downpipes at the corners, brick chimneys on the
+ridges, a cornice under the roof edge and a ledge on the plinth. The web has none of these, and they do not change the game: they have no collision and the player
 cannot reach them (balconies start one storey up).
 
 Meshes (metres, Blender z up, the wall plane at y = 0, sticking out toward -y):
@@ -13,6 +13,8 @@ Meshes (metres, Blender z up, the wall plane at y = 0, sticking out toward -y):
   SM_BalconyPanel   a slab with a solid painted front (slot 0 concrete, 1 railing, 2 panel)
   SM_Downpipe       8-sided pipe, 1 m tall (scaled to the building), with wall brackets (slot 0 metal)
   SM_Chimney        brick stack with a concrete cap, its base 1.5 m below the given point (slot 0 brick, 1 cap)
+  SM_Cornice        a 1 m stepped eaves cornice, stretched along every wall top (slot 0 cornice)
+  SM_Ledge          a 1 m concrete ledge on top of the plinth (slot 0 concrete)
   SM_Gutter         a 1 m half-round eaves gutter, stretched along each eave of the hipped roofs (slot 0 metal)
   SM_RoadDash, SM_ZebraStripe  a 1 m road-paint square, stretched per mark (slot 0 yellow / white paint)
   SM_Kerb           a 1 m granite kerb stone, 15 cm wide, 10 cm above the ground (slot 0 granite), placed 2 m
@@ -290,6 +292,24 @@ def road_mark():
     return m
 
 
+def cornice():
+    """1 m of eaves cornice (stretched along each wall top): a stepped moulding that projects 0.32 m at the top and
+    0.12 m at its foot, 0.34 m tall, its top at z = 0, sticking out toward -y like the balconies. Slot 0."""
+    m = MeshBuilder()
+    m.box(-0.5, 0.5, -0.32, 0.0, -0.09, 0.0, 0, skip=('back',))       # the soffit band under the roof edge
+    m.box(-0.5, 0.5, -0.22, 0.0, -0.2, -0.09, 0, skip=('back',))
+    m.box(-0.5, 0.5, -0.12, 0.0, -0.34, -0.2, 0, skip=('back',))
+    return m
+
+
+def ledge():
+    """1 m of the concrete ledge on top of the plinth: 6 cm out, 8 cm high, its top at z = 0, sloped top. Slot 0."""
+    m = MeshBuilder()
+    m.box(-0.5, 0.5, -0.06, 0.0, -0.08, -0.02, 0, skip=('back',))
+    m.quad((-0.5, -0.06, -0.02), (0.5, -0.06, -0.02), (0.5, 0.0, 0.0), (-0.5, 0.0, 0.0), 0)
+    return m
+
+
 def chimney():
     m = MeshBuilder()
     m.box(-0.3, 0.3, -0.45, 0.45, -1.5, 1.1, 0, skip=('top', 'bottom'))
@@ -317,7 +337,8 @@ def main():
         x = math.sin(sum(a * b for a, b in zip(v, (12.9898, 78.233, 37.719)))) * 43758.5453
         return x - math.floor(x)
 
-    lists = {'SM_Balcony': [], 'SM_BalconyRail': [], 'SM_BalconyPanel': [], 'SM_Downpipe': [], 'SM_Chimney': [], 'SM_Gutter': [], 'SM_Kerb': []}
+    lists = {'SM_Balcony': [], 'SM_BalconyRail': [], 'SM_BalconyPanel': [], 'SM_Downpipe': [], 'SM_Chimney': [], 'SM_Gutter': [],
+             'SM_Cornice': [], 'SM_Ledge': [], 'SM_Kerb': []}
     for i, b in enumerate(s['buildings']):
         look = LOOKS.get(str(i))
         if not look or b['s'] != 'brick':
@@ -360,6 +381,26 @@ def main():
                         if kind == 'SM_Balcony':
                             lists['SM_BalconyRail'].append(ue(p[0], y, p[1], yaw))
             u += L
+        # Cornice under the roof edge and a ledge on top of the plinth, along every wall (pieces overlap at the
+        # corners by their projection, so outside corners close).
+        for k in range(len(world)):
+            a, c = world[k], world[(k + 1) % len(world)]
+            L = float(np.hypot(*(c - a)))
+            if L < 1.0:
+                continue
+            d = (c - a) / L
+            n = np.array([d[1], -d[0]])
+            if inside(world, (a + c) / 2 + n * 0.4):
+                n = -n
+            if inside(world, (a + c) / 2 + n * 0.4):
+                continue                                              # a sliver of wall between two inside points
+            yaw = math.degrees(math.atan2(n[1], n[0])) - 90.0
+            mid = (a + c) / 2
+            if math.hypot(mid[0], mid[1]) < 30 and min(math.hypot(mid[0] - tx, mid[1] - tz) for tx, tz in towers) < 8:
+                continue
+            lists['SM_Cornice'].append(ue(mid[0], top, mid[1], yaw, L + 0.64, 1, 1))
+            if b['s'] == 'brick' and top > g0 + PLINTH + 1:
+                lists['SM_Ledge'].append(ue(mid[0], g0 + PLINTH, mid[1], yaw, L + 0.12, 1, 1))
         # Downpipes at outside corners (about half of them).
         if storeys >= 2:
             m = len(world)
@@ -435,6 +476,8 @@ for name, mb, slots in (('SM_Balcony', balcony(False), ['MI_HK_DetailConcrete'])
                         ('SM_Downpipe', downpipe(), ['MI_HK_DetailMetal']),
                         ('SM_Chimney', chimney(), ['MI_HK_DetailBrick', 'MI_HK_DetailConcrete']),
                         ('SM_Gutter', gutter(), ['MI_HK_DetailMetal']),
+                        ('SM_Cornice', cornice(), ['MI_HK_DetailCornice']),
+                        ('SM_Ledge', ledge(), ['MI_HK_DetailConcrete']),
                         ('SM_Kerb', kerb(), ['MI_HK_DetailGranite']),
                         ('SM_RoadDash', road_mark(), ['MI_HK_PaintYellow']),
                         ('SM_ZebraStripe', road_mark(), ['MI_HK_PaintWhite'])):

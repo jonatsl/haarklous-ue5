@@ -626,6 +626,7 @@ def details():
             ('MI_HK_DetailPanel', 'Plaster', 1 / 2.23, (1.15, 1.25, 1.25), 0.0, 0.8),
             ('MI_HK_DetailBrick', 'Brick', 1 / 2.01, SALMON_TINT, 0.0, 1.0),
             ('MI_HK_DetailMetal', 'Concrete', 1 / 2.71, (1.2, 1.3, 1.6), 0.7, 0.5),
+            ('MI_HK_DetailCornice', 'Plaster', 1 / 2.23, (1.25, 1.2, 1.12), 0.0, 1.0),   # painted render, off-white
             ('MI_HK_DetailGranite', 'Concrete', 1 / 2.71, (1.25, 1.35, 1.75), 0.0, 1.0),   # granite grey (the granite scan has tile joints)
             ('MI_HK_PaintWhite', 'Plaster', 1 / 2.23, (1.55, 1.6, 1.65), 0.0, 0.75),
             ('MI_HK_PaintYellow', 'Plaster', 1 / 2.23, (1.75, 1.3, 0.22), 0.0, 0.75)):
@@ -649,6 +650,8 @@ def details():
              'SM_BalconyPanel': ['MI_HK_DetailConcrete', 'MI_HK_Railing', 'MI_HK_DetailPanel'],
              'SM_Downpipe': ['MI_HK_DetailMetal'],
              'SM_Gutter': ['MI_HK_DetailMetal'],
+             'SM_Cornice': ['MI_HK_DetailCornice'],
+             'SM_Ledge': ['MI_HK_DetailConcrete'],
              'SM_Chimney': ['MI_HK_DetailBrick', 'MI_HK_DetailConcrete'],
              'SM_Kerb': ['MI_HK_DetailGranite'],
              'SM_RoadDash': ['MI_HK_PaintYellow'],

@@ -99,6 +99,8 @@ The web material instances keep their names, slots and colours; their parents ch
   exterior materials of SM_car__body and the wheel meshes, keeping the interior. Other vehicles get `soften()`:
   welded, 12 mm bevel on edges over 35 degrees, weighted normals.
 - **Gutters:** `build_details.py` puts a stretched half-round gutter along each eave of the hipped roofs.
+  Cornices (stepped, 0.32 m out, casting shadow) along every wall top and concrete ledges on brick plinths,
+  stretched per wall, overlapping at corners; skipped next to 17A's own stair tower.
 - **Road paint:** `build_details.py` `markings()`: yellow centre dashes (3 m every 12 m) on tertiary and bigger
   roads, zebra crossings (0.5 m stripes) where footpaths cross them, pitched with the ground like the kerbs.
 - **Look:** `tools/unreal/look.py` (sun 4.2 with light shafts and contact shadows, sky light 1.2, bloom, lens flares,
