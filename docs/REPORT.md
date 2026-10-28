@@ -486,20 +486,28 @@ gate.
 **Seeing from the machines:** R3 on the controller (V on the keyboard) now changes the view in every site machine:
 from the cab, from outside (behind and above, the mouse turns it round), and in both cranes straight down from above
 the hook, so you can put the hook right on a load. In the cabs: the mobile crane's operator cab has a glass roof
-(you see the boom and the hook overhead), and the dozer has a lower, sloped hood with the exhaust at the side, so
-the blade shows over it. The wheel loader's lowered bucket is still hidden by its front frame from the seat; use the
-outside view for close work.
+(you see the boom and the hook overhead); the dozer has a lower, sloped hood with the exhaust at the side, so the
+blade shows over it; the wheel loader has a higher cab and short, low front fenders, so the top edge of the lowered
+bucket shows across its whole width (to look into the bucket, use the outside view); the tipper's mirrors are smaller
+and out on arms, so they no longer fill the left of the windscreen.
 
 ![The tower crane: from above the hook](img/site--18b-tower-hook.jpg)
 ![The mobile crane: from above the hook](img/site--16b-crane-hook.jpg)
 ![The excavator from outside](img/site--08b-excavator-outside.jpg)
 ![The mobile crane's cab: the boom and hook through the roof window](img/site--16a-crane-cab.jpg)
 ![The dozer's cab: the blade over the new hood](img/site--11a-dozer-cab.jpg)
+![The wheel loader's cab: the bucket's edge over the low fenders](img/sitecabs--cab-loader.jpg)
+![The tipper's cab: the north gate, the mirror out of the way](img/sitecabs--cab-tipper.jpg)
 
 **Frame rate at the bigger site:** 30 fps on average, 22.5 at the 1 % low, in the site play-through (1600 x 900) while
 your packaged copy of the game was open at the same time; the GPU is the limit (33 ms; the game code needs 6 ms). The
 first try ran at 13 fps: the soil's settling pass checked the whole, now 3.4 times bigger, field every frame. It now
-checks only around soil that moved, with the same result.
+checks only around soil that moved, with the same result. In the packaged game (Shipping, 1280 x 720) the site
+play-through ran at 46.5 fps on average, 26.7 at the 1 % low.
+
+**Checked in the packaged game too:** the `site` play-through (every machine, both gates, all R3 views: 0 failures)
+and the `balcony` test (the prompt from all 25 places, open, close from the balcony: 0 failures) were run in the new
+packaged build itself (the scripted tests now also write `results.txt`, since the packaged game has no log).
 
 ## What still needs you
 

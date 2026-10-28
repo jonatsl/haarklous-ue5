@@ -186,7 +186,8 @@ void AHKTestDriver::MeasureFps(const FString& Label, double Seconds)
 	struct FAcc { double T = 0; int32 N = 0; TArray<double> Frames; double Game = 0, Render = 0, Gpu = 0; };
 	TSharedPtr<FAcc> A = MakeShared<FAcc>();
 	Wait(1.0);
-	Steps.Add([A, Label, Seconds](double Dt)
+	TWeakObjectPtr<AHKTestDriver> Self(this);
+	Steps.Add([A, Label, Seconds, Self](double Dt)
 	{
 		A->T += Dt; A->N++; A->Frames.Add(Dt);
 		// Where the time goes (the numbers of "stat unit"): game thread, render thread, GPU.
@@ -197,6 +198,7 @@ void AHKTestDriver::MeasureFps(const FString& Label, double Seconds)
 		const double Avg = A->N / A->T, Low = 1 / A->Frames[FMath::Min(A->Frames.Num() - 1, (int32)(A->Frames.Num() * .99))];
 		UE_LOG(LogHaarklous, Display, TEXT("HK-TEST fps %s: average %.1f, 1%% low %.1f over %.1f s (%d frames); game %.1f ms, render %.1f ms, GPU %.1f ms"),
 			*Label, Avg, Low, A->T, A->N, A->Game / A->N, A->Render / A->N, A->Gpu / A->N);
+		if (AHKTestDriver* D = Self.Get()) D->Results.Add(FString::Printf(TEXT("fps %s: average %.1f, 1%% low %.1f"), *Label, Avg, Low));
 		return true;
 	});
 }
@@ -213,6 +215,7 @@ void AHKTestDriver::Expect(const FString& What, TFunction<bool()> Fn)
 		const bool bOk = Fn();
 		if (!bOk) Failures++;
 		UE_LOG(LogHaarklous, Display, TEXT("HK-TEST %s %s  %s"), bOk ? TEXT("PASS") : TEXT("FAIL"), *What, *P());
+		Results.Add(FString::Printf(TEXT("%s %s"), bOk ? TEXT("PASS") : TEXT("FAIL"), *What));
 	});
 }
 
@@ -221,6 +224,8 @@ void AHKTestDriver::Quit()
 	Steps.Add([this](double)
 	{
 		UE_LOG(LogHaarklous, Display, TEXT("HK-TEST done %s: %d failures"), *TestName, Failures);
+		Results.Add(FString::Printf(TEXT("done %s: %d failures"), *TestName, Failures));
+		FFileHelper::SaveStringArrayToFile(Results, *FPaths::Combine(OutDir, TEXT("results.txt")));
 		FPlatformMisc::RequestExit(false);
 		return false;
 	});

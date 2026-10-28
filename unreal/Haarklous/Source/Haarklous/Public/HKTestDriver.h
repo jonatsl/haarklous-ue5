@@ -45,6 +45,9 @@ public:
 	FString OutDir;
 	FString TestName;
 	int32 Failures = 0;
+	// PASS / FAIL lines and the fps results, also written to <OutDir>/results.txt at the end (the packaged Shipping
+	// build has no log).
+	TArray<FString> Results;
 	FString P() const;   // the harness's P(): position, feet, mode
 
 private:

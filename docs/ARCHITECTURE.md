@@ -158,7 +158,9 @@ drive like real machines, and soil that can be moved realistically.
   view of a site machine (`AHKGame::SiteMachineView`, `Player.SiteView`): from the cab; from outside (behind and above
   along the operator's heading, the mouse turns it round the machine); for the two cranes also straight down from
   above the hook (between the hook and the jib, at most 16 m up, the jib's direction up the screen). Entering a
-  machine starts in the cab.
+  machine starts in the cab. Cabs: glass roof in the mobile crane's operator cab, a low sloped dozer hood (blade
+  visible), a higher loader cab with short low front fenders (the bucket's top edge visible), small tipper mirrors on
+  arms; `-hktest=sitecabs` boards every machine and takes one screenshot from each seat.
 - Cab glass: `M_HK_SiteGlass` is translucent, two-sided, lit as a surface (opacity 0.12 a face, dark tint, glossy),
   so you can see out of every cab and the site offices' windows (user, 28 Oct 2026: the opaque windows made the
   machines unusable from the cab).

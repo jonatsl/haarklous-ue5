@@ -159,6 +159,33 @@ namespace HKSiteTest
 	{
 		FRegister()
 		{
+			// Quick look from every cab (-hktest=sitecabs): board each machine, put its tool where the operator works with it,
+			// a screenshot from the seat; for checking cab views without the whole play-through.
+			FHKTestScripts::All().Add(TEXT("sitecabs"), [](AHKTestDriver& T)
+			{
+				TSharedPtr<FView> V = MakeShared<FView>();
+				T.Wait(3);
+				T.Press(0);
+				T.Wait(1.5);
+				T.WaitShaders();
+				for (const TCHAR* K : {TEXT("dozer"), TEXT("loader"), TEXT("excavator30"), TEXT("hauler"), TEXT("tipper"), TEXT("crane"), TEXT("tower")})
+				{
+					const FString Kind = K;
+					Board(T, K);
+					if (Kind == TEXT("loader"))
+						Act(T, V, TEXT("loader: bucket down and flat"), 6, [&T](double)
+						{
+							FHKWheelLoader* L = Find<FHKWheelLoader>(T, TEXT("loader"));
+							Pad().Axes[3] = L->LiftA > -.07 ? -1.f : 0;
+							Pad().Axes[2] = Toward(L->TiltA - (-.05), 2, .04);
+							return Pad().Axes[3] == 0 && Pad().Axes[2] == 0;
+						});
+					if (Kind == TEXT("dozer")) Act(T, V, TEXT("dozer: blade down"), 3, [&T](double) { Pad().Axes[3] = -.8f; return Find<FHKDozer>(T, TEXT("dozer"))->Lift <= -.05; });
+					OwnShot(T, TEXT("cab-") + Kind);
+					GetOut(T, Kind);
+				}
+			});
+
 			FHKTestScripts::All().Add(TEXT("site"), [](AHKTestDriver& T)
 			{
 				TSharedPtr<FView> V = MakeShared<FView>();

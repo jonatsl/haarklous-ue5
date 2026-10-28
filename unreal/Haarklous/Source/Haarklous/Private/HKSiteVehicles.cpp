@@ -426,7 +426,7 @@ FHKWheelLoader::FHKWheelLoader(double InX, double InZ, double InYaw)
 	Ram(Front, FVector(-.62, .75, -1.9), Arm, FVector(-.62, -.95, -1.0), 0);
 	Ram(Front, FVector(.62, .75, -1.9), Arm, FVector(.62, -.95, -1.0), 1);
 	Ram(Front, FVector(0, 2.05, -.95), Bucket, FVector(0, .75, .3), 2);
-	SeatNode = Rig.Root; SeatOffset = FVector(0, 2.9, .75); CamPitch = -.24;   // high and looking down: the bucket's edge shows
+	SeatNode = Rig.Root; SeatOffset = FVector(0, 3.15, .3); CamPitch = -.36;   // high, at the front glass, looking down: the bucket's edge and corners show
 	bRightStickTool = true;
 	HelpText = TEXT("Wheel loader · R2 throttle, L2 brake / reverse, left stick steer · right stick back / forward: lift / lower, ← roll back, → dump · R3 view · □ get out");
 	Capacity = 3.6;

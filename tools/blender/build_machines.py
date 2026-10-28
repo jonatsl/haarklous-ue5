@@ -307,10 +307,10 @@ def loader():
         box(rear, (sx * .85, 1.3, 3.61), (.22, .12, .03), RD)                       # tail lights
         box(rear, (sx * 1.0, 1.72, 1.6), (.72, .06, 1.25), Y, bevel=.03)            # fenders
         box(rear, (sx * 1.0, 1.15, 2.05), (.72, .5, .06), Y)
-    cab_box(rear, (0, 1.55, .6), 1.5, 1.6, 1.6)
+    cab_box(rear, (0, 1.55, .6), 1.5, 1.75, 1.6)                                  # a high cab: the operator sees the bucket
     for sx in (-1, 1):
-        work_light(rear, (sx * .62, 3.25, -.18), -1)
-    beacon(rear, (.55, 3.25, 1.3))
+        work_light(rear, (sx * .62, 3.4, -.18), -1)
+    beacon(rear, (.55, 3.4, 1.3))
     cyl(rear, (.45, 2.2, 2.6), (.45, 2.8, 2.6), .07, DK, seg=10)
     for k in range(4):
         box(rear, (-.95, .45 + k * .32, .2), (.35, .04, .2), ST)                    # ladder
@@ -323,8 +323,8 @@ def loader():
     box(f, (0, .95, -1.1), (1.15, .6, 2.1), DK, bevel=.05)
     box(f, (0, 1.4, -.45), (.9, .5, .6), Y, bevel=.05)
     for sx in (-1, 1):
-        box(f, (sx * 1.0, 1.72, -1.6), (.72, .06, 1.2), Y, bevel=.03)
-        work_light(f, (sx * .65, 1.75, -2.05), -1)
+        box(f, (sx * 1.0, 1.66, -1.5), (.72, .05, 1.0), Y, bevel=.02)             # short, low fenders: the bucket shows over them
+        work_light(f, (sx * .65, 1.7, -1.95), -1)
     r.node('frontMesh', front, mesh=f)
     for i, sx in enumerate((-1, 1)):
         t = Mesh(); tyre(t, (0, 0, 0), .8, .6, RB, Y, rim_dish=.08 * sx)
@@ -429,7 +429,8 @@ def tipper():
     box(cab, (0, 2.55, -6.56), (2.25, 1.0, .02), GL)                                 # windscreen
     for sx in (-1, 1):
         box(cab, (sx * 1.245, 2.5, -5.9), (.02, .8, .9), GL)
-        box(cab, (sx * 1.38, 2.7, -6.3), (.04, .5, .25), DK)                          # mirrors
+        box(cab, (sx * 1.5, 2.62, -6.5), (.03, .34, .18), DK)                         # mirrors (out on their arms, small in the view)
+        box(cab, (sx * 1.37, 2.62, -6.45), (.24, .03, .03), DK)
         box(cab, (sx * .85, 1.05, -6.6), (.35, .15, .05), LT)
     box(cab, (0, 1.4, -6.58), (1.7, .7, .04), DK)                                    # grille
     box(cab, (0, .85, -6.62), (2.5, .35, .2), DK, bevel=.04)                         # bumper
