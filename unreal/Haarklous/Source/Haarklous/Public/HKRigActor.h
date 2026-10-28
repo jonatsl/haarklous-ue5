@@ -32,6 +32,7 @@ public:
 	// Paint colour for clear-coated body materials (cars, motorcycles).
 	void SetPaint(const FLinearColor& Color);
 	UStaticMeshComponent* MeshOf(const FHKNode* Node) const;
+	USceneComponent* NodeComponent(const FString& NodeName) const;   // the component that follows a rig node
 	// Which rig node a traced component belongs to (or null).
 	FHKNode* NodeOfComponent(const UPrimitiveComponent* C) const;
 	void SetAllCollision(bool bTrace);

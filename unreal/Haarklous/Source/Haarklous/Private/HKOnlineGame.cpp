@@ -1,4 +1,6 @@
 #include "HKOnlineGame.h"
+#include "HKMultiplayer.h"
+#include "HKPaintball.h"
 #include "Haarklous.h"
 #include "HKAircraft.h"
 #include "HKAvatars.h"
@@ -48,6 +50,7 @@ FHKPlayerState AHKOnline::LocalState() const
 		const double Dr[7] = {R(D.Pos.X), R(D.Pos.Y), R(D.Pos.Z), Q(D.Q.X), Q(D.Q.Y), Q(D.Q.Z), Q(D.Q.W)};
 		for (int32 i = 0; i < 7; i++) S.Dr[i] = Dr[i];
 	}
+	if (G->Paintball) S.Pb = G->Paintball->LocalState();
 	return S;
 }
 
@@ -85,6 +88,7 @@ void AHKOnline::Wire()
 	};
 	Ctx.PlayerVehicleIndex = [this]() { const AHKGame* X = Game.Get(); return X && X->Player.Vehicle ? X->IndexOf(X->Player.Vehicle) : -1; };
 	Ctx.PlayerDriving = [this]() { return Game.IsValid() && Game->Player.Mode == TEXT("vehicle"); };
+	Ctx.HoldsMarker = [this](int32 Id) { return Game.IsValid() && Game->Paintball && Game->Paintball->MemberPlaying(Id); };
 	Ctx.FireDecayS = G->FireDecayS;
 	Ctx.FireMax = G->FireMax;
 	TUniquePtr<IHKVoice> Voice;
@@ -108,6 +112,29 @@ void AHKOnline::Wire()
 	G->AddWood = [M]() { M->AddWood(); };
 	G->OnDoorChanged = [M](const FString& Id, bool bOpen) { M->SendDoor(Id, bOpen); };
 	G->SendChat = [M](const FString& T) { return M->SendChat(T); };
+	// Paintball: the others' states (with their smoothed avatar positions), the lobby clock, our id and name, avatars.
+	G->PbOthers = [M](TArray<FHKPbMember>& Out)
+	{
+		for (const TUniquePtr<FHKRemote>& R : M->Remotes())
+		{
+			if (!R->bHasSt || !R->St.Pb.IsValid()) continue;
+			FHKPbMember P;
+			if (!FHKPbMember::FromJson(R->St.Pb, P)) continue;
+			P.Id = R->Id; P.Name = R->Name; P.Slot = R->Slot;
+			P.Feet = R->bSeen ? R->Pos : R->St.P; P.Yaw = R->bSeen ? R->Yaw : R->St.Y; P.Stance = R->St.St;
+			Out.Add(P);
+		}
+	};
+	G->PbServerNow = [M]() { return M->Net().Online() ? M->Net().ServerNow() : FPlatformTime::Seconds() * 1000; };
+	G->PbYou = [M]() { return M->Net().Online() ? M->Net().You() : 0; };
+	G->PbName = [M]() { return M->Net().GetName(); };
+	G->PbAvatarOf = [this, M](int32 Id) -> AHKRigActor*
+	{
+		const FHKRemote* R = M->Remote(Id);
+		if (!R || !R->Av) return nullptr;
+		const int32 I = RigKeys.IndexOfByKey(&R->Av->Rig);
+		return I == INDEX_NONE ? nullptr : RigActors[I].Get();
+	};
 	G->IsOnline = [M]() { return M->Net().Online(); };
 	G->RemotePoi = [M]()
 	{
@@ -243,7 +270,8 @@ float AHKOnline::DrawLobby(UCanvas* C, float X, float Y, float W)
 		if (Clickable) Clickable(Id, Bx, By, OutW, 32);
 	};
 	FHKUi::Text(C, TEXT("Multiplayer"), X, Y, 19, FHKUi::TextMain, EHKAlign::Left, true);
-	FHKUi::Text(C, TEXT("(up to 5 players)"), X + FHKUi::Measure(C, TEXT("Multiplayer"), 19, true).X + 8, Y + 3, 14, FHKUi::TextDim);
+	const FString UpTo = FString::Printf(TEXT("(up to %d players)"), N.Max());
+	FHKUi::Text(C, UpTo, X + FHKUi::Measure(C, TEXT("Multiplayer"), 19, true).X + 8, Y + 3, 14, FHKUi::TextDim);
 	Y += 30;
 	FHKUi::Text(C, N.StatusText(), X, Y, 14, FHKUi::TextDim); Y += 24;
 	FHKUi::Text(C, TEXT("Your lobby code"), X, Y + 4, 16);

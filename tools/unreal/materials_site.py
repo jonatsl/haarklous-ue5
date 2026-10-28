@@ -302,9 +302,9 @@ def instances(paint, pbr, glow, glass, mesh, image):
     out['MI_Site_Beacon'] = mi('MI_Site_Beacon', glow, {'Color': (1, .45, .02, 1)}, {'Glow': 4.0})
     out['MI_Site_Glass'] = mi('MI_Site_Glass', glass)
     out['MI_Site_Mesh'] = mi('MI_Site_Mesh', mesh)
-    out['MI_Site_Banner'] = mi('MI_Site_Banner', image, {'UVScale': (1 / 3.3, -1 / .9, 0, 0), 'UVOffset': (.5, .5 + 1.2 / .9, 0, 0)}, {},
+    out['MI_Site_Banner'] = mi('MI_Site_Banner', image, {'UVScale': (-1 / 3.3, 1 / .9, 0, 0), 'UVOffset': (.5, .65 / .9, 0, 0)}, {},
                                {'Image': 'T_SiteBanner'})
-    out['MI_Site_Sign'] = mi('MI_Site_Sign', image, {'UVScale': (1.0, -1 / .7, 0, 0), 'UVOffset': (.5, .5 + 1.8 / .7, 0, 0)}, {},
+    out['MI_Site_Sign'] = mi('MI_Site_Sign', image, {'UVScale': (1.0, 1 / .7, 0, 0), 'UVOffset': (.5, 1.15 / .7, 0, 0)}, {},
                              {'Image': 'T_SiteSign'})
     return out
 
@@ -348,4 +348,5 @@ def main():
     log('site', import_fbx(os.path.join(FBX, 'site.fbx'), '/Game/Haarklous/Meshes/site', mats), 'meshes')
 
 
-main()
+if __name__ == '__main__':     # tools/unreal/materials_paintball.py imports the helpers
+    main()

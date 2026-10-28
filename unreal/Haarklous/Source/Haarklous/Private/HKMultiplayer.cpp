@@ -47,6 +47,7 @@ TSharedPtr<FJsonObject> FHKPlayerState::ToJson() const
 	if (V >= 0) { O->SetNumberField(TEXT("v"), V); O->SetStringField(TEXT("s"), S); }
 	if (Sit) O->SetNumberField(TEXT("sit"), Sit);
 	if (bDr) O->SetField(TEXT("dr"), NumArray({Dr[0], Dr[1], Dr[2], Dr[3], Dr[4], Dr[5], Dr[6]}));
+	if (Pb.IsValid()) O->SetObjectField(TEXT("pb"), Pb);
 	return O;
 }
 
@@ -70,6 +71,8 @@ bool FHKPlayerState::FromJson(const TSharedPtr<FJsonValue>& Val, FHKPlayerState&
 		Out.bDr = true;
 		for (int32 i = 0; i < 7; i++) Out.Dr[i] = D.IsValidIndex(i) ? D[i] : 0;
 	}
+	const TSharedPtr<FJsonObject>* PbO;
+	if (O->TryGetObjectField(TEXT("pb"), PbO)) Out.Pb = *PbO;
 	return true;
 }
 
@@ -306,7 +309,7 @@ void FHKMultiplayer::OnMessage(const TSharedPtr<FJsonObject>& M)
 	}
 	else if (T == TEXT("full"))
 	{
-		if (Ctx.Notice) Ctx.Notice(FString::Printf(TEXT("Lobby %s is full (5 players). Back in your own lobby."), *Str(M, TEXT("code"))), 5);
+		if (Ctx.Notice) Ctx.Notice(FString::Printf(TEXT("Lobby %s is full (%d players). Back in your own lobby."), *Str(M, TEXT("code")), NetPtr->Max()), 5);
 	}
 	else if (T == TEXT("reset"))
 	{
@@ -583,6 +586,7 @@ void FHKMultiplayer::Update(double Dt)
 		Args.Speed = Stance == TEXT("stand") || Stance == TEXT("crouch") || Stance == TEXT("prone") ? R.Speed : 0;
 		Args.Dt = Dt;
 		Args.bBeer = St.B != 0;
+		Args.bMarker = Ctx.HoldsMarker && Ctx.HoldsMarker(R.Id);
 		R.Av->Pose(Args);
 		R.Av->Update(Dt, Cam);
 		// Their drone.

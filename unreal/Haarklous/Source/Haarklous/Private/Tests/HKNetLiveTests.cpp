@@ -283,14 +283,17 @@ namespace
 
 namespace
 {
-	// A full lobby: five plain connections fill a fresh lobby, the sixth (a full FHKMultiplayer) must be refused and
-	// land back in its own lobby with the web's notice.
+	// A full lobby: plain connections fill a fresh lobby (5 on the live server; the test server holds 12 since
+	// 28 Oct 2026, so the number comes from the first one's welcome), one more (a full FHKMultiplayer) must be refused
+	// and land back in its own lobby with the web's notice.
 	struct FHKFullRun
 	{
 		FAutomationTestBase* Test = nullptr;
 		FString Server, Lobby;
 		TArray<TUniquePtr<FHKNet>> Fillers;
 		TUniquePtr<FHKMultiplayer> Sixth;
+		FHKNetOptions Opt;
+		int32 Max = 0;
 		TArray<FString> Notices;
 		double T0 = 0;
 		bool bSixthStarted = false, bDone = false;
@@ -299,7 +302,17 @@ namespace
 			const double T = FPlatformTime::Seconds() - T0;
 			int32 Online = 0;
 			for (const TUniquePtr<FHKNet>& N : Fillers) Online += N->Online() ? 1 : 0;
-			if (Online == 5 && !bSixthStarted)
+			if (!Max && Online == 1)
+			{
+				Max = Fillers[0]->Max();
+				for (int32 i = 1; i < Max; i++)
+				{
+					Fillers.Add(MakeUnique<FHKNet>(nullptr, nullptr, Opt));
+					Fillers.Last()->SetName(FString::Printf(TEXT("Filler %d"), i + 1));
+					Fillers.Last()->Connect(Lobby);
+				}
+			}
+			if (Max && Online == Max && !bSixthStarted)
 			{
 				bSixthStarted = true;
 				FHKMultiplayerContext Ctx;
@@ -307,15 +320,15 @@ namespace
 				FHKNetOptions O = FHKNet::DefaultOptions();
 				O.bEnabled = true; O.Base = Server;
 				Sixth = MakeUnique<FHKMultiplayer>(Ctx, O);
-				UE_LOG(LogHaarklous, Display, TEXT("[live full] lobby %s has 5 players; the sixth (own lobby %s) tries to join"), *Lobby, *Sixth->Net().GetOwnCode());
+				UE_LOG(LogHaarklous, Display, TEXT("[live full] lobby %s has %d players; one more (own lobby %s) tries to join"), *Lobby, Max, *Sixth->Net().GetOwnCode());
 				Sixth->Net().Connect(Lobby);
 			}
 			if (Sixth) Sixth->Update(1.0 / 30);
 			const bool bBack = Sixth && Sixth->Net().Online() && Sixth->Net().GetCode() == Sixth->Net().GetOwnCode();
 			if (bBack || T > 60)
 			{
-				const FString Want = FString::Printf(TEXT("Lobby %s is full (5 players). Back in your own lobby."), *Lobby);
-				Test->TestTrue(TEXT("the five fillers got in"), Online == 5);
+				const FString Want = FString::Printf(TEXT("Lobby %s is full (%d players). Back in your own lobby."), *Lobby, Max);
+				Test->TestTrue(TEXT("the fillers got in"), Max > 0 && Online == Max);
 				Test->TestTrue(TEXT("the sixth is back in its own lobby"), bBack);
 				Test->TestTrue(TEXT("the web's notice"), Notices.Contains(Want));
 				if (Sixth) Test->AddInfo(FString::Printf(TEXT("live full lobby: refused after %.1f s, now %s"), T, *Sixth->Net().StatusText()));
@@ -349,12 +362,10 @@ bool FHKNetLiveFullTest::RunTest(const FString& Parameters)
 	Run->Lobby = FHKNet::RandomCode([]() { return (double)FMath::FRand(); });
 	FHKNetOptions O = FHKNet::DefaultOptions();
 	O.bEnabled = true; O.Base = Run->Server;
-	for (int32 i = 0; i < 5; i++)
-	{
-		Run->Fillers.Add(MakeUnique<FHKNet>(nullptr, nullptr, O));
-		Run->Fillers.Last()->SetName(FString::Printf(TEXT("Filler %d"), i + 1));
-		Run->Fillers.Last()->Connect(Run->Lobby);
-	}
+	Run->Opt = O;
+	Run->Fillers.Add(MakeUnique<FHKNet>(nullptr, nullptr, O));
+	Run->Fillers.Last()->SetName(TEXT("Filler 1"));
+	Run->Fillers.Last()->Connect(Run->Lobby);
 	Run->T0 = FPlatformTime::Seconds();
 	ADD_LATENT_AUTOMATION_COMMAND(FHKFullCommand(Run));
 	return true;

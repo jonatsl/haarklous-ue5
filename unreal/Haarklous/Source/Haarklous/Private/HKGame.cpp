@@ -153,11 +153,13 @@ void AHKGame::BuildWorld()
 
 	LocalFire.T = FPlatformTime::Seconds();
 	SpawnRigs();
+	LoadPaintball();   // before the trees: none grow in the paintball yard
 	SpawnTrees();
 	GrassMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Haarklous/Meshes/grass/SM_GrassClump.SM_GrassClump"));
 	SpawnOverlay();
 	SetupModules();
 	SetupSite();
+	SetupPaintball();
 	SetupMission();
 	// Online play (game-net.js, game-multiplayer.js, avatars, voice); off unless enabled. Wraps some hooks, so it comes last.
 	Online = AHKOnline::Setup(this);
@@ -269,6 +271,8 @@ void AHKGame::SpawnTrees()
 				const TArray<double> A = HKJson::Nums(T);
 				Xf.Add(FTransform(FQuat(A[3], A[4], A[5], A[6]), FVector(A[0], A[1], A[2]), FVector(A[7], A[8], A[9])));
 			}
+			if (Paintball)   // the paintball yard is paved: no trees or bushes in it
+				Xf.RemoveAll([this](const FTransform& X) { const FVector W = HK::FromUE(X.GetLocation()); return Paintball->InYard(W.X, W.Z, -1); });
 			H->AddInstances(Xf, false, true);
 			TreeComps.Add(H);
 		}
@@ -436,6 +440,7 @@ void AHKGame::UpdateDynamic()
 	for (FHKVehicle* V : VehicleList)
 		if (V && V != Player.Vehicle) for (const FHKObstacle& O : V->Footprint()) { List.Add(O); VList.Add(O); }
 	if (ExtraDynamic) List.Append(ExtraDynamic());
+	if (Paintball) List.Append(Paintball->Obstacles());
 	Data.WalkWorld.SetDynamic(List);
 	// "Other vehicles block the one being driven; it must never collide with its own (parked) footprint."
 	// (Only the vehicle worlds that exist already, like the web's vehicleWorlds.forEach.)
@@ -617,9 +622,10 @@ void AHKGame::Tick(float DeltaSeconds)
 	const double Dt = FMath::Min((double)DeltaSeconds, FixedDt > 0 ? FixedDt : .05);
 	bDynamicEveryFrame = Mission && Mission->IsActive();
 	// camera.near: the web's .05 m on foot; its pistol had its own overlay camera, so the mission uses 1 cm here.
-	if (Player.Mode == TEXT("foot") || Player.Mode == TEXT("sit") || Player.Mode == TEXT("minigame")) SetClip(bDynamicEveryFrame ? .01 : .05);
+	if (Player.Mode == TEXT("foot") || Player.Mode == TEXT("sit") || Player.Mode == TEXT("minigame")) SetClip(bDynamicEveryFrame || PaintballArmed() ? .01 : .05);
 	Frame_(FixedDt > 0 ? FixedDt : Dt);
 	if (Site) { Site->Step(FixedDt > 0 ? FixedDt : Dt); SyncSiteLoads(); }
+	if (Paintball && bStarted) TickPaintball(FixedDt > 0 ? FixedDt : Dt);
 	// The mission runs its own requestAnimationFrame loop in the web, on real time.
 	if (Mission) Mission->Tick(FixedDt > 0 ? FixedDt : DeltaSeconds);
 	UpdateGrass();
@@ -675,6 +681,7 @@ void AHKGame::UpdateGrass()
 			const double Yaw = R.FRandRange(0, 360), S = R.FRandRange(.75, 1.3);
 			if (D.SurfaceAt(Wx, Wz) != TEXT("grass")) continue;
 			if (Site && Site->Contains(Wx, Wz, -.5)) continue;                       // bare soil on the building site
+			if (Paintball && Paintball->InYard(Wx, Wz, -.5)) continue;              // the paved paintball yard
 			if (HK::Hypot(Wx - FireCenter.X, Wz - FireCenter.Z) < 2.6) continue;     // the fire ring
 			const double Y = D.HeightWorld(Wx, Wz);
 			int32 Ti; FVector L;
@@ -787,16 +794,16 @@ void AHKGame::UpdateFoot(double Dt, double Dl)
 		}
 		if (Frame.WasPressed("prone")) SetStance(Player.Stance == TEXT("prone") ? TEXT("stand") : TEXT("prone"));
 		if (Frame.WasPressed("l3")) Player.bRun = !Player.bRun;
-		if (Frame.WasPressed("square") && !Photo.bActive && !bMission) Interact();
+		if (Frame.WasPressed("square") && !Photo.bActive && !bMission && !PaintballArmed()) Interact();   // paintball: □ reloads
 	}
 	// Move.
-	const bool bCanMove = !bMission || (MissionCanMove && MissionCanMove());
+	const bool bCanMove = (!bMission || (MissionCanMove && MissionCanMove())) && !(Paintball && Paintball->Frozen());
 	double Mx = Frame.Move.X, My = Frame.Move.Y;
 	if (Dl > 0) { Mx += FMath::Sin(Time * 1000 / 700) * .55 * Dl; My += FMath::Sin(Time * 1000 / 1100) * .15 * Dl; }
 	const double Mag = FMath::Min(1.0, HK::Hypot(Mx, My));
 	if (bCanMove && Mag > .05)
 	{
-		const bool bRunning = Player.Stance == TEXT("stand") && (Player.bRun || (!bMission && !Photo.bActive && Frame.R2 > .3) || Frame.IsHeld("l3"));
+		const bool bRunning = Player.Stance == TEXT("stand") && (Player.bRun || (!bMission && !Photo.bActive && !PaintballArmed() && Frame.R2 > .3) || Frame.IsHeld("l3"));
 		const double Speed = (bRunning ? 3.6 : 1.45) * StanceSpeed() * (bMission && MissionMoveScale ? MissionMoveScale() : 1) * (1 - Dl * .25), Fwd = -My, Right = Mx;
 		const double Dx = (-FMath::Sin(Player.Yaw) * Fwd + FMath::Cos(Player.Yaw) * Right) * Speed * Dt, Dz = (-FMath::Cos(Player.Yaw) * Fwd - FMath::Sin(Player.Yaw) * Right) * Speed * Dt;
 		const double Bx = Player.X, Bz = Player.Z;
@@ -821,7 +828,7 @@ void AHKGame::UpdateFoot(double Dt, double Dl)
 	CamPos = FVector(Player.X, Player.Feet + Player.EyeNow + Player.JumpY, Player.Z);
 	SetCameraFromEuler(Player.Pitch + Sway.Z, Player.Yaw + Sway.Y, Sway.X);
 	// "const fov = photo.active && photo.raised > .5 ? 70 / photo.zoom : caseGame?.active ? camera.fov : 70"
-	if (!bMission) Fov = Photo.bActive && Photo.Raised > .5 ? 70 / Photo.Zoom : 70;
+	if (!bMission) Fov = Photo.bActive && Photo.Raised > .5 ? 70 / Photo.Zoom : PaintballArmed() ? 70 / (1 + .45 * Paintball->AimAmount()) : 70;
 	else if (FootFov) Fov = FootFov();
 }
 

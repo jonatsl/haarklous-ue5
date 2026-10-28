@@ -135,6 +135,8 @@ namespace
 				Sweep(TEXT("flying"), 30, 110, 60, -.35);
 				// The construction site (machines, soil, crane): from the middle of its pad.
 				Sweep(TEXT("site"), -161.9, FHKData::Get().GroundWorld(-161.9, -287.9) + 1.65, -287.9, -.05);
+				// The paintball course: from the middle of the play area.
+				Sweep(TEXT("paintball"), -173.12, -31.43 + 1.65, -356.75, -.05);
 				T.FreeCamera();
 			});
 

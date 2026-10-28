@@ -308,24 +308,28 @@ TERRAIN_KEYS = ('MI_Standard_a6a6a6_0', 'MI_Standard_a6a6a6_18')   # the web's n
 
 
 def drop_site_terrain(data, slot_keys):
-    """The construction site (tools/make-site.py, site.json) is the game's own soil mesh: the terrain triangles inside
-    its square (map-local frame, on the far terrain's 8 m grid) are left out of the tiles."""
-    site_path = os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data', 'site.json')
+    """The construction site (tools/make-site.py, site.json) and the paintball yard (tools/make-paintball.py,
+    paintball.json) are the game's own ground: the terrain triangles inside their squares (map-local frame, on the far
+    terrain's 8 m grid) are left out of the tiles."""
+    dd = os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data')
     keys = [slot_keys.index(k) for k in TERRAIN_KEYS if k in slot_keys]
-    if not keys or not os.path.exists(site_path):
+    rects = [(n, json.load(open(os.path.join(dd, f), encoding='utf-8'))['rect']) for n, f in
+             (('construction site', 'site.json'), ('paintball yard', 'paintball.json')) if os.path.exists(os.path.join(dd, f))]
+    if not keys or not rects:
         return data
-    site = json.load(open(site_path, encoding='utf-8'))
-    r = site['rect']
-    sur = json.load(open(os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data', 'surroundings.json'), encoding='utf-8'))
+    sur = json.load(open(os.path.join(dd, 'surroundings.json'), encoding='utf-8'))
     th, gx, gz = sur['geo']['theta'], sur['geo']['x'], sur['geo']['z']
     cT, sT = math.cos(th), math.sin(th)
     px, pz = data['pos'][:, :, 0] - gx, data['pos'][:, :, 2] - gz
     lx, ls = px * cT - pz * sT, px * sT + pz * cT
     e = 1e-3
-    inside = ((lx >= r['x0'] - e) & (lx <= r['x0'] + r['w'] + e) & (ls >= r['s0'] - e) & (ls <= r['s0'] + r['d'] + e)).all(axis=1)
-    drop = inside & np.isin(data['slot'], keys)
-    if drop.any():
-        print(f'HK: {int(drop.sum())} terrain triangles under the construction site left out')
+    drop = np.zeros(len(data['slot']), dtype=bool)
+    for name, r in rects:
+        inside = ((lx >= r['x0'] - e) & (lx <= r['x0'] + r['w'] + e) & (ls >= r['s0'] - e) & (ls <= r['s0'] + r['d'] + e)).all(axis=1)
+        here = inside & np.isin(data['slot'], keys)
+        if here.any():
+            print(f'HK: {int(here.sum())} terrain triangles under the {name} left out')
+        drop |= here
     return {k: v[~drop] for k, v in data.items()}
 
 

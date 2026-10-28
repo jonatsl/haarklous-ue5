@@ -56,6 +56,10 @@ See `docs/ARCHITECTURE.md`. In short:
 - Realistic people (28 Oct 2026): MakeHuman (CC0) figures. `powershell -File tools\setup-people.ps1` once (MPFB add-on and
   asset packs into a private Blender profile), then with `BLENDER_USER_RESOURCES=tools\out\blender-user`:
   `blender -b -P tools/blender/build_people.py`, then `tools\unreal\run-python.ps1 tools\unreal\import_people.py`.
+- Paintball course (28 Oct 2026): `python tools/make-paintball.py`, `python tools/make-signs.py`,
+  `blender -b --factory-startup -P tools/blender/build_paintball.py`, `tools\unreal\run-python.ps1 tools\unreal\materials_paintball.py`
+  (after `materials_site.py`); the yard is cut out of the terrain by `build_assets.py` (world_far). See
+  `docs/ARCHITECTURE.md` "Paintball course".
 - `powershell -File tools\build-unreal.ps1` - compile the C++ game.
 - `powershell -File tools\run-tests.ps1` - automation tests (the C++ port against the web code's own answers).
 - `powershell -File tools\run-game.ps1 -Test walkhome` - scripted play-through with a simulated DualShock 4; screenshots in `tools\out\shots\<test>`.

@@ -21,6 +21,7 @@ struct FHKPoseArgs
 	double Speed = 0;
 	double Dt = 0;
 	bool bBeer = false;
+	bool bMarker = false;                // paintball (Unreal only): both hands on a marker, held at the shoulder
 };
 
 class HAARKLOUS_API FHKAvatar

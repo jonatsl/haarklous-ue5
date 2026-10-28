@@ -1,10 +1,11 @@
 /* Haarklous online multiplayer server (Cloudflare Workers + Durable Objects).
  * The Worker serves the game (static assets in ./public) and routes /lobby/<CODE> WebSockets to one Durable Object per
- * lobby code. A lobby holds up to five players. It relays player states (~10 Hz), vehicle states from whoever is driving,
+ * lobby code. A lobby holds up to five players (this test server: twelve). It relays player states (~10 Hz), vehicle states from whoever is driving,
  * chat, door and firepit events and WebRTC voice signalling, and it arbitrates vehicle seats (one driver, one passenger).
  * It also remembers where vehicles were left, which doors are open, the fire and the last chat lines for players who join.
  */
-const MAX_PLAYERS = 5, CODE = /^[A-HJ-NP-Z2-9]{4}$/, FIRE_DECAY_MS = 90000, FIRE_MAX = 6;
+// Test server only (allowed by the user on 28 Oct 2026, for paintball 6 v 6): 12 players a lobby; the live game has 5.
+const MAX_PLAYERS = 12, CODE = /^[A-HJ-NP-Z2-9]{4}$/, FIRE_DECAY_MS = 90000, FIRE_MAX = 6;
 const clean = (s, n) => String(s ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, n);
 
 export default {
@@ -30,7 +31,7 @@ export class Lobby {
     const code = new URL(request.url).pathname.split('/').pop().toUpperCase();this.code = code;
     const [client, ws] = Object.values(new WebSocketPair());ws.accept();
     if (this.players.size >= MAX_PLAYERS) {ws.send(JSON.stringify({t: 'full', max: MAX_PLAYERS}));ws.close(4001, 'Lobby full');return new Response(null, {status: 101, webSocket: client});}
-    const used = new Set([...this.players.values()].map(p => p.slot)), slot = [0, 1, 2, 3, 4].find(i => !used.has(i));
+    const used = new Set([...this.players.values()].map(p => p.slot)), slot = [...Array(MAX_PLAYERS).keys()].find(i => !used.has(i));
     const p = {id: this.next++, slot, ws, name: 'Player', st: null, mic: false, hello: false};this.players.set(p.id, p);
     ws.addEventListener('message', e => {if (typeof e.data !== 'string' || e.data.length > 16000) return;let m;try {m = JSON.parse(e.data);} catch {return;}this.onMessage(p, m);});
     const bye = () => this.leave(p);ws.addEventListener('close', bye);ws.addEventListener('error', bye);

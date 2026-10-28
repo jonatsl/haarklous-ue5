@@ -12,7 +12,7 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
 - Keep every online feature (lobbies with 4-letter codes, up to 5 players, synced players and vehicles, passengers, chat, voice, shared doors and firepit) so the game can be launched later.
 - The backend is `reference/web-game/cloud/` (Cloudflare Worker + Durable Objects). Keep it unchanged. The Unreal client must speak the same WebSocket JSON protocol (`cloud/src/index.js`, `game-net.js`, `game-multiplayer.js`), including the same vehicle numbering (vehicle list order and the seeded generator in `game-main.js`).
 - **Live game untouched:** never deploy to, change or connect to the live Worker `haarklous-online` (`haarklous-online.server-smoke.workers.dev`). Online code is switched off by default in builds.
-- **Online testing (allowed since 26 Oct 2026):** on a separate test server only. Copy `reference/web-game/cloud/` to `server/`, change nothing but the Worker name to `haarklous-ue5-test` in `server/wrangler.toml` (and put the reference `haarklous-game.html` in `server/public/index.html`), test with `npx wrangler dev` locally, then deploy that test Worker to the user's Cloudflare account (46fd597da1c5fe9de4c3ebbaae86f906, Wrangler is logged in on this PC) at `haarklous-ue5-test.server-smoke.workers.dev`. Test the Unreal client together with the web client served by that test Worker in one lobby.
+- **Online testing (allowed since 26 Oct 2026):** on a separate test server only. Copy `reference/web-game/cloud/` to `server/`, change nothing but the Worker name to `haarklous-ue5-test` in `server/wrangler.toml` and, since 28 Oct 2026 with the user's OK, `MAX_PLAYERS = 12` in `server/src/index.js` for paintball 6 v 6 (and put the reference `haarklous-game.html` in `server/public/index.html`), test with `npx wrangler dev` locally, then deploy that test Worker to the user's Cloudflare account (46fd597da1c5fe9de4c3ebbaae86f906, Wrangler is logged in on this PC) at `haarklous-ue5-test.server-smoke.workers.dev`. Test the Unreal client together with the web client served by that test Worker in one lobby.
 - GitHub (allowed by the user on 27 Oct 2026): the private repo **jonatsl/haarklous-ue5** (remote `origin`); push
   there. Never use the GitHub account **ms-jonathans** for this project, even if it is available.
 
@@ -42,7 +42,14 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
   (tour of the world), `walkhome`, `vehicles`, `activities`, `mission`, `drunk`, `menus` (keyboard, mouse, pause menu,
   settings; add `-Extra "-HKOnline -HKVoiceTone"` for the lobby section on the test server), `stairwells`, `mic` (real microphone level), `fps` (frame rate in the busiest
   places), `online` (via `tools\net-test\run-live.ps1`, test server only), `site` (construction site machines),
-  `people` (the realistic people in every pose). Scripted tests ignore the real keyboard and mouse.
+  `people` (the realistic people in every pose), `paintball` (the course with five simulated friends);
+  `tools\net-test\run-paintball.ps1` (the real game and seven bot clients on the test server). Scripted tests ignore the
+  real keyboard and mouse.
+- Paintball (28 Oct 2026, the user's own feature): `docs/ARCHITECTURE.md` "Paintball course". The TEST server
+  (`server/`) allows 12 players a lobby (allowed by the user on 28 Oct 2026, for 6 v 6); that is the only change to the
+  test server's code. The live server keeps 5; changing it is the user's decision.
+- Open issues the user filed (not started): GitHub issues on jonatsl/haarklous-ue5 (#1 paintball cover that looks
+  see-through, #2 street lamps, #3 the Torshovdalen sculpture). Do not code them unless the user asks.
 - New features the user asked for (28 Oct 2026, not in the web game): the construction site and realistic people
   (`docs/ARCHITECTURE.md`). MakeHuman tools live in a private Blender profile (`tools\out\blender-user`, made by
   `tools\setup-people.ps1`); never install them into the user's own Blender.

@@ -13,6 +13,7 @@
 #include "HKMission.h"
 #include "HKSite.h"
 #include "HKSiteVehicles.h"
+#include "HKPaintball.h"
 #include "HKGame.generated.h"
 
 class AHKRigActor;
@@ -252,6 +253,32 @@ public:
 	double SpilledSoil = 0;
 	TArray<TUniquePtr<FHKSiteLoad>> SiteLoads;
 	UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> SiteLoadMeshes;
+	// The paintball course (new feature, HKPaintball): rules and sessions, its course rig, lobby furniture, flags,
+	// flying balls, paint splats, the marker in our hands and the gear of other players in a game.
+	TUniquePtr<FHKPaintball> Paintball;
+	TUniquePtr<FHKRig> PbRig;
+	UPROPERTY() TObjectPtr<AHKRigActor> PbCourse;
+	UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> PbProps;
+	UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> PbFlags;
+	UPROPERTY() TArray<TObjectPtr<UInstancedStaticMeshComponent>> PbBalls;
+	UPROPERTY() TArray<TObjectPtr<UInstancedStaticMeshComponent>> PbSplats;
+	UPROPERTY() TObjectPtr<UStaticMeshComponent> PbMarker;
+	struct FPbGear { TWeakObjectPtr<AHKRigActor> Actor; TArray<TWeakObjectPtr<UStaticMeshComponent>> Parts; };
+	TMap<int32, FPbGear> PbGear;
+	int32 PbSplatNext[2] = {0, 0};
+	int32 PbSesSeen = 0;
+	void LoadPaintball();
+	void SetupPaintball();
+	void TickPaintball(double Dt);
+	bool PaintballBusy() const { return Paintball && (Paintball->InGame() || Paintball->InLobbyNow()); }
+	bool PaintballArmed() const { return Paintball && Paintball->InGame(); }
+	// Online (AHKOnline::Wire) or tests: the other players' paintball states, the lobby clock, our id, a player's avatar.
+	TFunction<void(TArray<FHKPbMember>&)> PbOthers;
+	TFunction<double()> PbServerNow;
+	TFunction<int32()> PbYou;
+	TFunction<AHKRigActor*(int32)> PbAvatarOf;
+	TFunction<FString()> PbName;
+	TFunction<int32()> PbSlot;
 	class FHKMinigame* ActiveMinigame = nullptr;
 	TSharedPtr<class IHKEngineSound> PassengerEngine;
 	// Multiplayer (offline defaults: every seat is yours, nobody else is around).

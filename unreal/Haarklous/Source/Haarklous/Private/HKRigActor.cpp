@@ -120,6 +120,12 @@ void AHKRigActor::SyncPerson()
 	Person->SetBoneLocationByName(PersonBones[0].Bone, PelvisRest + Inv.RotateVector(Hips - HipsRest), EBoneSpaces::ComponentSpace);
 }
 
+USceneComponent* AHKRigActor::NodeComponent(const FString& NodeName) const
+{
+	for (int32 i = 0; i < Nodes.Num(); i++) if (Nodes[i]->Name == NodeName) return Comps[i];
+	return nullptr;
+}
+
 void AHKRigActor::SetAllCollision(bool bTrace)
 {
 	for (USceneComponent* C : Comps)

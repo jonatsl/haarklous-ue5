@@ -174,6 +174,12 @@ void FHKAvatar::Pose(const FHKPoseArgs& A)
 		Hips->Position.Y = .95 + FMath::Abs(FMath::Cos(Phase)) * .03 * Amp; Torso->SetRotX(-.06 * Amp);
 		if (Stance == TEXT("drone")) for (FSide* Side : Both) { Side->Arm.Sh->SetRotX(.8); Side->Arm.El->SetRotX(.9); }
 	}
+	// Paintball (a new feature, not in the web game): the marker shouldered, right hand on the grip, left on the front.
+	if (A.bMarker && !bSeated && Stance != TEXT("prone"))
+	{
+		R.Arm.Sh->SetRotation(1.2, 0, -.2); R.Arm.El->SetRotation(.55, 0, 0);
+		L.Arm.Sh->SetRotation(1.35, 0, .55); L.Arm.El->SetRotation(.35, 0, 0);
+	}
 	Bottle->bVisible = A.bBeer;
 	if (A.bBeer && !bSeated) { R.Arm.Sh->SetRotX(.55); R.Arm.El->SetRotX(1.5); }
 	if (A.bBeer && bSeated) { R.Arm.Sh->SetRotX(.5); R.Arm.El->SetRotX(1.6); }

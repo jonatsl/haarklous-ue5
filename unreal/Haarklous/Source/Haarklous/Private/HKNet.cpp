@@ -486,6 +486,7 @@ void FHKNet::HandleMessage(IHKSocket* Sock, const FString& Text)
 	if (T == TEXT("welcome"))
 	{
 		YouId = (int32)HKJsonWire::Num(M, TEXT("you")); Slot = (int32)HKJsonWire::Num(M, TEXT("slot"));
+		if (M->HasTypedField<EJson::Number>(TEXT("max"))) MaxPlayers = (int32)HKJsonWire::Num(M, TEXT("max"));   // the web shows 5
 		Offset = HKJsonWire::Num(M, TEXT("now")) - Options.DateNow();
 		Players.Reset();
 		const TArray<TSharedPtr<FJsonValue>>* List;
@@ -505,7 +506,7 @@ void FHKNet::HandleMessage(IHKSocket* Sock, const FString& Text)
 	else if (T == TEXT("leave")) { const int32 Id = (int32)HKJsonWire::Num(M, TEXT("id")); Players.RemoveAll([Id](const FHKNetPlayer& P) { return P.Id == Id; }); }
 	else if (T == TEXT("name")) { const int32 Id = (int32)HKJsonWire::Num(M, TEXT("id")); for (FHKNetPlayer& P : Players) if (P.Id == Id) P.Name = HKJsonWire::Str(M, TEXT("name")); }
 	else if (T == TEXT("mic")) { const int32 Id = (int32)HKJsonWire::Num(M, TEXT("id")); for (FHKNetPlayer& P : Players) if (P.Id == Id) P.bMic = HKJsonWire::Truthy(M, TEXT("on")); }
-	else if (T == TEXT("full")) SetStatus(TEXT("full"));
+	else if (T == TEXT("full")) { if (M->HasTypedField<EJson::Number>(TEXT("max"))) MaxPlayers = (int32)HKJsonWire::Num(M, TEXT("max")); SetStatus(TEXT("full")); }
 	else if (T == TEXT("pong"))
 	{
 		const double Now = Options.DateNow();
@@ -534,6 +535,7 @@ void FHKNet::HandleClose(IHKSocket* Sock, int32 CloseCode)
 		TSharedPtr<FJsonObject> F = MakeShared<FJsonObject>();
 		F->SetStringField(TEXT("t"), TEXT("full"));
 		F->SetStringField(TEXT("code"), Code);
+		F->SetNumberField(TEXT("max"), MaxPlayers);
 		if (OnMessage) OnMessage(F);
 		if (Want != OwnCode) { Want = OwnCode; Open(); return; }
 	}
@@ -582,9 +584,9 @@ void FHKNet::SetName(const FString& InName)
 
 FString FHKNet::StatusText() const
 {
-	if (Online()) return FString::Printf(TEXT("Online · lobby %s · %d/5 players"), *Code, Players.Num());
+	if (Online()) return FString::Printf(TEXT("Online · lobby %s · %d/%d players"), *Code, Players.Num(), MaxPlayers);
 	if (Status == TEXT("connecting")) return FString::Printf(TEXT("Connecting to lobby %s…"), *Code);
-	if (Status == TEXT("full")) return TEXT("That lobby is full (5 players).");
+	if (Status == TEXT("full")) return FString::Printf(TEXT("That lobby is full (%d players)."), MaxPlayers);
 	return TEXT("Offline – single player (no connection to the lobby server).");
 }
 

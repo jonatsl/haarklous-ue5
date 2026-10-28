@@ -29,6 +29,7 @@ struct HAARKLOUS_API FHKPlayerState
 	int32 Sit = 0;                      // firepit spot id + 1 while sitting (0 = not sitting)
 	bool bDr = false;                   // drone pose: position R(), quaternion Q()
 	double Dr[7] = {0, 0, 0, 0, 0, 0, 1};
+	TSharedPtr<FJsonObject> Pb;         // paintball (HKPaintball; Unreal players only, web clients ignore the field)
 
 	static double R(double V) { return HK::JsRound(V * 100) / 100; }    // Math.round(v * 100) / 100
 	static double Q(double V) { return HK::JsRound(V * 1000) / 1000; }  // Math.round(v * 1000) / 1000
@@ -112,6 +113,7 @@ struct FHKMultiplayerContext
 	// onLobbyChange (game-main.js): which vehicle the player is in (-1 none) and whether as the driver.
 	TFunction<int32()> PlayerVehicleIndex;
 	TFunction<bool()> PlayerDriving;
+	TFunction<bool(int32 /*Id*/)> HoldsMarker;              // paintball: the player is in a game (arms hold the marker)
 	double FireDecayS = 90;                                 // fire.DECAY_S
 	double FireMax = 6;                                     // fire.MAX
 };

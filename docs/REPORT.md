@@ -11,6 +11,11 @@ you: a test with the real DualShock 4 (none was connected).
 CC0 libraries, a photographed sky, new car models, trees with real limbs, road paint, kerbs and gutters,
 Battlefield-style light.
 
+28 October 2026, later: three new things you asked for (see "Construction site, real people and paintball"): a big
+construction site with seven working machines and soil you can dig, push, load and tip; real-looking people instead
+of the jointed figures; and an urban paintball / reball course with a lobby, team deathmatch and capture the flag for
+up to 6 v 6 (online on the test server, which now takes 12 players a lobby).
+
 ## How to start the game
 
 - **From the project:** `"C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe" unreal\Haarklous\Haarklous.uproject -game -dx11`
@@ -352,8 +357,83 @@ The "Fast" (65 %, no shadows) and "Sharp" (100 %) settings were not measured.
 ![Frame-rate test: home](img/fps--fps-home.jpg)
 ![Frame-rate test: flying](img/fps--fps-flying.jpg)
 
+## Construction site, real people and paintball (28 Oct 2026)
+
+These are new features you asked for; they are not in the web game. Web players do not see the machines, and they
+ignore the paintball part of other players' messages, so the web game keeps working with the same server.
+
+**Construction site** (in the park valley, a 64 x 64 m fenced site): a foundation pit with a ramp, stockpiles, site
+offices, toilet, floodlights, signs, a skip and pallets. Seven machines, each driven like the real one (engine power,
+grip, gears, rolling resistance on soil, slopes, hydraulics): a Cat D6-class dozer (blade up / down / tilt), a 30 t
+excavator (ISO controls like the web excavator, a real backhoe bucket), a wheel loader (articulated, self-levelling
+bucket), an articulated hauler and an 8x4 tipper (tipping bodies), an all-terrain mobile crane (outriggers, slew,
+luff, telescope, hoist) and a tower crane (slewing with inertia, trolley, swinging hook, crane loads). The soil is a
+height field: buckets and blades cut it, carry it, pour it into trucks or onto the ground, and loose soil slides to
+its natural slope. No soil is lost (checked in the test after every machine).
+
+![The site from above](img/site--01-overview.jpg)
+![The excavator digging in the pit](img/site--05-excavator-digging.jpg)
+![Loading the hauler](img/site--07-excavator-dumped.jpg)
+![The hauler tipping its load](img/site--10-hauler-tipped.jpg)
+![The dozer pushing into a stockpile](img/site--11-dozer-pushing.jpg)
+![The wheel loader scooping](img/site--13-loader-scoop.jpg)
+![The mobile crane on its outriggers](img/site--16-mobile-crane.jpg)
+![The tower crane lifting a pallet of bricks](img/site--18-tower-crane-lift.jpg)
+
+**Real people:** the five player figures (as other players see you) are now MakeHuman people (free CC0 assets, built
+by a script in Blender): different faces, skin, hair and builds, a knit sweater in your player colour and dark
+trousers. Their skeleton follows the web avatar's joints, so walking, crouching, lying, sitting, driving, riding,
+drinking a beer and flying the drone all work as before. The hostage and the armed suspect in the mission are real
+people in the web figures' poses (kneeling with hands on the head; balaclava, red armband, pistol in both hands); the
+hit zones are unchanged.
+
+![The five players by the fire pit](img/people--01-players.jpg)
+![Close up](img/people--02-face-player1.jpg)
+![Close up](img/people--03-face-player2.jpg)
+![Lying, walking, driving, riding, flying the drone](img/people--06-more-poses.jpg)
+![The mission's hostage and suspect](img/people--07-mission-figures.jpg)
+
+**Paintball / reball course** (next to the construction site): a 60 x 40 m urban course inside a net on a paved yard
+with retaining walls: containers, roofless buildings, walls with windows, concrete barriers, a car wreck, cable spools,
+sandbags, barrels, pallets and tyres, the same for both teams. Walk into the lobby on the lawn by the gate: the first
+one there is the admin and starts the games (hold ✕); others pick a team with ↑↓ and wait. The admin picks team
+deathmatch (with respawns, or rounds where out is out) or capture the flag with ←→, and paint or reball with △.
+Normal paintball rules: a ball that breaks on you (or your marker) puts you out, also from your own team; a bounce
+does not count (reball: every hit counts); semi-automatic markers, 10 balls a second at most, 90 m/s, 200 balls in
+the hopper (□ reloads), L2 aims. Paint stays on the cover until the next game.
+Online, 6 v 6 means 12 players in a lobby: the **test server** now allows 12 (you agreed); the live server still
+allows 5.
+
+![The course](img/paintball--01-course.jpg)
+![The lobby (you are the admin)](img/paintball--02-lobby.jpg)
+![In a game](img/paintball--05-firing.jpg)
+![Paint on a container](img/paintball--06b-splats.jpg)
+![Other players: marker, goggles, team armbands](img/paintball--07-players-gear.jpg)
+![Capture the flag: carrying the blue flag home](img/paintball--09-flag.jpg)
+![Online on the test server: eight players in the lobby](img/pbonline--01-online-lobby.jpg)
+![Online: hit by another player's ball (paint on your goggles)](img/pbonline--03-online-firing.jpg)
+
+**Tests:** `site` (every machine driven with the simulated controller, soil conserved), `people` (every pose),
+`paintball` (five simulated friends: lobby and admin, teams, being hit and coming back, scoring, capture the flag,
+leaving a game), and online `run-paintball.ps1` (the real game and seven bot clients on the test server, locally and
+deployed: 8 in one lobby, a 4 v 4 game, hits both ways, back to the lobby). All pass. The scripted tests now ignore
+the real keyboard and mouse (a window that grabbed focus once took stray typing), and the game clears held keys when
+its window loses focus, like the web game does.
+
+**Frame rates** (fps test, editor build in a 1280 x 720 window, quality "Balanced", average / 1 % low): construction
+site 52.9 / 32.3, paintball course 70.3 / 38.1 (86 with a game going in the play-through), home 72.3 / 48.3, firepit
+59.2 / 42.3, park 60.3 / 38.1, street 61.0 / 40.5, flying 63.8 / 35.7. All well above the 20-30 fps target.
+
+![Frame-rate test: the construction site](img/fps--fps-site.jpg)
+![Frame-rate test: the paintball course](img/fps--fps-paintball.jpg)
+
 ## What still needs you
 
+- **Paintball online for real:** the test server takes 12 players a lobby; the live server still takes 5. Before
+  paintball goes online for everyone, the live Worker needs the same two-line change. That is your call; I have not
+  touched it.
+- **Your three new issues** (jonatsl/haarklous-ue5 #1 paintball cover that may look see-through, #2 street lamps,
+  #3 the Torshovdalen sculpture) are filed, not started.
 - **Test with your real DualShock 4** (USB and Bluetooth). The controller code reads the same raw reports the
   browser uses and is tested with recorded reports and a simulated pad, but not with the real controller.
 - **No DualShock 4 was connected** while I worked (checked on 27 Oct 2026; you confirmed it is not here), so the real

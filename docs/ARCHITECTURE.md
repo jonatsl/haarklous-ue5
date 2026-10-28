@@ -154,6 +154,39 @@ drive like real machines, and soil that can be moved realistically.
   hands on head) and `mission_hostile` (balaclava, red armband, pistol in both hands). Hit boxes are unchanged.
 - Test: `tools\run-game.ps1 -Test people`.
 
+## Paintball course (new feature, 28 Oct 2026; not in the web game)
+The user asked for an urban paintball / reball course to play with friends, up to 6 v 6, normal paintball rules, team
+deathmatch and capture the flag, about 60 x 40 m, with a lobby at the course (the first one in is the admin).
+- Place: the park valley next to the construction site; a 64 x 48 m paved yard (local x -112..-48, s 376..424, on the
+  far terrain's 8 m grid, cut open by `build_assets.py`), one level at the median height with retaining walls; the
+  60 x 40 m play area inside a 5 m net; the lobby on the lawn outside the gate (where the lawn is level with the yard).
+  Two park trees inside the yard are left out. `tools/make-paintball.py` -> `Content/Data/paintball.json` (course
+  coordinates u, v from the play area's centre; point-symmetric cover: containers, roofless building shells, walls
+  with windows, jersey barriers, a car wreck, cable spools, sandbags, barrels, pallets, tyres; bases, spawn points and
+  flag stands; collision boxes). Models: `tools/blender/build_paintball.py` (rig `paintball` + `paintball_parts.fbx`:
+  lobby furniture, flags, marker, goggles, armbands, balls, splats); materials and import:
+  `tools/unreal/materials_paintball.py`; sign textures: `tools/make-signs.py`.
+- Rules and sessions (`HKPaintball`): members (lobby or game) with their join time; the admin is the earliest member
+  (then the lowest id) and runs the game: mode (team deathmatch with respawns, team deathmatch in rounds, capture the
+  flag), paint or reball, teams (wishes first, 6 a team, the rest balanced), countdown, time limit, score limits,
+  flags. A ball that breaks on a player (or his marker) puts him out, also from his own team; bounces do not count
+  (reball: every hit counts). Balls fly with gravity and air drag (90 m/s, half the speed after about 30 m),
+  semi-automatic at most 10 a second, 200 in the hopper. Each player decides whether a ball hit him (his own view, so
+  lag never puts anybody out unseen); the admin counts the score and moves the flags.
+- Online: everything rides in the players' own 'st' messages (field `pb`): lobby time, team wish, game, alive,
+  eliminations suffered and by whom, round, the balls fired since the last message, and the admin's game. The server
+  relays 'st' unchanged and web players ignore the field. 6 v 6 needs 12 players a lobby: the TEST server's limit is
+  12 (allowed by the user on 28 Oct 2026); the live server still has 5 (launching paintball online needs the same
+  change there, the user's decision).
+- Game glue (`HKGamePaintball.cpp`): the course rig, lobby furniture, flags, balls (instanced), paint splats (400 a
+  team, a clean course each game), the marker in our hands, the gear of other players in a game (marker, goggles,
+  team armbands); other players in a game hold the marker (`FHKPoseArgs::bMarker`). The yard is walkable ground
+  (`FHKData::SiteGround` chain), its walls, net and cover block walking (`UpdateDynamic`). In a game R2 fires, L2 aims,
+  □ reloads, hold △ leaves; in the lobby ↑↓ team, ←→ game (admin), △ paint / reball (admin), hold ✕ start (admin).
+- Tests: `tools\run-game.ps1 -Test paintball` (five simulated friends through the same JSON, both modes);
+  `tools\net-test\run-paintball.ps1 -Mode local|deployed` (the real game with seven bot clients, `pb-bots.mjs`, on the
+  test server: 8 in one lobby, a 4 v 4 game).
+
 ## Core C++ (Source/Haarklous)
 | File | What |
 | --- | --- |
@@ -166,6 +199,7 @@ drive like real machines, and soil that can be moved realistically.
 | `HKUi` | 2D drawing on the Unreal canvas (panels, text, meters, projection of web-space points); all HUD and menus use it |
 | `HKRigActor` | shows an `FHKRig` with its meshes, copies node poses to Unreal every frame; drives the people's skeletons |
 | `HKSite`, `HKSiteVehicles` | the construction site's soil and machines |
+| `HKPaintball` | the paintball course: rules, sessions, balls, sync (`HKGamePaintball.cpp` shows it) |
 | `HKGame` | port of `game-main.js`: the frame loop, player, modes, doors, interaction, HUD, menus |
 
 ## Rules for module ports

@@ -343,7 +343,7 @@ bool AHKGame::ExtrasUpdate(double Dt)
 		return true;
 	}
 	// "△: a tap takes out the photo camera (or puts it away); holding it opens the gear menu: camera or FPV drone."
-	if (Player.Mode == TEXT("foot") && !bMission)
+	if (Player.Mode == TEXT("foot") && !bMission && !PaintballBusy())   // the paintball lobby and game use △ and the D-pad
 	{
 		if (Frame.WasPressed("triangle")) { if (Photo.bActive) PhotoToggle(); else { bGear = true; GearT0 = Time; bGearOpen = false; GearSel = GearLast; bGearStick = false; } }
 		if (bGear)

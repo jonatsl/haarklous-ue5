@@ -89,6 +89,7 @@ void AHKGame::DrawHud(UCanvas* C)
 	if (bStarted) DrawModuleHud(C);
 	if (HudExtra) HudExtra(C);
 	if (bStarted) DrawExtras(C);
+	if (bStarted && Paintball) Paintball->DrawHud(C);
 	if (Mission && Mission->IsActive()) Mission->DrawHud(C);
 	if (!bStarted) DrawStart(C);
 	else if (bPaused) DrawPause(C);

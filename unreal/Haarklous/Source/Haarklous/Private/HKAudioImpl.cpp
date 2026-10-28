@@ -382,6 +382,12 @@ void FHKGameAudio::Sfx(const FString& InName, const FHKSfxOpts& Opts)
 		Burst(3000, 1, .2, .002, .2);
 	}
 	else if (Name == TEXT("thud")) { Burst(260, 1, .25, .003, .12, B::Lowpass); }
+	// Paintball (new feature, 28 Oct 2026): the marker's pneumatic pop, a ball breaking, a ball bouncing off, the
+	// referee's whistle.
+	else if (Name == TEXT("pbShot")) { Burst(1400, .9, .35, .001, .05); Burst(180, 1, .3, .002, .07, B::Lowpass); Burst(5000, 2, .06, .01, .09); }
+	else if (Name == TEXT("pbSplat")) { Burst(700, .8, .3, .001, .08); Burst(2200, 1.5, .1, .004, .05); }
+	else if (Name == TEXT("pbBounce")) { Burst(1800, 3, .15, .001, .03); }
+	else if (Name == TEXT("whistle")) { Tone(2900, 3000, .12, .02, .5, O::Sine); Tone(3150, 3100, .06, .02, .5, O::Sine); }
 	else if (Name == TEXT("boule")) { Tone(2600, 2500, .25, .001, .25, O::Triangle); Tone(5200, 5100, .1, .001, .15); Burst(3500, 3, .2, .001, .03); }
 	else if (Name == TEXT("gravel")) { Burst(2500, .8, .15, .01, .18); }
 	else if (Name == TEXT("click")) { Burst(3000, 5, .15, .001, .02); }

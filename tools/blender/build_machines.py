@@ -648,7 +648,8 @@ def props():
     print(f'HK: site props: {len(meshes)} meshes')
 
 
-WANT = [a for a in (sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else [])]
-for fn in (dozer, excavator, loader, hauler, tipper, crane, tower, props):
-    if not WANT or fn.__name__ in WANT:
-        fn()
+if __name__ == '__main__':      # tools/blender/build_paintball.py imports the helpers above
+    WANT = [a for a in (sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else [])]
+    for fn in (dozer, excavator, loader, hauler, tipper, crane, tower, props):
+        if not WANT or fn.__name__ in WANT:
+            fn()
