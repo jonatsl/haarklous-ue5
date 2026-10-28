@@ -57,7 +57,8 @@ void AHKRigActor::Init(FHKRig* InRig, const FString& InRigName, bool bSkipRootMe
 void AHKRigActor::InitPerson()
 {
 	if (!RigName.StartsWith(TEXT("avatar_")) || RigName == TEXT("avatar_drone")) return;
-	USkeletalMesh* Mesh = LoadObject<USkeletalMesh>(nullptr, *FString::Printf(TEXT("/Game/Haarklous/People/%s/SK_%s.SK_%s"), *RigName, *RigName, *RigName));
+	const FString Look = Rig->Person.IsEmpty() ? RigName : Rig->Person;   // the slot's own person (the rig file is per 5 slots)
+	USkeletalMesh* Mesh = LoadObject<USkeletalMesh>(nullptr, *FString::Printf(TEXT("/Game/Haarklous/People/%s/SK_%s.SK_%s"), *Look, *Look, *Look));
 	if (!Mesh) return;
 	// The rig's joints and the bones they turn (parents first).
 	static const TCHAR* Map[][2] = {

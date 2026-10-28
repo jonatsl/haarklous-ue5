@@ -145,7 +145,9 @@ drive like real machines, and soil that can be moved realistically.
 ## People (28 Oct 2026)
 - MakeHuman figures (CC0) made headless with the MPFB 2 add-on in a private Blender profile (`tools\setup-people.ps1`,
   `tools/blender/build_people.py`), imported by `tools/unreal/import_people.py`.
-- Players: skeletal meshes `/Game/Haarklous/People/avatar_<slot>/SK_avatar_<slot>` (game_engine skeleton), rest pose
+- Players: twelve people, one per player slot (lobbies hold 12): skeletal meshes
+  `/Game/Haarklous/People/avatar_<slot>/SK_avatar_<slot>` (`FHKRig::Person`; the rig file stays avatar_<slot % 5>;
+  slots 6-12 have their own sweater and name-tag colours in `HKAvatars.cpp`) (game_engine skeleton), rest pose
   = the web avatar rig with every joint at zero (arms 6 degrees out, relaxed hands). `AHKRigActor` drives the bones
   from the rig's joints (hips, torso, neck, head, shoulders, elbows, hips, knees) every frame and hides the rig's own
   body parts, so all web poses (walk, crouch, prone, sit, drive, ride, beer, drone) work unchanged. Sweater tinted

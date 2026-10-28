@@ -380,14 +380,16 @@ its natural slope. No soil is lost (checked in the test after every machine).
 ![The mobile crane on its outriggers](img/site--16-mobile-crane.jpg)
 ![The tower crane lifting a pallet of bricks](img/site--18-tower-crane-lift.jpg)
 
-**Real people:** the five player figures (as other players see you) are now MakeHuman people (free CC0 assets, built
-by a script in Blender): different faces, skin, hair and builds, a knit sweater in your player colour and dark
-trousers. Their skeleton follows the web avatar's joints, so walking, crouching, lying, sitting, driving, riding,
+**Real people:** the player figures (as other players see you) are now MakeHuman people (free CC0 assets, built
+by a script in Blender): twelve different people, one for each player in a full lobby, with their own faces, skin,
+hair and builds, a knit sweater in the player's colour and dark trousers. Their skeleton follows the web avatar's joints, so walking, crouching, lying, sitting, driving, riding,
 drinking a beer and flying the drone all work as before. The hostage and the armed suspect in the mission are real
 people in the web figures' poses (kneeling with hands on the head; balaclava, red armband, pistol in both hands); the
 hit zones are unchanged.
 
 ![The five players by the fire pit](img/people--01-players.jpg)
+![A full lobby: twelve different people](img/people--01b-all-twelve.jpg)
+![The second row up close](img/people--01c-back-row.jpg)
 ![Close up](img/people--02-face-player1.jpg)
 ![Close up](img/people--03-face-player2.jpg)
 ![Lying, walking, driving, riding, flying the drone](img/people--06-more-poses.jpg)

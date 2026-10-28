@@ -15,7 +15,7 @@ class UPoseableMeshComponent;
  * with a mesh (/Game/Haarklous/Meshes/<rig>/<mesh>). Every tick it copies each node's local pose and visibility,
  * converted with HK::TransformToUE, so code that moves rig nodes moves the model.
  * Parts named "<node>#<k>" can carry interaction flags (doors, drinks, locked doors): they get the Interact trace channel.
- * Player avatars (rigs avatar_0..4) are shown as realistic people when /Game/Haarklous/People/<rig>/SK_<rig> exists (a
+ * Player avatars (rigs avatar_0..4; FHKRig::Person picks one of twelve people, one per slot) are shown as realistic people when /Game/Haarklous/People/<person>/SK_<person> exists (a
  * skinned MakeHuman figure, tools/blender/build_people.py): its bones turn like the rig's joints (hips, torso, neck, head,
  * shoulders, elbows, hips, knees) and the rig's own body parts are hidden; the beer bottle stays a rig part.
  */

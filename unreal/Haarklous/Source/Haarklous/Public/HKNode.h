@@ -81,6 +81,7 @@ public:
 	FHKRig(const FHKRig&) = delete;
 	FHKRig& operator=(const FHKRig&) = delete;
 	FHKNode* Root = nullptr;
+	FString Person;   // Unreal only: the realistic person shown for this rig (/Game/Haarklous/People/<Person>), if any
 	FHKNode* Create(const FString& Name, FHKNode* Parent);
 	FHKNode* Find(const FString& Name) const;
 	const TArray<TUniquePtr<FHKNode>>& All() const { return Nodes; }

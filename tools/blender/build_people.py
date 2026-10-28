@@ -5,7 +5,7 @@ Run with the project's private Blender profile (MPFB and the asset packs live th
     blender -b -P tools/blender/build_people.py [-- avatar_0 mission_hostile ...]
 tools/fetch-library.py downloads MPFB and the packs; tools/setup-people.ps1 installs them into that profile.
 
-Players (avatar_0..4, one per player slot): a skinned mesh with MPFB's game_engine skeleton (Unreal mannequin bone
+Players (avatar_0..11, one per player slot; 5..11 since lobbies hold 12): a skinned mesh with MPFB's game_engine skeleton (Unreal mannequin bone
 names), in the web avatar's rest pose: arms and legs straight down (the web rig's joints at zero rotation; the arms 6
 degrees out so the hands clear the hips). The game turns the bones like the web rig's joints (AHKRigActor). The
 jacket (a knit sweater) is tinted with the slot's jacket colour (game-avatars.js SLOT_COLORS), the trousers with the web's
@@ -32,7 +32,8 @@ OUT = os.path.join(ROOT, 'tools', 'out', 'fbx', 'people')
 
 from bl_ext.user_default.mpfb.services.humanservice import HumanService  # noqa: E402
 
-SLOT = ['c0392b', '2471a3', '1e8449', 'd68910', '7d3c98']    # game-avatars.js SLOT_COLORS (jackets)
+SLOT = ['c0392b', '2471a3', '1e8449', 'd68910', '7d3c98',     # game-avatars.js SLOT_COLORS (jackets)
+        '138d75', 'c2185b', '5d6d7e', 'b7950b', '1b2631', '6e2c00', 'd5c4a1']   # slots 6-12 (lobbies of 12, 28 Oct 2026)
 TROUSERS = '2b3140'                                           # the web avatar's trousers
 RACES = {'caucasian': (0, 1, 0), 'african': (1, 0, 0), 'asian': (0, 0, 1)}
 
@@ -47,6 +48,21 @@ PEOPLE = {
                      hair='bob02', brows='eyebrow011', top=SLOT[3], boots='toigo_ankle_boots_female'),
     'avatar_4': dict(gender=1.0, age=.68, race='caucasian', muscle=.5, weight=.6, height=.55, skin='middleage_caucasian_male',
                      hair='short01', brows='eyebrow002', top=SLOT[4], boots='toigo_ankle_boots_male'),
+    # Players 6-12 (a lobby holds 12 since 28 Oct 2026): seven more people, so nobody looks like anybody else.
+    'avatar_5': dict(gender=0.0, age=.45, race='african', muscle=.55, weight=.45, height=.55, skin='young_african_female',
+                     hair='braid01', brows='eyebrow006', top=SLOT[5], boots='toigo_ankle_boots_female'),
+    'avatar_6': dict(gender=1.0, age=.5, race='asian', muscle=.55, weight=.45, height=.45, skin='young_asian_male',
+                     hair='short03', brows='eyebrow003', top=SLOT[6], boots='toigo_ankle_boots_male'),
+    'avatar_7': dict(gender=0.0, age=.7, race='caucasian', muscle=.45, weight=.6, height=.45, skin='middleage_caucasian_female',
+                     hair='bob01', brows='eyebrow012', top=SLOT[7], boots='toigo_ankle_boots_female'),
+    'avatar_8': dict(gender=1.0, age=.42, race='caucasian', muscle=.5, weight=.4, height=.7, skin='toigo_light_skin_male_freckles',
+                     hair='cortu_short_messy_hair', brows='eyebrow005', top=SLOT[8], boots='toigo_ankle_boots_male'),
+    'avatar_9': dict(gender=0.0, age=.5, race='caucasian', muscle=.5, weight=.5, height=.6, skin='toigo_light_skin_female_freckles',
+                     hair='long01', brows='eyebrow009', top=SLOT[9], boots='toigo_ankle_boots_female'),
+    'avatar_10': dict(gender=1.0, age=.7, race='african', muscle=.6, weight=.65, height=.6, skin='middleage_african_male',
+                      hair='short02', brows='eyebrow007', top=SLOT[10], boots='toigo_ankle_boots_male'),
+    'avatar_11': dict(gender=0.0, age=.48, race='asian', muscle=.45, weight=.4, height=.5, skin='onlytheghosts_young_eurasian_female',
+                      hair='toigo_blunt_bob', brows='eyebrow008', top=SLOT[11], boots='toigo_ankle_boots_female'),
     # case-game.js: hostage shirt 7fa7d6, jeans 3d5a80, hair 4a3426; suspect clothes 2a2e35, mask 141518, band b3261e.
     'mission_hostage': dict(gender=1.0, age=.5, race='caucasian', muscle=.5, weight=.5, height=.5, skin='young_caucasian_male2',
                             hair='short03', brows='eyebrow002', top='7fa7d6', top_garment='namuhekam_male_polo_shirt',

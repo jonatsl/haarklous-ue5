@@ -8,8 +8,11 @@
 
 namespace
 {
-	const uint32 SLOT_COLORS[5] = {0xc0392b, 0x2471a3, 0x1e8449, 0xd68910, 0x7d3c98};
-	const uint32 SLOT_CSS[5] = {0xe05a4c, 0x4d9de0, 0x3fbf6f, 0xf0a830, 0xa768c9};
+	// The web's five colours; slots 6-12 (lobbies of 12 since 28 Oct 2026, Unreal only) get seven more, matching the
+	// sweaters of the people avatar_5..11 (tools/blender/build_people.py).
+	constexpr int32 NSLOT = 12;
+	const uint32 SLOT_COLORS[NSLOT] = {0xc0392b, 0x2471a3, 0x1e8449, 0xd68910, 0x7d3c98, 0x138d75, 0xc2185b, 0x5d6d7e, 0xb7950b, 0x1b2631, 0x6e2c00, 0xd5c4a1};
+	const uint32 SLOT_CSS[NSLOT] = {0xe05a4c, 0x4d9de0, 0x3fbf6f, 0xf0a830, 0xa768c9, 0x1abc9c, 0xec407a, 0x95a5a6, 0xf4d03f, 0x7f8fd6, 0xc8875a, 0xf0e6d2};
 	// Canvas sizes of the web's sprites (512 px wide; height = round(512 * h / w)).
 	constexpr double TagW = 512, TagH = 102, BubbleW = 512, BubbleH = 149;
 
@@ -46,8 +49,8 @@ namespace
 	}
 }
 
-uint32 HKAvatars::SlotColorHex(int32 Slot) { return SLOT_COLORS[((Slot % 5) + 5) % 5]; }
-uint32 HKAvatars::SlotCssHex(int32 Slot) { return SLOT_CSS[((Slot % 5) + 5) % 5]; }
+uint32 HKAvatars::SlotColorHex(int32 Slot) { return SLOT_COLORS[((Slot % NSLOT) + NSLOT) % NSLOT]; }
+uint32 HKAvatars::SlotCssHex(int32 Slot) { return SLOT_CSS[((Slot % NSLOT) + NSLOT) % NSLOT]; }
 FLinearColor HKAvatars::SlotCss(int32 Slot) { return CssHex(SlotCssHex(Slot)); }
 
 FString HKAvatars::RigPath(const FString& RigName) { return FHKData::DataDir() / TEXT("rigs") / (RigName + TEXT(".json")); }
@@ -69,6 +72,7 @@ FHKAvatar::FHKAvatar(int32 InSlot, const FString& InName) : Slot(InSlot)
 	RigName = FString::Printf(TEXT("avatar_%d"), ((Slot % 5) + 5) % 5);
 	FString Error;
 	bFromRigFile = Rig.LoadFromJson(HKAvatars::RigPath(RigName), &Error);
+	Rig.Person = FString::Printf(TEXT("avatar_%d"), ((Slot % NSLOT) + NSLOT) % NSLOT);   // one real person per slot (12)
 	auto Find = [this](const TCHAR* N) { return Rig.Find(N); };
 	if (bFromRigFile)
 	{

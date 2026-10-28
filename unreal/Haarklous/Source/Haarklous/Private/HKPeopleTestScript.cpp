@@ -122,6 +122,51 @@ namespace HKPeopleTest
 				Look(T, Cx + 6, 1.4, Cz + 1.5, Cx, 1.0, Cz);
 				Run(T, S, .6);
 				T.Shot(TEXT("05-players-side"));
+				// All twelve players of a full lobby (slots 6-12 since 28 Oct 2026), in two rows facing the camera.
+				T.Do([&T, S]()
+				{
+					for (int32 i = 5; i < 12; i++)
+					{
+						FDemo D;
+						D.Av = HKAvatars::Avatar(i, FString::Printf(TEXT("Player %d"), i + 1));
+						FActorSpawnParameters P;
+						P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+						AHKRigActor* A = T.GetWorld()->SpawnActor<AHKRigActor>(AHKRigActor::StaticClass(), FTransform::Identity, P);
+						A->Init(&D.Av->Rig, D.Av->RigName);
+						D.Actor = A;
+						S->People.Add(MoveTemp(D));
+					}
+					int32 k = 0;
+					for (FDemo& D : S->People)
+					{
+						if (!D.Av) continue;
+						const int32 Row = k / 6, Col = k % 6;
+						D.X = Cx - 3.4 + Col * 1.36 + Row * .68; D.Z = Cz + 1.5 - Row * 1.9;
+						D.Stance = TEXT("stand"); D.Speed = 0; D.Lift = 0; D.bBeer = false;
+						k++;
+					}
+				});
+				Run(T, S, .6);
+				Look(T, Cx, 1.55, Cz + 8.2, Cx, 1.1, Cz + .6);
+				Run(T, S, .6);
+				T.WaitShaders();
+				Run(T, S, .5);
+				T.Shot(TEXT("01b-all-twelve"));
+				Look(T, Cx + .3, 1.6, Cz + 3.6, Cx + .3, 1.55, Cz - .4);
+				Run(T, S, .5);
+				T.Shot(TEXT("01c-back-row"));
+				T.Do([S]()
+				{
+					// The first five back in their places for the other poses; the new seven stand aside.
+					int32 k = 0;
+					for (FDemo& D : S->People)
+					{
+						if (!D.Av) continue;
+						if (k < 5) { D.X = Cx - 3.2 + k * 1.6; D.Z = Cz; }
+						else { D.X = Cx - 7 + (k - 5) * 1.1; D.Z = Cz + 9; }
+						k++;
+					}
+				});
 				// Other poses: prone, driving, riding, the drone pilot, walking fast.
 				T.Do([S]()
 				{
