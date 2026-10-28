@@ -266,7 +266,7 @@ What changed (all made by scripts, details in `docs/ARCHITECTURE.md`):
   five-spoke alloy wheels with rounded tyres; seats, dashboard, steering wheel and hands are the web's.
   `tools/blender/car_model.py`. Motorcycle, excavator, helicopter and plane keep their shapes but get rounded,
   light-catching edges and smooth shading.
-- **Real 3D walls near home:** within 170 m of 17A (66 blocks, 199 walls) the flat web wall is replaced by
+- **Real 3D walls in the near district:** within 270 m of 17A (139 blocks, 428 walls) the flat web wall is replaced by
   geometry: real window openings with side, head and sill reveals 10–13 cm deep, the glass set back with a room
   behind it, painted frames, mullions and a transom, and concrete sills that stick out
   (`tools/blender/facade_model.py`). Further away the walls keep the depth-drawing material. Walls next to stair
@@ -309,7 +309,7 @@ Radeon. This is what its look is made of, and where this game now stands on this
 | Battlefield 4 | Here | |
 | --- | --- | --- |
 | Physically based materials from photographed surfaces | CC0 photo scans for brick, plaster, concrete, roofs, asphalt, lawn, bark and leaves | yes |
-| Detailed, irregular buildings | the web's footprints and heights; near home real 3D walls with window openings, reveals, frames and sills; further away deep windows drawn by the material; cornices, plinth ledges, balconies, gutters, downpipes, chimneys everywhere | yes near you, drawn depth further away |
+| Detailed, irregular buildings | the web's footprints and heights; within 270 m real 3D walls with window openings, reveals, frames and sills; further away deep windows drawn by the material; cornices, plinth ledges, balconies, gutters, downpipes, chimneys everywhere | yes near you, drawn depth further away |
 | Dense ground cover and grass | 3D grass from photographed tufts within 15 m, scanned lawn beyond | yes, within 15 m |
 | Trees with branches, leaves that let light through, wind | limbs, separate leaf masses, two-sided foliage light, wind sway | yes |
 | Detailed vehicles | new car body and wheels; the others keep their shapes with rounded edges | partly |
@@ -330,14 +330,14 @@ else running. At each place the camera turns one full circle in 12 seconds, so e
 
 | Place | Average (run 1 / run 2) | Slowest 1 % of frames | Slowest single frame |
 | --- | --- | --- | --- |
-| Home (apartment, looking into the living room and out of the windows) | **32.3 / 30.9 fps** | 25.7 / 24.0 fps | 17.1 / 19.5 fps |
-| Firepit (fire, smoke, cars, grass and the block behind) | **26.1 / 26.4 fps** | 21.3 / 21.1 fps | 14.1 / 17.0 fps |
-| The park (Torshovdalen, the most trees and grass) | **27.6 / 27.6 fps** | 20.8 / 21.7 fps | 16.4 / 17.5 fps |
-| The street outside 17A | **27.4 / 27.4 fps** | 22.6 / 22.6 fps | 17.7 / 18.6 fps |
-| Flying (110 m above the district) | **30.5 / 30.6 fps** | 24.9 / 24.9 fps | 17.5 / 18.0 fps |
+| Home (apartment, looking into the living room and out of the windows) | **31.8 / 32.1 fps** | 25.7 / 26.8 fps | 17.4 / 18.6 fps |
+| Firepit (fire, smoke, cars, grass and the block behind) | **26.2 / 26.3 fps** | 21.0 / 21.8 fps | 16.2 / 16.8 fps |
+| The park (Torshovdalen, the most trees and grass) | **27.4 / 27.6 fps** | 22.9 / 22.1 fps | 18.6 / 18.6 fps |
+| The street outside 17A | **27.2 / 27.2 fps** | 21.9 / 22.6 fps | 17.1 / 17.9 fps |
+| Flying (110 m above the district) | **29.6 / 30.0 fps** | 17.9 / 24.6 fps (a third run: 24.4) | 16.8 / 17.5 fps |
 
-Every place stays above the 20 fps goal on average and in the slowest 1 % of frames; single frames dip to 15–19 fps
-now and then. The photo-real pass costs 3–7 fps against the realism pass (home 37.3, firepit 29.7, park 29.8, street
+Every place stays above the 20 fps goal on average and in the slowest 1 % of frames (one flying run dipped to 17.9
+in its slowest 1 %; the other two gave 24.4 and 24.6); single frames dip to 16–19 fps now and then. The photo-real pass costs 3–7 fps against the realism pass (home 37.3, firepit 29.7, park 29.8, street
 30.0, flying 33.8) and the original port (32–40 fps). Balconies, kerbs and the other details cost about 2–3 fps
 (after taking the shadows off kerbs, road paint and railings and laying kerbs as 2 m stones); reflections, contact
 shadows and light shafts about 1 fps each (so the last two are only on "Sharp"); the 3D grass under 1 fps. The

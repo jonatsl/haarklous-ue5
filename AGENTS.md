@@ -49,7 +49,8 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
   Esri aerial, OSM colours). Free CC0 scans from Poly Haven and ambientCG are allowed (user, 27 Oct 2026; re-download
   with `python tools/fetch-library.py`; the sky photo kloofendal_38d_partly_cloudy_puresky allowed 28 Oct 2026);
   Fab/Megascans is not used (needs the user's Epic sign-in and licence). Vehicles: the car has a new Blender body
-  (`tools/blender/car_model.py`); the others keep the web shapes with rounded edges.
+  (`tools/blender/car_model.py`); the others keep the web shapes with rounded edges. Blocks within 270 m have real
+  3D walls (`tools/blender/facade_model.py`); after changing them, rebuild world_near and bake the lighting.
 - Bugs found in the web game and ideas (not changed without the user's OK): `docs/GAMEPLAY-IDEAS.md`.
 - Final report: `docs/REPORT.md`; `python tools\make-report.py` turns it into `docs/report/Haarklous-UE5-report.html`
   with the screenshots embedded.

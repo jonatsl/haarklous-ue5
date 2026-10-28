@@ -98,7 +98,7 @@ The web material instances keep their names, slots and colours; their parents ch
   five-spoke wheels (closed lathe solids, mirrored for the left side); `build_assets.py` swaps them for the web's
   exterior materials of SM_car__body and the wheel meshes, keeping the interior. Other vehicles get `soften()`:
   welded, 12 mm bevel on edges over 35 degrees, weighted normals.
-- **3D walls:** `tools/blender/facade_model.py` lists the brick-block walls within 170 m of home (not near stair
+- **3D walls:** `tools/blender/facade_model.py` lists the brick-block walls within 270 m of home (the web's near set) (not near stair
   towers, not shared with another footprint or 17A, at least 3.4 m) and builds them with window openings in the
   web's 3 m bays (u from the web's walls() order), sill 0.876 m / head 2.301 m per 2.85 m storey; vertex colour =
   the building's tint / 2.5 (alpha 1 = plaster) for `M_HK_Wall3D`; glass `M_HK_Glass3D` (interior mapping from

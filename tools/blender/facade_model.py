@@ -1,6 +1,6 @@
 """Real 3D facades for the blocks near home (photo-real pass), used by build_facades.py and build_assets.py.
 
-Up to RADIUS from home, the brick blocks' walls are rebuilt as geometry instead of the flat web wall with windows
+Up to RADIUS from home (the whole near district), the brick blocks' walls are rebuilt as geometry instead of the flat web wall with windows
 drawn on it: the wall has real openings, the glass sits D back in a reveal (side, head and sill faces), with a
 6 cm frame, mullions and a concrete sill that sticks out. Window places follow the web facade: 3 m bays along the
 wall from the start of the web's walls() u (surroundings.js), one window per bay that fits, sill 0.876 m and head
@@ -23,7 +23,7 @@ import numpy as np
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 DATA = os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data')
 TEX = os.path.join(ROOT, 'tools', 'out', 'textures')
-RADIUS = 170.0
+RADIUS = 270.0          # inside the web's near set (NEAR_LIMIT 280 m), whose walls are in world_near
 STOREY, PLINTH = 2.85, 1.425
 SILL, HEAD = 0.876, 2.301
 
