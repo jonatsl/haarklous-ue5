@@ -134,7 +134,9 @@ void AHKRigActor::SetAllCollision(bool bTrace)
 		{
 			M->SetCollisionEnabled(bTrace ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
 			M->SetCollisionResponseToAllChannels(ECR_Ignore);
-			if (bTrace) { M->SetCollisionResponseToChannel(ECC_GameTraceChannel1, ECR_Block); M->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block); }
+			// The look trace (Interact channel) passes through everything and lists every part it crosses, so walls, frames and
+			// glass never hide a door or a drink behind them (the web raycasts only against the interactable meshes).
+			if (bTrace) { M->SetCollisionResponseToChannel(ECC_GameTraceChannel1, ECR_Overlap); M->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block); }
 		}
 }
 

@@ -271,8 +271,8 @@ void AHKGame::SpawnTrees()
 				const TArray<double> A = HKJson::Nums(T);
 				Xf.Add(FTransform(FQuat(A[3], A[4], A[5], A[6]), FVector(A[0], A[1], A[2]), FVector(A[7], A[8], A[9])));
 			}
-			if (Paintball)   // the paintball yard is paved: no trees or bushes in it
-				Xf.RemoveAll([this](const FTransform& X) { const FVector W = HK::FromUE(X.GetLocation()); return Paintball->InYard(W.X, W.Z, -1); });
+			// Nothing of the park grows on the construction site or in the paved paintball yard (cleared ground).
+			Xf.RemoveAll([](const FTransform& X) { const FVector W = HK::FromUE(X.GetLocation()); return FHKData::Get().InCleared(W.X, W.Z); });
 			H->AddInstances(Xf, false, true);
 			TreeComps.Add(H);
 		}
@@ -806,12 +806,15 @@ void AHKGame::UpdateFoot(double Dt, double Dl)
 	if (bCanMove && Mag > .05)
 	{
 		const bool bRunning = Player.Stance == TEXT("stand") && (Player.bRun || (!bMission && !Photo.bActive && !PaintballArmed() && Frame.R2 > .3) || Frame.IsHeld("l3"));
-		const double Speed = (bRunning ? 3.6 : 1.45) * StanceSpeed() * (bMission && MissionMoveScale ? MissionMoveScale() : 1) * (1 - Dl * .25), Fwd = -My, Right = Mx;
+		// On foot, standing: 3.5 m/s (user, 28 Oct 2026; the web walks at 1.45). Crouching and prone keep the web's speeds
+		// (1.45 x .55 and x .28); running stays 3.6.
+		const double Base = Player.Stance == TEXT("stand") ? HKFoot::Speed : 1.45 * StanceSpeed();
+		const double Speed = (bRunning ? 3.6 : Base) * (bMission && MissionMoveScale ? MissionMoveScale() : 1) * (1 - Dl * .25), Fwd = -My, Right = Mx;
 		const double Dx = (-FMath::Sin(Player.Yaw) * Fwd + FMath::Cos(Player.Yaw) * Right) * Speed * Dt, Dz = (-FMath::Cos(Player.Yaw) * Fwd - FMath::Sin(Player.Yaw) * Right) * Speed * Dt;
 		const double Bx = Player.X, Bz = Player.Z;
 		MovePlayer(Dx, Dz);
 		Player.Stride += HK::Hypot(Player.X - Bx, Player.Z - Bz);
-		if (Player.Stride > (bRunning ? 1.05 : .72) * (Player.Stance == TEXT("stand") ? 1 : .8)) { Player.Stride = 0; Footstep(bRunning ? 1.2 : Player.Stance == TEXT("stand") ? .8 : .45); }
+		if (Player.Stride > (bRunning || Speed > 2.5 ? 1.05 : .72) * (Player.Stance == TEXT("stand") ? 1 : .8)) { Player.Stride = 0; Footstep(bRunning ? 1.2 : Player.Stance == TEXT("stand") ? .8 : .45); }
 	}
 	else if (!Mag) Player.bRun = false;
 	// Jump and stance easing.

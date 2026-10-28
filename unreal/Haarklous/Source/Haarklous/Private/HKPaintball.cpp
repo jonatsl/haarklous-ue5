@@ -410,6 +410,21 @@ void FHKPaintball::RunAdmin(double Dt, const FInput& In)
 		if (StartHold > 1) { StartHold = 0; StartGame(); }
 		return;
 	}
+	// Nobody is in the game any more (everyone left with △ or went offline): it ends at once, back to the lobby, so a
+	// new game can start (user, 28 Oct 2026: an empty game used to run on until its time was up).
+	if (Ses.State == TEXT("count") || Ses.State == TEXT("play"))
+	{
+		bool bAnyone = false;
+		for (const FHKPbMember& M : All) if (Ses.TeamOf(M.Id) >= 0 && M.Ses == Ses.Id) bAnyone = true;
+		EmptyT = bAnyone ? 0 : EmptyT + Dt;
+		if (EmptyT > 3)
+		{
+			EmptyT = 0;
+			Ses.State = TEXT("lobby");
+			UE_LOG(LogHaarklous, Display, TEXT("Paintball: game %d has nobody left in it; back to the lobby"), Ses.Id);
+			return;
+		}
+	}
 	if (Ses.State == TEXT("count")) { if (T >= Ses.T0) { Ses.State = TEXT("play"); } return; }
 	if (Ses.State == TEXT("end")) { if (T >= Ses.EndT + HKPb::EndS * 1000) Ses.State = TEXT("lobby"); return; }
 	// Playing.

@@ -182,7 +182,17 @@ bool FHKData::Load()
 
 	if (!FFileHelper::LoadFileToArray(SurfaceClasses, *(Dir / TEXT("surface-classes.bin"))) || SurfaceClasses.Num() != 1024 * 1024) { Error = TEXT("Bad surface-classes.bin"); return false; }
 
-	// Trees (data.trees + courtyard trees, in that order) and bushes, local frame.
+	// The construction site and the paintball yard (their 'rect', local frame) are cleared ground.
+	for (const TCHAR* F : {TEXT("site.json"), TEXT("paintball.json")})
+		if (const TSharedPtr<FJsonObject> J = HKJson::LoadFile(Dir / F))
+		{
+			const TSharedPtr<FJsonObject> R = HKJson::Obj(J, TEXT("rect"));
+			const double X0 = HKJson::Num(R, TEXT("x0")), S0 = HKJson::Num(R, TEXT("s0"));
+			Cleared.Add(FBox2D(FVector2D(X0, S0), FVector2D(X0 + HKJson::Num(R, TEXT("w")), S0 + HKJson::Num(R, TEXT("d")))));
+		}
+	auto ClearedLocal = [this](double X, double S) { for (const FBox2D& B : Cleared) if (B.IsInside(FVector2D(X, S))) return true; return false; };
+	// Trees (data.trees + courtyard trees, in that order) and bushes, local frame: the web's lists as they are (greenery
+	// and the minigames match the web); on cleared ground they are not drawn (SpawnTrees) and do not collide (below).
 	{
 		const TArray<double> T = HKJson::Nums(D, TEXT("trees"));
 		for (int32 i = 0; i + 2 < T.Num(); i += 3) AllTrees.Add({T[i], T[i + 1], T[i + 2]});
@@ -208,7 +218,21 @@ bool FHKData::Load()
 	TArray<FHKFloor> Floors = FloorsFromJson(HKJson::Arr(Game, TEXT("floors")));
 	TArray<FHKObstacle> Obstacles = ObstaclesFromJson(HKJson::Arr(Game, TEXT("obstacles")));
 	const TSharedPtr<FJsonObject> Counts = HKJson::Obj(Game, TEXT("counts"));
-	const int32 NApt = (int32)HKJson::Num(Counts, TEXT("aptObstacles")), NTow = (int32)HKJson::Num(Counts, TEXT("towerObstacles")), NWorld = (int32)HKJson::Num(Counts, TEXT("worldObstacles"));
+	const int32 NApt = (int32)HKJson::Num(Counts, TEXT("aptObstacles")), NTow = (int32)HKJson::Num(Counts, TEXT("towerObstacles"));
+	int32 NWorld = (int32)HKJson::Num(Counts, TEXT("worldObstacles"));
+	// The surroundings' trees, bushes and the like wholly on cleared ground are gone.
+	{
+		int32 Gone = 0;
+		for (int32 i = NApt + NTow + NWorld - 1; i >= NApt + NTow; i--)
+		{
+			if (!Obstacles.IsValidIndex(i) || !Obstacles[i].Points.Num()) continue;
+			bool bAll = true;
+			for (const FHKPt& P : Obstacles[i].Points) { const FVector2D L = ToLocal(P.X, P.Z); if (!ClearedLocal(L.X, L.Y)) { bAll = false; break; } }
+			if (bAll) { Obstacles.RemoveAt(i); Gone++; }
+		}
+		NWorld -= Gone;
+		UE_LOG(LogHaarklous, Log, TEXT("%d obstacles of the surroundings left out on cleared ground (site, paintball yard)"), Gone);
+	}
 	// Vehicles: [surroundings, towers, firepit] (worldFor in game-main.js), no furniture.
 	for (int32 i = NApt + NTow; i < NApt + NTow + NWorld && i < Obstacles.Num(); i++) VehicleObstacles.Add(Obstacles[i]);
 	for (int32 i = NApt; i < NApt + NTow && i < Obstacles.Num(); i++) VehicleObstacles.Add(Obstacles[i]);

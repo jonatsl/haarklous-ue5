@@ -43,7 +43,8 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
   (tour of the world), `walkhome`, `vehicles`, `activities`, `mission`, `drunk`, `menus` (keyboard, mouse, pause menu,
   settings; add `-Extra "-HKOnline -HKVoiceTone"` for the lobby section on the test server), `stairwells`, `mic` (real microphone level), `fps` (frame rate in the busiest
   places), `online` (via `tools\net-test\run-live.ps1`, test server only), `site` (construction site machines),
-  `people` (the realistic people in every pose), `paintball` (the course with five simulated friends);
+  `people` (the realistic people in every pose), `paintball` (the course with five simulated friends), `balcony` (the
+  balcony door prompt from 25 places, open, close from outside);
   `tools\net-test\run-paintball.ps1` (the real game and seven bot clients on the test server). Scripted tests ignore the
   real keyboard and mouse.
 - Paintball (28 Oct 2026, the user's own feature): `docs/ARCHITECTURE.md` "Paintball course". The TEST server
@@ -51,6 +52,11 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
   test server's code. The live server keeps 5; changing it is the user's decision.
 - Open issues the user filed (not started): GitHub issues on jonatsl/haarklous-ue5 (#1 paintball cover that looks
   see-through, #2 street lamps, #3 the Torshovdalen sculpture). Do not code them unless the user asks.
+- Gameplay changes the user asked for (28 Oct 2026, differ from the web game on purpose): walking speed standing
+  3.5 m/s (`HKFoot::Speed`; the web walks at 1.45; running stays 3.6, crouch and prone keep the web's speeds); a
+  paintball game with nobody left in it ends after 3 s (back to the lobby); the construction site is 140 x 90 m with
+  two gates and R3 / V views (cab, outside, above the hook). Bug fixed against the web's own behaviour: the look trace
+  for doors and drinks passes through walls like the web's raycast (the balcony door prompt never showed).
 - New features the user asked for (28 Oct 2026, not in the web game): the construction site and realistic people
   (`docs/ARCHITECTURE.md`). MakeHuman tools live in a private Blender profile (`tools\out\blender-user`, made by
   `tools\setup-people.ps1`); never install them into the user's own Blender.

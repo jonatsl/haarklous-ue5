@@ -62,6 +62,9 @@ bool FHKDirtField::Load(const FString& Path)
 	{
 		GateC = HKJson::Num(*Gate, TEXT("centre")); GateW = HKJson::Num(*Gate, TEXT("width"));
 	}
+	const TSharedPtr<FJsonObject>* Fence;
+	if (J->TryGetObjectField(TEXT("fence"), Fence)) { FenceX0 = HKJson::Num(*Fence, TEXT("x0")); FenceS0 = HKJson::Num(*Fence, TEXT("s0")); FenceW = HKJson::Num(*Fence, TEXT("w")); FenceD = HKJson::Num(*Fence, TEXT("d")); }
+	else { FenceX0 = X0; FenceS0 = S0; FenceW = Wd; FenceD = Dp; }
 	for (int32 t = 0; t < TilesX() * TilesS(); t++) DirtyTiles.Add(t);
 	// Let the stockpiles settle once before the game starts.
 	Touch(0, 0, NX - 1, NS - 1);
@@ -217,6 +220,9 @@ void FHKDirtField::Step(double Dt)
 		for (int32 tj = FMath::Max(0, (J0 - 1) / Tile); tj <= FMath::Min(TilesS() - 1, J1 / Tile); tj++)
 			for (int32 ti = FMath::Max(0, (I0 - 1) / Tile); ti <= FMath::Min(TilesX() - 1, I1 / Tile); ti++)
 				DirtyTiles.Add(tj * TilesX() + ti);
+		// Next frame only around what moved (a node can start to slide only next to one that changed): the same result
+		// as sweeping the whole region, much less work on the 140 x 90 m site.
+		AI0 = FMath::Max(AI0, I0 - 3); AJ0 = FMath::Max(AJ0, J0 - 3); AI1 = FMath::Min(AI1, I1 + 3); AJ1 = FMath::Min(AJ1, J1 + 3);
 	}
 	if (Moved < 1e-3) { Settled += Dt; if (Settled > .5) { AI0 = 0; AJ0 = 0; AI1 = -1; AJ1 = -1; } }
 	else Settled = 0;

@@ -330,6 +330,14 @@ def drop_site_terrain(data, slot_keys):
         if here.any():
             print(f'HK: {int(here.sum())} terrain triangles under the {name} left out')
         drop |= here
+        if name == 'construction site':
+            # The 140 x 90 m site (28 Oct 2026) took in park paths and lamp posts: everything else whose centre is on
+            # its ground is left out too (the paths now end at the gates).
+            cx, cs = lx.mean(axis=1), ls.mean(axis=1)
+            other = (cx > r['x0']) & (cx < r['x0'] + r['w']) & (cs > r['s0']) & (cs < r['s0'] + r['d']) & ~np.isin(data['slot'], keys)
+            if other.any():
+                print(f'HK: {int(other.sum())} other triangles (paths, lamps) on the {name} left out')
+            drop |= other
     return {k: v[~drop] for k, v in data.items()}
 
 

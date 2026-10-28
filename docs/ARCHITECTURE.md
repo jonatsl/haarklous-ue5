@@ -122,12 +122,18 @@ The web material instances keep their names, slots and colours; their parents ch
 ## Construction site (new feature, 28 Oct 2026; not in the web game)
 The user asked for one big construction site with dozers, excavators, wheel loaders, big trucks and two cranes that
 drive like real machines, and soil that can be moved realistically.
-- Place: a 64 x 64 m square of the map's local frame (x -80..-16, s 304..368; world centre about (-161.9, -287.9)),
-  on the far terrain's 8 m grid; `build_assets.py` (`drop_site_terrain`) cuts the terrain mesh open there.
-  `tools/make-site.py` writes `Content/Data/site.json`: the soil (0.25 m cells: surface, compacted level "firm"),
-  a level pad blended into the slopes, an 18 x 12 m foundation pit 2.6 m deep with a ramp, three loose stockpiles,
-  the machines' places, fence panels with a gate and a gravel track to the park path, site offices, toilet, signs, pallets, pipes, skip, floodlights and
-  four crane loads.
+- Place (made bigger at the user's request, 28 Oct 2026: "140x90 meters"): a 140 x 90 m fence (local x -86..54,
+  s 275..365) inside a 144 x 96 m soil field (x -88..56, s 272..368; world centre about (-178.1, -256.0)), on the far
+  terrain's 8 m grid. It takes in the first 64 x 64 m site (x -80..-16, s 304..368) and the slope east of it. No free
+  140 x 90 m area exists near home (a search over the map: every spot within 450 m has paths and some trees), so the
+  field is cleared ground: `build_assets.py` (`drop_site_terrain`) leaves out the terrain triangles under it and every
+  other triangle whose centre is on it (72 path and lamp triangles), `FHKData::Cleared` (the site's and the paintball
+  yard's `rect`) leaves out the park's trees, bushes and their collision shapes there (also in `AHKGame::SpawnTrees`).
+  `tools/make-site.py` writes `Content/Data/site.json`: the soil (0.25 m cells: surface, compacted level "firm"), a
+  graded platform (a plane fitted to the ground, 5 % along x and -3 % along s) that meets the terrain over the outer
+  12 m (cut banks up to 7 m on the east hillside, fill up to 8 m in the south-west), a 30 x 16 m foundation pit 3 m
+  deep with a 1:6 ramp, five loose stockpiles, the machines' places, fence panels, two gates, site offices, toilet,
+  signs, pallets, pipes, skip, floodlights and four crane loads.
 - Soil (`HKSite`): `FHKDirtField` height field; tools cut (soil above an oriented rectangle's bottom) and deposit;
   loose soil slides to 34 degrees; volume is conserved (what is cut is carried until it is put down). `AHKSiteActor`
   draws it as a procedural mesh in 32 x 32-cell tiles (only changed tiles rebuilt; vertex colour: loose / subsoil);
@@ -140,13 +146,19 @@ drive like real machines, and soil that can be moved realistically.
   articulated hauler and 8x4 tipper (tipping bodies), all-terrain crane (outriggers, slew, luff, telescope, hoist),
   tower crane (slewing inertia, trolley, hook pendulum); power, grip, rolling resistance by ground, slope, brakes and
   gearboxes. Machines come after the web's vehicle list, so web players simply do not see them.
-- Way in and out (user, 28 Oct 2026: "there must be an entrance to the site so i can drive in and out"): a 10.5 m
-  gate on the north-west fence (the s = S0 side, local x -48.5..-38; `gate` in site.json), its two leaves swung open
-  outwards, the site signs beside it. That side is the only one level with the park (the old gate on the x1 side sat
-  on a 4.4 m bank). A 4.5 m gravel track (`track` in site.json, mesh `SM_Site_track` in world coordinates, drawn by
-  `HKGameSite.cpp`) runs from the gate to the nearest park path. The fence panels are walk and vehicle obstacles
-  (`AHKGame::SiteObstacles`, added in `UpdateDynamic`), so the gate is the only way in for people and machines; the
-  paintball yard's walls, net and cover now stop vehicles too. The tipper waits just inside the gate, facing out.
+- Way in and out (user, 28 Oct 2026: "there must be an entrance to the site so i can drive in and out"): two 10.5 m
+  gates where the long valley path met the new fence, north (s0 side, local x 2.8) and south (s1 side, x -9.7), so
+  the path now runs in through one and out through the other; each has its leaves swung open outwards, the site signs
+  beside it and a 4.5 m gravel apron (`tracks` in site.json, one mesh `SM_Site_track` in world coordinates, drawn by
+  `HKGameSite.cpp`) from the path outside to 10 m inside. The soil meets the ground outside within 0.3 m at both.
+  The fence panels are walk and vehicle obstacles (`AHKGame::SiteObstacles`, added in `UpdateDynamic`), so the gates
+  are the only way in for people and machines; the paintball yard's walls, net and cover stop vehicles too. The
+  tipper waits just inside the north gate, facing out. (The first site had one gate on its north-west side.)
+- Views (user, 28 Oct 2026: the crane was hard to see from, the cabs had bad visibility): R3 (keyboard V) cycles the
+  view of a site machine (`AHKGame::SiteMachineView`, `Player.SiteView`): from the cab; from outside (behind and above
+  along the operator's heading, the mouse turns it round the machine); for the two cranes also straight down from
+  above the hook (between the hook and the jib, at most 16 m up, the jib's direction up the screen). Entering a
+  machine starts in the cab.
 - Cab glass: `M_HK_SiteGlass` is translucent, two-sided, lit as a surface (opacity 0.12 a face, dark tint, glossy),
   so you can see out of every cab and the site offices' windows (user, 28 Oct 2026: the opaque windows made the
   machines unusable from the cab).
@@ -196,7 +208,12 @@ deathmatch and capture the flag, about 60 x 40 m, with a lobby at the course (th
   team armbands); other players in a game hold the marker (`FHKPoseArgs::bMarker`). The yard is walkable ground
   (`FHKData::SiteGround` chain), its walls, net and cover block walking (`UpdateDynamic`). In a game R2 fires, L2 aims,
   □ reloads, hold △ leaves; in the lobby ↑↓ team, ←→ game (admin), △ paint / reball (admin), hold ✕ start (admin).
-- Tests: `tools\run-game.ps1 -Test paintball` (five simulated friends through the same JSON, both modes);
+  Aiming (L2) zooms in and lowers the marker to the lower right, so the hopper stays under the sight line (user,
+  28 Oct 2026: the gun hid the sight). A game with nobody left in it (all left with △ or went offline) ends after 3 s
+  and the lobby opens again (`FHKPaintball::RunAdmin`, `EmptyT`; user, 28 Oct 2026: an empty game ran on until its
+  time was up, and nobody could start a new one).
+- Tests: `tools\run-game.ps1 -Test paintball` (five simulated friends through the same JSON, both modes, aiming, the
+  empty game ending);
   `tools\net-test\run-paintball.ps1 -Mode local|deployed` (the real game with seven bot clients, `pb-bots.mjs`, on the
   test server: 8 in one lobby, a 4 v 4 game).
 

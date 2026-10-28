@@ -181,14 +181,15 @@ void AHKGame::TickPaintball(double Dt)
 		PbFlags[T]->SetVisibility(bCtf);
 		if (bCtf) PbFlags[T]->SetWorldTransform(HK::TransformToUE(F, HK::AxisAngle(FVector(0, 1, 0), Yaw), FVector::OneVector));
 	}
-	// The marker in our hands (hip, or at the eye when aiming; a kick on each shot).
+	// The marker in our hands (at the hip; aiming, lower and to the right so the hopper stays under the sight line and
+	// the middle of the view is clear; a kick on each shot).
 	const bool bArmed = P.Armed() && P.Alive() && Player.Mode == TEXT("foot");
 	PbMarker->SetVisibility(bArmed);
 	if (bArmed)
 	{
 		const double A = P.AimAmount(), K = P.Recoil() / .08;
 		const double Reload = P.ReloadLeft() > 0 ? FMath::Sin(PI * (1 - P.ReloadLeft() / HKPb::ReloadS)) : 0;
-		const FVector Loc(46 - 3 * K, 15 * (1 - A), -27 + 14 * A - 8 * Reload);
+		const FVector Loc(46 - 4 * A - 3 * K, 15 - 4 * A, -27 - 7 * A - 8 * Reload);
 		// Placed from the camera's position and rotation each frame (not attached: no scale from the camera).
 		const FTransform Cam(Camera->GetComponentQuat(), Camera->GetComponentLocation());
 		PbMarker->SetWorldTransform(FTransform(FRotator(-2 * K - 25 * Reload, 90 + 4 * (1 - A), 15 * Reload), Loc) * Cam);

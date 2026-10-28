@@ -186,7 +186,7 @@ FHKVehicle* AHKGame::NearestVehicle()
 void AHKGame::EnterVehicle(FHKVehicle* V)
 {
 	WatchHide();
-	Player.Mode = TEXT("vehicle"); Player.Vehicle = V; Player.LookYaw = 0; Player.LookPitch = 0; Player.bChase = false; Player.bHasChaseCam = false;
+	Player.Mode = TEXT("vehicle"); Player.Vehicle = V; Player.LookYaw = 0; Player.LookPitch = 0; Player.bChase = false; Player.bHasChaseCam = false; Player.SiteView = 0;
 	V->Enter();
 	UpdateDynamic();
 	if (V->bAircraft) SetClip(.12);
@@ -292,12 +292,57 @@ void AHKGame::UpdateVehicle(double Dt, double Dl)
 	const bool bWebEx = V->Kind == TEXT("excavator");
 	SetCameraFromEuler(S.Pitch + Player.LookPitch - (V->Kind == TEXT("motorcycle") ? .12 : bWebEx ? .38 : .05) + V->CamPitch, S.Yaw + Player.LookYaw - (bWebEx ? .22 : 0) + V->CamYaw, -S.Roll + Sway);
 	Fov = 70;
+	SiteMachineView(V, S);
 	Player.X = V->X; Player.Z = V->Z; Player.Feet = V->Y; Player.Yaw = V->Yaw;
 	bSpeedoAir = false;
 	const FString MachineHud = V->Hud();
 	if (!MachineHud.IsEmpty()) SpeedoText = MachineHud;
 	else if (bWebEx) SpeedoText = FString::Printf(TEXT("%s km/h · bucket %d %%"), *HKJs::ToFixed(FMath::Abs(V->Speed) * 3.6, 1), (int32)HK::JsRound(V->Load * 100));
 	else SpeedoText = FString::Printf(TEXT("%d km/h%s"), (int32)HK::JsRound(FMath::Abs(V->Speed) * 3.6), V->Kind == TEXT("motorcycle") ? *FString::Printf(TEXT(" · gear %d · %d rpm"), V->Gear, (int32)(HK::JsRound(V->Rpm / 100) * 100)) : TEXT(""));
+}
+
+void AHKGame::SiteMachineView(FHKVehicle* V, const FHKSeatPose& S)
+{
+	// Construction-site machines only (not in the web game): R3 / V cycles the cab, the hook view (cranes: straight
+	// down from above the hook, the jib's direction up the screen) and the view from outside (behind and above, along
+	// the operator's heading; the mouse turns it round the machine).
+	FHKSiteMachine* M = nullptr;
+	for (FHKSiteMachine* X : FHKSiteMachine::All()) if (static_cast<FHKVehicle*>(X) == V) M = X;
+	if (!M) return;
+	const bool bTower = V->Kind == TEXT("tower"), bCrane = bTower || V->Kind == TEXT("crane");
+	if (Frame.WasPressed("r3") || Frame.WasPressed("view"))
+	{
+		const TArray<int32> Modes = bTower ? TArray<int32>{0, 2} : bCrane ? TArray<int32>{0, 2, 1} : TArray<int32>{0, 1};
+		Player.SiteView = Modes[(Modes.IndexOfByKey(Player.SiteView) + 1) % Modes.Num()];
+		Player.LookYaw = 0; Player.LookPitch = 0;
+		Notice(Player.SiteView == 0 ? TEXT("View: from the cab") : Player.SiteView == 1 ? TEXT("View: from outside") : TEXT("View: from above the hook"), 1.5);
+	}
+	FHKData& D = FHKData::Get();
+	if (Player.SiteView == 2)
+	{
+		FHKHook* Hook = nullptr;
+		FVector Top = FVector::ZeroVector;
+		if (bTower) { FHKTowerCrane* C = static_cast<FHKTowerCrane*>(M); Hook = &C->Hook; Top = C->TrolleyNode ? C->TrolleyNode->GetWorldPosition() : C->Hook.P + FVector(0, 10, 0); }
+		else if (V->Kind == TEXT("crane")) { FHKMobileCrane* C = static_cast<FHKMobileCrane*>(M); Hook = &C->Hook; Top = C->TipNode ? C->TipNode->GetWorldPosition() : C->Hook.P + FVector(0, 10, 0); }
+		if (!Hook) return;
+		// Between the hook and the jib (the wire runs down the middle of the picture), at most 16 m up.
+		// A metre to the side of the wire, so it shows as a line down to the hook rather than a blur at the lens.
+		const double Up = HK::Clamp(Top.Y - Hook->P.Y - 1.0, 3.0, 16.0);
+		CamPos = Hook->P + FVector(-FMath::Cos(S.Yaw), Up, FMath::Sin(S.Yaw));
+		SetCameraFromEuler(-HK::Pi / 2 + .001, S.Yaw, 0);
+		Fov = 75;
+		return;
+	}
+	if (Player.SiteView == 1)
+	{
+		const double H = S.Yaw + Player.LookYaw, Dist = FMath::Max(10.0, M->Length * .5 + 8), Up = M->Height + (bCrane ? 6 : 3.5);
+		const FVector2D F(-FMath::Sin(H), -FMath::Cos(H));
+		const FVector C(V->X, V->Y, V->Z), Look = C + FVector(F.X * M->Length * .4, 1.2, F.Y * M->Length * .4);
+		CamPos = C + FVector(-F.X * Dist, Up, -F.Y * Dist);
+		CamPos.Y = FMath::Max(CamPos.Y, D.GroundWorld(CamPos.X, CamPos.Z) + 1.5);
+		SetCameraFromEuler(FMath::Atan2(Look.Y - CamPos.Y, HK::Hypot(Look.X - CamPos.X, Look.Z - CamPos.Z)) + Player.LookPitch * .5, H, 0);
+		Fov = 70;
+	}
 }
 
 FHKVehicleInput AHKGame::FlightSticks(double Dl) const

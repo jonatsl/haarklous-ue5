@@ -218,7 +218,7 @@ private:
 	int32 Outs = 0, OutBy = 0;
 	double RespawnT = 0;
 	int32 Mag = HKPb::Hopper;
-	double ReloadT = 0, CoolT = 0, AimT = 0, RecoilT = 0, StartHold = 0, LeaveHold = 0;
+	double ReloadT = 0, CoolT = 0, AimT = 0, RecoilT = 0, StartHold = 0, LeaveHold = 0, EmptyT = 0;
 	bool bTrigger = false;
 	int32 Seq = 0;
 	TArray<TArray<double>> Outbox;             // our balls not sent yet

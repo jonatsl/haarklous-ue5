@@ -23,6 +23,12 @@ class UHierarchicalInstancedStaticMeshComponent;
 class UInstancedStaticMeshComponent;
 class UStaticMesh;
 
+namespace HKFoot
+{
+	// Standing on foot without running: 3.5 m/s (user, 28 Oct 2026; the web game walks at 1.45 m/s).
+	constexpr double Speed = 3.5;
+}
+
 /* A door of the web game (apartment doors and the street doors of the stair towers). */
 struct FHKDoor
 {
@@ -80,6 +86,9 @@ struct FHKPlayer
 	double LookYaw = 0, LookPitch = 0;
 	bool bChase = false, bHasChaseCam = false;
 	FVector ChaseCam = FVector::ZeroVector;
+	// Construction-site machines (R3 / V): 0 from the cab, 1 from outside (behind and above), 2 straight down from
+	// above the hook (cranes). Not in the web game (user, 28 Oct 2026: the cabs were hard to see from).
+	int32 SiteView = 0;
 	double CircleAt = -1;
 	bool bCircleHeld = false;
 	const FHKSitSpot* SitSpot = nullptr;
@@ -328,6 +337,7 @@ private:
 	void DrawPause(UCanvas* C);
 	void DrawWorldHud(UCanvas* C);
 	void SetCameraFromEuler(double X, double Y, double Z);   // camera.rotation (order YXZ)
+	void SiteMachineView(FHKVehicle* V, const FHKSeatPose& S);
 
 	UPROPERTY() TObjectPtr<UCameraComponent> Camera;
 	UPROPERTY() TArray<TObjectPtr<AHKRigActor>> RigActors;

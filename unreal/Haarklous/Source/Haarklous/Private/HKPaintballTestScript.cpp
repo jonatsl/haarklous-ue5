@@ -162,7 +162,7 @@ namespace HKPaintballTest
 				};
 				{
 					const FHKData& D = FHKData::Get();
-					const FVector2D A = D.ToWorld(-41.75, 298), B = D.ToWorld(-41.75, 304);
+					const FVector2D A = D.ToWorld(-14.25, 269), B = D.ToWorld(-14.25, 275);   // a panel of the site's north fence, from outside
 					LookAt(FVector(A.X, D.GroundWorld(A.X, A.Y) + 1.4, A.Y), FVector(B.X, D.GroundWorld(B.X, B.Y) + 1.2, B.Y));
 				}
 				T.Wait(.6);
@@ -295,6 +295,11 @@ namespace HKPaintballTest
 				});
 				T.Wait(.3);
 				T.Shot(TEXT("06b-splats"));
+				// Aiming (L2): the view zooms in and the marker drops low and right, clear of the middle of the view.
+				T.Hold(6, 1); T.Wait(.7);
+				T.Expect(TEXT("paintball: aiming zooms in"), [&T]() { return Pb(T).AimAmount() > .9; });
+				T.Shot(TEXT("06c-aiming"));
+				T.Hold(6, 0); T.Wait(.3);
 				T.Do([&T, S]()
 				{
 					// The camera on the blue team at their base: markers, goggles, armbands.
@@ -338,6 +343,12 @@ namespace HKPaintballTest
 					for (FFake& F : S->Fakes) if (F.Actor.IsValid()) F.Actor->Destroy();
 					S->Fakes.Reset();
 				});
+				// Nobody is left in the game (the friends went home): it ends by itself, and a new game can start.
+				Until(T, TEXT("paintball: the empty game ends, the lobby is open"), 6, [&T]() { return Pb(T).Session().State == TEXT("lobby"); });
+				T.Hold(0, 1); T.Wait(1.4); T.Hold(0, 0);
+				Until(T, TEXT("paintball: a new game starts and we are in it"), 3, [&T]() { return Pb(T).InGame(); });
+				T.Hold(3, 1); T.Wait(2.4); T.Hold(3, 0);
+				Until(T, TEXT("paintball: left again; that game ends too"), 6, [&T]() { return !Pb(T).InGame() && Pb(T).Session().State == TEXT("lobby"); });
 			});
 		}
 	} GPaintballRegister;

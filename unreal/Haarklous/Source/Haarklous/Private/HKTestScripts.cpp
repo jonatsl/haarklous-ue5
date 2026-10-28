@@ -222,10 +222,10 @@ namespace
 				// Open lawn in Torshovdalen, facing along the slope.
 				T.Do([&T]() { const FVector2D W = FHKData::Get().ToWorld(110, 40); T.Game()->Place(W.X, W.Y, 0); });
 				T.Wait(.5);
-				// W walks at 1.45 m/s, Shift + W runs at 3.6 m/s (game-main.js updateFoot).
+				// W moves at 3.5 m/s (the user's speed; the web walks at 1.45), Shift + W runs at 3.6 m/s (game-main.js updateFoot).
 				Mark(); HoldKeys({TEXT("KeyW")}, 1.0);
 				T.Log([Moved, Held]() { return FString::Printf(TEXT("W for %.2f s of game time: %.2f m (%.2f m/s)"), *Held, Moved(), Moved() / *Held); });
-				T.Expect(TEXT("keyboard: W walks at 1.45 m/s"), [Moved, Held]() { return FMath::Abs(Moved() / *Held - 1.45) < .1; });
+				T.Expect(TEXT("keyboard: W moves at 3.5 m/s"), [Moved, Held]() { return FMath::Abs(Moved() / *Held - HKFoot::Speed) < .2; });
 				Mark(); HoldKeys({TEXT("ShiftLeft"), TEXT("KeyW")}, 1.0);
 				T.Log([Moved, Held]() { return FString::Printf(TEXT("Shift + W for %.2f s of game time: %.2f m (%.2f m/s)"), *Held, Moved(), Moved() / *Held); });
 				T.Expect(TEXT("keyboard: Shift + W runs at 3.6 m/s"), [Moved, Held]() { return FMath::Abs(Moved() / *Held - 3.6) < .25; });
@@ -660,6 +660,91 @@ namespace
 				T.Wait(1.5);
 				T.Expect(TEXT("mission left, on foot"), [&T]() { return !T.Game()->Mission->IsActive() && T.Game()->Player.Mode == TEXT("foot"); });
 				T.Shot(TEXT("06-after"));
+			});
+
+			// The balcony door (user, 28 Oct 2026: the □ prompt only sometimes appeared): from a grid of places in the living
+			// room, looking at the door leaf, the prompt must offer the door every time; then open it, step out, close and
+			// open it again from the balcony.
+			FHKTestScripts::All().Add(TEXT("balcony"), [](AHKTestDriver& T)
+			{
+				T.Wait(2);
+				T.Press(0);
+				T.Wait(1);
+				struct FBal { FVector C = FVector::ZeroVector, N = FVector::ZeroVector, U = FVector::ZeroVector; double Floor = 0; int32 Tried = 0, Shown = 0; };
+				TSharedPtr<FBal> B = MakeShared<FBal>();
+				auto Door = [&T]() { return T.Game()->Doors.FindByPredicate([](const FHKDoor& X) { return X.Name == TEXT("Balcony door"); }); };
+				T.Expect(TEXT("balcony door found"), [Door]() { return Door() && Door()->Hinge; });
+				T.Do([&T, B, Door]()
+				{
+					AHKGame* G = T.Game();
+					FHKDoor* D = Door();
+					D->Hinge->UpdateWorldMatrix(true, false);
+					const FHKMat L = D->Hinge->MatrixWorld * D->LeafLocal;
+					B->C = L.GetPosition();
+					const FVector Z = L.TransformDir(FVector(0, 0, 1));   // across the leaf (web frame: y is up)
+					B->N = FVector(Z.X, 0, Z.Z).GetSafeNormal();
+					B->U = FVector(-B->N.Z, 0, B->N.X);
+					B->Floor = B->C.Y - D->LeafBox.Y / 2;   // the flat's floor (4th floor), at the foot of the leaf
+					// Inside is the side where standing counts as being in the flat.
+					G->Place(B->C.X + B->N.X * 1.2, B->C.Z + B->N.Z * 1.2, 0, B->Floor);
+					if (!G->InApartment()) B->N = -B->N;
+					UE_LOG(LogTemp, Display, TEXT("HK-TEST balcony door leaf at (%.2f, %.2f, %.2f), into the room (%.2f, %.2f)"), B->C.X, B->C.Y, B->C.Z, B->N.X, B->N.Z);
+				});
+				for (const double Back : {.7, 1.0, 1.4, 1.8, 2.2})
+					for (const double Side : {-.6, -.3, 0.0, .3, .6})
+					{
+						T.Do([&T, B, Back, Side]()
+						{
+							AHKGame* G = T.Game();
+							const FVector P = B->C + B->N * Back + B->U * Side;
+							G->Place(P.X, P.Z, 0, B->Floor);
+							const FVector E(G->Player.X, G->Player.Feet + G->Player.EyeNow, G->Player.Z);
+							G->Player.Yaw = FMath::Atan2(-(B->C.X - E.X), -(B->C.Z - E.Z));
+							G->Player.Pitch = FMath::Atan2(B->C.Y - E.Y, HK::Hypot(B->C.X - E.X, B->C.Z - E.Z));
+						});
+						T.Wait(.15);
+						T.Do([&T, B, Back, Side]()
+						{
+							AHKGame* G = T.Game();
+							B->Tried++;
+							const bool bOk = G->LastPromptText().Contains(TEXT("balcony door"));
+							if (bOk) B->Shown++;
+							else UE_LOG(LogTemp, Display, TEXT("HK-TEST balcony: no door prompt %.1f m back, %.1f m to the side (prompt '%s', in the flat %d)"), Back, Side, *G->LastPromptText(), G->InApartment());
+						});
+					}
+				T.Log([B]() { return FString::Printf(TEXT("balcony door prompt shown from %d of %d places"), B->Shown, B->Tried); });
+				T.Expect(TEXT("the balcony door prompt shows from every place in front of it"), [B]() { return B->Tried == 25 && B->Shown == B->Tried; });
+				// Open it from 1.2 m inside, step out, close it and open it again from the balcony.
+				T.Do([&T, B]()
+				{
+					AHKGame* G = T.Game();
+					const FVector P = B->C + B->N * 1.2;
+					G->Place(P.X, P.Z, FMath::Atan2(B->N.X, B->N.Z), B->Floor);
+					G->Player.Pitch = -.1;
+				});
+				T.Wait(.3);
+				T.Shot(TEXT("01-from-the-room"));
+				T.Press(2);
+				T.Wait(1.2);
+				T.Expect(TEXT("balcony door open"), [Door]() { return Door()->bOpen; });
+				T.Shot(TEXT("02-open"));
+				T.Do([&T, B]() { const FVector P = B->C - B->N * .45 + B->U * .2; T.Game()->Place(P.X, P.Z, FMath::Atan2(B->N.X, B->N.Z), B->Floor); });
+				T.Wait(.3);
+				T.Log([&T]() { return TEXT("on the balcony: ") + T.P() + TEXT(", prompt: ") + T.Game()->LastPromptText(); });
+				T.Do([&T, B, Door]()
+				{
+					AHKGame* G = T.Game();
+					FHKDoor* D = Door();
+					D->Hinge->UpdateWorldMatrix(true, false);
+					const FVector L = (D->Hinge->MatrixWorld * D->LeafLocal).GetPosition();
+					const FVector E(G->Player.X, G->Player.Feet + G->Player.EyeNow, G->Player.Z);
+					G->Player.Yaw = FMath::Atan2(-(L.X - E.X), -(L.Z - E.Z));
+					G->Player.Pitch = FMath::Atan2(L.Y - E.Y, HK::Hypot(L.X - E.X, L.Z - E.Z));
+				});
+				T.Wait(.3);
+				T.Log([&T]() { return TEXT("looking at the open door from the balcony, prompt: ") + T.Game()->LastPromptText(); });
+				T.Expect(TEXT("the open door can be closed from the balcony"), [&T]() { return T.Game()->LastPromptText().Contains(TEXT("Close balcony door")); });
+				T.Shot(TEXT("03-on-the-balcony"));
 			});
 
 			// On foot: street door -> stairs -> 4th floor -> entrance door -> the flat -> a beer (the web's verified route).

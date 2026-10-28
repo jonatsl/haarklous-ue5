@@ -131,6 +131,21 @@ namespace HKSiteTest
 		T.Expect(K + TEXT(": in the driver's seat"), [&T, K]() { const FHKVehicle* V = T.Game()->Player.Vehicle; return T.Game()->Player.Mode == TEXT("vehicle") && V && V->Kind == K; });
 		T.Log([&T]() { return TEXT("HUD: ") + T.Game()->SpeedoText; });
 	}
+	// A screenshot from the operator's own camera (the cab, or the view chosen with R3).
+	void OwnShot(AHKTestDriver& T, const FString& Name)
+	{
+		T.Do([&T]() { T.Game()->bCameraOverride = false; });
+		T.Wait(.4);
+		T.Shot(Name);
+	}
+	// R3 changes the view; expects the given view (0 cab, 1 outside, 2 above the hook).
+	void ViewTo(AHKTestDriver& T, int32 Want, const FString& Name)
+	{
+		T.Press(11);
+		T.Wait(.3);
+		T.Expect(FString::Printf(TEXT("R3: view %d (%s)"), Want, *Name), [&T, Want]() { return T.Game()->Player.SiteView == Want; });
+		OwnShot(T, Name);
+	}
 	void GetOut(AHKTestDriver& T, const FString& Kind)
 	{
 		T.Do([]() { Release(); });
@@ -270,10 +285,13 @@ namespace HKSiteTest
 				T.Do([&T]() { T.Game()->bCameraOverride = false; });
 				T.Wait(.6);
 				T.Shot(TEXT("08-excavator-cab"));
+				ViewTo(T, 1, TEXT("08b-excavator-outside"));
+				ViewTo(T, 0, TEXT("08c-excavator-cab-again"));
 				GetOut(T, TEXT("excavator"));
 
 				// ---- Hauler: drive the load away and tip it ----
 				Board(T, TEXT("hauler"));
+				OwnShot(T, TEXT("09a-hauler-cab"));
 				T.Do([V, Hauler]()
 				{
 					V->Target = [Hauler]() { const FHKDumpTruck* H = Hauler(); return FVector(H->X, H->Y + 1.5, H->Z); };
@@ -299,6 +317,7 @@ namespace HKSiteTest
 				// ---- Dozer: blade down, push into the stockpile ----
 				auto Dz = [&T]() { return Find<FHKDozer>(T, TEXT("dozer")); };
 				Board(T, TEXT("dozer"));
+				OwnShot(T, TEXT("11a-dozer-cab"));
 				T.Do([V, Dz]()
 				{
 					V->Target = [Dz]() { const FHKDozer* D = Dz(); return FVector(D->X, D->Y + 1, D->Z); };
@@ -323,6 +342,7 @@ namespace HKSiteTest
 				// ---- Wheel loader: bucket flat on the ground, drive into the stockpile, curl and lift ----
 				auto Ld = [&T]() { return Find<FHKWheelLoader>(T, TEXT("loader")); };
 				Board(T, TEXT("loader"));
+				OwnShot(T, TEXT("13a-loader-cab"));
 				T.Do([V, Ld]()
 				{
 					V->Target = [Ld]() { const FHKWheelLoader* L = Ld(); return FVector(L->X, L->Y + 1.5, L->Z); };
@@ -362,10 +382,10 @@ namespace HKSiteTest
 
 				// ---- Tipper truck: out through the gate onto the gravel track, then back in (reversing) ----
 				// The tipper stands just inside the gate facing out. Steering toward a point on the gate's centre line;
-				// L is the truck's position in the site frame (local x, s; the gate is at s = S0).
+				// L is the truck's position in the site frame (local x, s; the gate is in the fence at s = FenceS0).
 				auto Tp = [&T]() { return Find<FHKDumpTruck>(T, TEXT("tipper")); };
 				auto Loc = [&T, Tp]() { return FHKData::Get().ToLocal(Tp()->X, Tp()->Z); };
-				auto GateAt = [&T](double Ds) { const FHKDirtField& S = *T.Game()->Site; return FHKData::Get().ToWorld(S.GateC, S.S0 + Ds); };
+				auto GateAt = [&T](double Ds) { const FHKDirtField& S = *T.Game()->Site; return FHKData::Get().ToWorld(S.GateC, S.FenceS0 + Ds); };
 				// Steer for a point: forward, the nose; reversing, the tail (the steering works the other way round).
 				auto SteerFor = [Tp](const FVector2D& At, bool bReverse)
 				{
@@ -374,14 +394,14 @@ namespace HKSiteTest
 					return (float)FMath::Clamp((bReverse ? 2.5 : -2.5) * Err, -1.0, 1.0);
 				};
 				Board(T, TEXT("tipper"));
-				T.Log([&T, Loc]() { const FHKDirtField& S = *T.Game()->Site; return FString::Printf(TEXT("tipper %.1f m inside the gate, %.1f m from its centre line (gate %.1f m wide)"), Loc().Y - S.S0, Loc().X - S.GateC, S.GateW); });
+				T.Log([&T, Loc]() { const FHKDirtField& S = *T.Game()->Site; return FString::Printf(TEXT("tipper %.1f m inside the gate, %.1f m from its centre line (gate %.1f m wide)"), Loc().Y - S.FenceS0, Loc().X - S.GateC, S.GateW); });
 				T.Expect(TEXT("site: there is a gate"), [&T]() { return T.Game()->Site->GateW > 8; });
 				// The fence keeps vehicles and people out except at the gate.
 				T.Expect(TEXT("site: the fence blocks a vehicle, the gate does not"), [&T]()
 				{
 					const FHKDirtField& S = *T.Game()->Site;
 					FHKData& D = FHKData::Get();
-					const FVector2D Fence = D.ToWorld(S.GateC + 15, S.S0), Gate = D.ToWorld(S.GateC, S.S0);
+					const FVector2D Fence = D.ToWorld(S.GateC + 15, S.FenceS0), Gate = D.ToWorld(S.GateC, S.FenceS0);
 					const FHKWalkWorld& W = D.VehicleWorld(1.4);
 					return !W.CanStand(FHKPt(Fence.X, Fence.Y), 1.2, D.GroundWorld(Fence.X, Fence.Y)) && W.CanStand(FHKPt(Gate.X, Gate.Y), 1.2, D.GroundWorld(Gate.X, Gate.Y));
 				});
@@ -389,7 +409,7 @@ namespace HKSiteTest
 				{
 					const FHKDirtField& S = *T.Game()->Site;
 					FHKData& D = FHKData::Get();
-					const FVector2D Fence = D.ToWorld(S.GateC - 20, S.S0), Gate = D.ToWorld(S.GateC + 3, S.S0);
+					const FVector2D Fence = D.ToWorld(S.GateC - 20, S.FenceS0), Gate = D.ToWorld(S.GateC + 3, S.FenceS0);
 					return !D.WalkWorld.CanStand(FHKPt(Fence.X, Fence.Y), 1.6, D.GroundWorld(Fence.X, Fence.Y)) && D.WalkWorld.CanStand(FHKPt(Gate.X, Gate.Y), 1.6, D.GroundWorld(Gate.X, Gate.Y));
 				});
 				T.Do([V, Tp]()
@@ -405,19 +425,19 @@ namespace HKSiteTest
 				Act(T, V, TEXT("tipper: out through the gate"), 20, [&T, Tp, Loc, GateAt, SteerFor](double)
 				{
 					Pad().Buttons[7] = .5f; Pad().Axes[0] = SteerFor(GateAt(-14), false);
-					return Loc().Y - T.Game()->Site->S0 < -8;
+					return Loc().Y - T.Game()->Site->FenceS0 < -8;
 				});
 				T.Log([&T]() { return TEXT("tipper outside: ") + T.Game()->SpeedoText; });
 				Act(T, V, TEXT("tipper: stop outside"), 8, [Tp](double) { Pad().Buttons[6] = 1; return FMath::Abs(Tp()->Speed) < .2; });
 				T.Expect(TEXT("tipper: drove out of the site"), [&T, Tp]() { return !T.Game()->Site->Contains(Tp()->X, Tp()->Z); });
-				T.Log([&T, Loc]() { return FString::Printf(TEXT("tipper %.1f m outside the gate, %.1f m off its centre line"), T.Game()->Site->S0 - Loc().Y, Loc().X - T.Game()->Site->GateC); });
+				T.Log([&T, Loc]() { return FString::Printf(TEXT("tipper %.1f m outside the gate, %.1f m off its centre line"), T.Game()->Site->FenceS0 - Loc().Y, Loc().X - T.Game()->Site->GateC); });
 				T.Do([V, Tp]() { V->Yaw = Tp()->Yaw + 2.6; V->Dist = 20; V->Up = 7; });
 				Snap(T, V, TEXT("15c-tipper-outside"));
 				// Back in, reversing through the gate.
 				Act(T, V, TEXT("tipper: back in through the gate"), 30, [&T, Loc, GateAt, SteerFor](double)
 				{
 					Pad().Buttons[6] = .5f; Pad().Axes[0] = SteerFor(GateAt(14), true);
-					return Loc().Y - T.Game()->Site->S0 > 9;
+					return Loc().Y - T.Game()->Site->FenceS0 > 9;
 				});
 				Act(T, V, TEXT("tipper: stop inside"), 8, [Tp](double) { Pad().Buttons[7] = 1; return FMath::Abs(Tp()->Speed) < .2; });
 				T.Expect(TEXT("tipper: back inside the site"), [&T, Tp]() { return T.Game()->Site->Contains(Tp()->X, Tp()->Z, 2); });
@@ -435,12 +455,17 @@ namespace HKSiteTest
 				T.Press(4);
 				Act(T, V, TEXT("crane: outriggers"), 8, [Cr](double) { return Cr()->Deploy >= 1; });
 				T.Log([Cr]() { return FString::Printf(TEXT("crane outriggers %.2f"), Cr()->Deploy); });
-				For(T, V, 7, []() { Pad().Axes[3] = 1; });
-				For(T, V, 6, []() { Pad().Axes[1] = -1; });
+				// Boom up and out until it gets there (the game steps at most 50 ms a frame, so time held is not enough).
+				Act(T, V, TEXT("crane: boom up"), 20, [Cr](double) { Pad().Axes[3] = 1; return Cr()->Luff > .7; });
+				Act(T, V, TEXT("crane: telescope out"), 20, [Cr](double) { Pad().Axes[1] = -1; return Cr()->Ext > 5; });
 				For(T, V, 3, []() { Pad().Axes[0] = .8f; });
 				T.Log([&T, Cr]() { const FHKMobileCrane* C = Cr(); return FString::Printf(TEXT("crane luff %.2f rad, telescope %.1f m, slew %.2f rad, wire %.1f m: %s"), C->Luff, C->Ext, C->Slew, C->Hook.Wire, *T.Game()->SpeedoText); });
 				T.Expect(TEXT("crane: boom raised and telescoped"), [Cr]() { return Cr()->Luff > .5 && Cr()->Ext > 3; });
 				Snap(T, V, TEXT("16-mobile-crane"));
+				OwnShot(T, TEXT("16a-crane-cab"));
+				ViewTo(T, 2, TEXT("16b-crane-hook"));
+				ViewTo(T, 1, TEXT("16c-crane-outside"));
+				ViewTo(T, 0, TEXT("16d-crane-cab-again"));
 				GetOut(T, TEXT("crane"));
 
 				// ---- Tower crane: pick up a pallet of bricks, lift it, slew and set it down ----
@@ -448,6 +473,7 @@ namespace HKSiteTest
 				TSharedPtr<FHKSiteLoad*> Load = MakeShared<FHKSiteLoad*>(nullptr);
 				TSharedPtr<FVector> LoadStart = MakeShared<FVector>();
 				Board(T, TEXT("tower"));
+				OwnShot(T, TEXT("17a-tower-cab"));
 				T.Do([V, Tw, Load, LoadStart]()
 				{
 					*Load = FHKSiteMachine::Loads()[0];
@@ -487,6 +513,8 @@ namespace HKSiteTest
 				T.Log([&T, Load]() { return FString::Printf(TEXT("tower crane lifting: load %.1f m above the ground. %s"), (*Load)->P.Y - Gnd((*Load)->P), *T.Game()->SpeedoText); });
 				T.Expect(TEXT("tower crane: load in the air"), [Load]() { return (*Load)->P.Y - Gnd((*Load)->P) > 3; });
 				Snap(T, V, TEXT("18-tower-crane-lift"));
+				ViewTo(T, 2, TEXT("18b-tower-hook"));
+				ViewTo(T, 0, TEXT("18c-tower-cab-again"));
 				For(T, V, 8, []() { Pad().Axes[0] = -1; Pad().Axes[1] = .6f; });
 				Snap(T, V, TEXT("19-tower-crane-slew"));
 				Act(T, V, TEXT("tower crane: stop the slew"), 15, [Tw](double) { return FMath::Abs(Tw()->SlewV) < .003; });

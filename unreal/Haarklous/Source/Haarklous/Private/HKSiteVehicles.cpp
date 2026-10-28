@@ -205,9 +205,9 @@ FHKDozer::FHKDozer(double InX, double InZ, double InYaw)
 		const double Sx = i ? 1 : -1;
 		Rams.Add({Rig.Root, FVector(Sx * .8, 1.6, -1.6), Blade, FVector(Sx * .8, .8, .3), N(FString::Printf(TEXT("rams[%d].barrel"), i)), N(FString::Printf(TEXT("rams[%d].rod"), i))});
 	}
-	SeatNode = Rig.Root; SeatOffset = FVector(0, 2.5, .9); CamPitch = -.12;
+	SeatNode = Rig.Root; SeatOffset = FVector(0, 2.68, .45); CamPitch = -.2;   // forward and up: the blade shows over the hood
 	bRightStickTool = true;
-	HelpText = TEXT("Dozer · R2 forward, L2 reverse, left stick steer · right stick back / forward: blade up / down, ←→ tilt · □ get out");
+	HelpText = TEXT("Dozer · R2 forward, L2 reverse, left stick steer · right stick back / forward: blade up / down, ←→ tilt · R3 view · □ get out");
 	Capacity = 4.0;
 	Pose(); Place();
 }
@@ -291,7 +291,7 @@ FHKSiteExcavator::FHKSiteExcavator(double InX, double InZ, double InYaw)
 	Ram(StickPivot, FVector(0, .3, -.55), BucketPivot, FVector(0, .3, .2), 2);
 	SeatNode = Cab; SeatOffset = FVector(0, 1.3, .2); CamPitch = -.3; CamYaw = -.12;
 	bRightStickTool = true;
-	HelpText = TEXT("Excavator · tracks: L1/L2 left, R1/R2 right · left stick: swing / stick · right stick: boom / bucket · □ get out");
+	HelpText = TEXT("Excavator · tracks: L1/L2 left, R1/R2 right · left stick: swing / stick · right stick: boom / bucket · R3 view · □ get out");
 	Capacity = 1.9;
 	Pose(); Place();
 }
@@ -426,9 +426,9 @@ FHKWheelLoader::FHKWheelLoader(double InX, double InZ, double InYaw)
 	Ram(Front, FVector(-.62, .75, -1.9), Arm, FVector(-.62, -.95, -1.0), 0);
 	Ram(Front, FVector(.62, .75, -1.9), Arm, FVector(.62, -.95, -1.0), 1);
 	Ram(Front, FVector(0, 2.05, -.95), Bucket, FVector(0, .75, .3), 2);
-	SeatNode = Rig.Root; SeatOffset = FVector(0, 2.65, .75); CamPitch = -.14;
+	SeatNode = Rig.Root; SeatOffset = FVector(0, 2.9, .75); CamPitch = -.24;   // high and looking down: the bucket's edge shows
 	bRightStickTool = true;
-	HelpText = TEXT("Wheel loader · R2 throttle, L2 brake / reverse, left stick steer · right stick back / forward: lift / lower, ← roll back, → dump · □ get out");
+	HelpText = TEXT("Wheel loader · R2 throttle, L2 brake / reverse, left stick steer · right stick back / forward: lift / lower, ← roll back, → dump · R3 view · □ get out");
 	Capacity = 3.6;
 	Pose(); Place();
 }
@@ -531,7 +531,7 @@ FHKDumpTruck::FHKDumpTruck(double InX, double InZ, double InYaw, bool bArticulat
 		HalfL = 3.0; HalfW = 1.1;
 		Rams.Add({Trailer, FVector(0, 1.0, 1.4), Bed, FVector(0, .1, -3.0), N(TEXT("rams[0].barrel")), N(TEXT("rams[0].rod"))});
 		Rams.Add({Trailer, FVector(0, 1.0, 1.5), Bed, FVector(0, .1, -2.9), N(TEXT("rams[1].barrel")), N(TEXT("rams[1].rod"))});
-		HelpText = TEXT("Articulated hauler · R2 throttle, L2 brake / reverse, left stick steer · right stick back: tip the body, forward: lower it · □ get out");
+		HelpText = TEXT("Articulated hauler · R2 throttle, L2 brake / reverse, left stick steer · right stick back: tip the body, forward: lower it · R3 view · □ get out");
 	}
 	else
 	{
@@ -541,7 +541,7 @@ FHKDumpTruck::FHKDumpTruck(double InX, double InZ, double InYaw, bool bArticulat
 		SeatNode = Rig.Root; SeatOffset = FVector(-.55, 2.75, -5.45);
 		HalfL = 3.0; HalfW = 1.0; WheelBase = 4.2;
 		Rams.Add({Rig.Root, FVector(0, 1.2, -3.85), Bed, FVector(0, .05, -5.3), N(TEXT("rams[0].barrel")), N(TEXT("rams[0].rod"))});
-		HelpText = TEXT("Tipper truck · R2 throttle, L2 brake / reverse, left stick steer · right stick back: tip the body, forward: lower it · □ get out");
+		HelpText = TEXT("Tipper truck · R2 throttle, L2 brake / reverse, left stick steer · right stick back: tip the body, forward: lower it · R3 view · □ get out");
 	}
 	bRightStickTool = true;
 	CamPitch = -.05;
@@ -694,7 +694,7 @@ FHKMobileCrane::FHKMobileCrane(double InX, double InZ, double InYaw)
 	Steers = {N(TEXT("steer[0]")), N(TEXT("steer[1]"))};
 	Rams.Add({Super, FVector(0, .45, -.6), BoomBase, FVector(0, -.4, -3.6), N(TEXT("rams[0].barrel")), N(TEXT("rams[0].rod"))});
 	SeatNode = Rig.Root; SeatOffset = FVector(-.65, 2.6, -5.0);
-	HelpText = TEXT("Mobile crane · drive: R2 / L2 / left stick · L1 outriggers down / up · crane: left stick ←→ slew, ↑↓ telescope out / in, right stick back / forward boom up / down, R2 / L2 hoist up / down, ✕ hook or set down a load · □ get out");
+	HelpText = TEXT("Mobile crane · drive: R2 / L2 / left stick · L1 outriggers down / up · crane: left stick ←→ slew, ↑↓ telescope out / in, right stick back / forward boom up / down, R2 / L2 hoist up / down, ✕ hook or set down a load · R3 view · □ get out");
 	Pose(); Place();
 	Rig.Root->UpdateMatrixWorld();
 	Hook.P = TipNode->GetWorldPosition() - FVector(0, Hook.Wire, 0);
@@ -795,7 +795,7 @@ FHKTowerCrane::FHKTowerCrane(double InX, double InZ, double InYaw)
 	SlewNode = N(TEXT("slew")); TrolleyNode = N(TEXT("trolley")); HookNode = N(TEXT("hook")); Wire = N(TEXT("wire"));
 	SeatNode = SlewNode; SeatOffset = FVector(-1.4, 1.35, -1.75); CamPitch = -.45;
 	bRightStickTool = true;
-	HelpText = TEXT("Tower crane · left stick ←→ slew, ↑↓ trolley out / in · right stick back / forward hoist up / down · ✕ hook or set down a load · □ climb down");
+	HelpText = TEXT("Tower crane · left stick ←→ slew, ↑↓ trolley out / in · right stick back / forward hoist up / down · ✕ hook or set down a load · R3 view · □ climb down");
 	Hook.Wire = 20;
 	Pose(); Place();
 	Rig.Root->UpdateMatrixWorld();

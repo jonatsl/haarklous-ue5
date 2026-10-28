@@ -15,7 +15,9 @@ Battlefield-style light.
 construction site with seven working machines and soil you can dig, push, load and tip; real-looking people instead
 of the jointed figures; and an urban paintball / reball course with a lobby, team deathmatch and capture the flag for
 up to 6 v 6 (online on the test server, which now takes 12 players a lobby). Then: the machines' windows are
-see-through, and the site has a gate with a gravel road so you can drive in and out.
+see-through, and the site has a gate with a gravel road so you can drive in and out. Later that evening (see "Your
+five requests"): a clear sight when aiming in paintball, empty paintball games end, the balcony door works, walking
+at 3.5 m/s, and a 140 x 90 m site with two gates and new views from the machines (R3: cab, outside, above the hook).
 
 ## How to start the game
 
@@ -363,7 +365,7 @@ The "Fast" (65 %, no shadows) and "Sharp" (100 %) settings were not measured.
 These are new features you asked for; they are not in the web game. Web players do not see the machines, and they
 ignore the paintball part of other players' messages, so the web game keeps working with the same server.
 
-**Construction site** (in the park valley, a 64 x 64 m fenced site): a foundation pit with a ramp, stockpiles, site
+**Construction site** (in the park valley, first a 64 x 64 m fenced site, now 140 x 90 m, see "Your five requests"): a foundation pit with a ramp, stockpiles, site
 offices, toilet, floodlights, signs, a skip and pallets. Seven machines, each driven like the real one (engine power,
 grip, gears, rolling resistance on soil, slopes, hydraulics): a Cat D6-class dozer (blade up / down / tilt), a 30 t
 excavator (ISO controls like the web excavator, a real backhoe bucket), a wheel loader (articulated, self-levelling
@@ -383,7 +385,7 @@ its natural slope. No soil is lost (checked in the test after every machine).
 
 **See-through cabs and a way in and out** (your two wishes, 28 Oct 2026): every cab window (and the site offices'
 windows) is now tinted, glossy glass you can see through, so you can work the machines from the driver's seat. The
-site has a 10.5 m gate on the north-west side, the one side that is level with the park, with its leaves swung open,
+site had a 10.5 m gate on the north-west side (since the 140 x 90 m site: two gates, see below), with its leaves swung open,
 the site signs beside it and a gravel road to the nearest park path. The fence now stops people and vehicles
 everywhere else (the paintball yard's walls and net stop vehicles too). The tipper truck waits just inside the gate:
 in the test it drives out through the gate onto the road and reverses back in.
@@ -445,6 +447,59 @@ costs next to nothing.
 
 ![Frame-rate test: the construction site](img/fps--fps-site.jpg)
 ![Frame-rate test: the paintball course](img/fps--fps-paintball.jpg)
+
+## Your five requests (28 Oct 2026, evening)
+
+**Paintball, aiming:** with L2 the view zooms in and the marker now drops to the lower right, so the hopper stays
+under the sight line and the middle of the view is clear (it used to sit right in front of the sight).
+
+![Aiming (L2): the middle of the view is clear](img/paintball--06c-aiming.jpg)
+
+**Paintball, an empty game:** when everybody has left a game (hold △) or gone offline, it ends after 3 seconds and the
+lobby opens again, so a new game can start at once. Before, an empty game ran on until its 10 minutes were up and
+nobody could join or start one. The test leaves a game, sees it end, starts a new one, leaves that too.
+
+**The balcony door:** looking at a door or a drink, the game now checks only doors and drinks, like the web game,
+and walls, frames and glass no longer get in the way. Before, the first apartment part in front of the balcony door
+(a wall edge, the frame, the glass) hid it, so the □ prompt hardly ever showed. A new test (`balcony`) looks at the
+door from 25 places in the living room: before the fix the prompt showed from 0 of them, now from all 25; it opens,
+and it can be closed from the balcony.
+
+![The balcony door open](img/balcony--02-open.jpg)
+
+**Walking speed:** 3.5 m/s when you move normally (the web game walks at 1.45). Crouching and lying keep their old
+speeds. Running (R2, L3 or Shift) is still 3.6 m/s, so it is now only a little faster than walking; tell me if you
+want it faster too.
+
+**The construction site, 140 x 90 m:** the fence now encloses 140 x 90 m: the first site plus the slope east of it.
+No free spot that big exists near home: every place within 450 m has paths and some trees. So the park inside
+the fence is cleared: the trees, bushes, two paths and a lamp post there are gone, and the long path through the
+valley now runs in through a new north gate and out through a south gate, each with a gravel apron. The ground is a
+graded platform (gentle 3-5 % slopes) with cut and fill banks where it meets the hillside, a bigger 30 x 16 m
+foundation pit with a ramp, and five stockpiles. The machines are spread out over it; the tipper waits by the north
+gate.
+
+![The bigger site](img/site--02-overview-north.jpg)
+![From above](img/site--01-overview.jpg)
+![The tipper outside the north gate, on the apron to the park path](img/site--15c-tipper-outside.jpg)
+
+**Seeing from the machines:** R3 on the controller (V on the keyboard) now changes the view in every site machine:
+from the cab, from outside (behind and above, the mouse turns it round), and in both cranes straight down from above
+the hook, so you can put the hook right on a load. In the cabs: the mobile crane's operator cab has a glass roof
+(you see the boom and the hook overhead), and the dozer has a lower, sloped hood with the exhaust at the side, so
+the blade shows over it. The wheel loader's lowered bucket is still hidden by its front frame from the seat; use the
+outside view for close work.
+
+![The tower crane: from above the hook](img/site--18b-tower-hook.jpg)
+![The mobile crane: from above the hook](img/site--16b-crane-hook.jpg)
+![The excavator from outside](img/site--08b-excavator-outside.jpg)
+![The mobile crane's cab: the boom and hook through the roof window](img/site--16a-crane-cab.jpg)
+![The dozer's cab: the blade over the new hood](img/site--11a-dozer-cab.jpg)
+
+**Frame rate at the bigger site:** 30 fps on average, 22.5 at the 1 % low, in the site play-through (1600 x 900) while
+your packaged copy of the game was open at the same time; the GPU is the limit (33 ms; the game code needs 6 ms). The
+first try ran at 13 fps: the soil's settling pass checked the whole, now 3.4 times bigger, field every frame. It now
+checks only around soil that moved, with the same result.
 
 ## What still needs you
 

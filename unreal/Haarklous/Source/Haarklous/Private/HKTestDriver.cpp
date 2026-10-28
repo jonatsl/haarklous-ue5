@@ -1,4 +1,6 @@
 #include "HKTestDriver.h"
+#include "RenderTimer.h"
+#include "DynamicRHI.h"
 #include "HKGame.h"
 #include "HKInput.h"
 #include "HKMath.h"
@@ -181,16 +183,20 @@ void AHKTestDriver::FreeCamera()
 
 void AHKTestDriver::MeasureFps(const FString& Label, double Seconds)
 {
-	struct FAcc { double T = 0; int32 N = 0; TArray<double> Frames; };
+	struct FAcc { double T = 0; int32 N = 0; TArray<double> Frames; double Game = 0, Render = 0, Gpu = 0; };
 	TSharedPtr<FAcc> A = MakeShared<FAcc>();
 	Wait(1.0);
 	Steps.Add([A, Label, Seconds](double Dt)
 	{
 		A->T += Dt; A->N++; A->Frames.Add(Dt);
+		// Where the time goes (the numbers of "stat unit"): game thread, render thread, GPU.
+		A->Game += FPlatformTime::ToMilliseconds(GGameThreadTime); A->Render += FPlatformTime::ToMilliseconds(GRenderThreadTime);
+		A->Gpu += FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles(0));
 		if (A->T < Seconds) return false;
 		A->Frames.Sort();
 		const double Avg = A->N / A->T, Low = 1 / A->Frames[FMath::Min(A->Frames.Num() - 1, (int32)(A->Frames.Num() * .99))];
-		UE_LOG(LogHaarklous, Display, TEXT("HK-TEST fps %s: average %.1f, 1%% low %.1f over %.1f s (%d frames)"), *Label, Avg, Low, A->T, A->N);
+		UE_LOG(LogHaarklous, Display, TEXT("HK-TEST fps %s: average %.1f, 1%% low %.1f over %.1f s (%d frames); game %.1f ms, render %.1f ms, GPU %.1f ms"),
+			*Label, Avg, Low, A->T, A->N, A->Game / A->N, A->Render / A->N, A->Gpu / A->N);
 		return true;
 	});
 }

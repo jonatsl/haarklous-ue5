@@ -165,12 +165,14 @@ def dozer():
     root = r.node('root')
     b = Mesh()
     box(b, (0, .78, .05), (1.55, .5, 3.1), DK, bevel=.05)                       # main frame
-    prism(b, [(-1.9, .95), (-.2, .95), (-.2, 2.05), (-1.62, 2.02), (-1.9, 1.78)], -.66, .66, Y)   # engine hood
-    box(b, (0, 1.4, -1.92), (1.15, .7, .06), DK)                                 # radiator grille
-    for k in range(7):
-        box(b, (0, 1.12 + k * .085, -1.955), (1.05, .025, .02), ST)
-    cyl(b, (.36, 2.0, -1.15), (.36, 2.8, -1.15), .075, DK, seg=10)               # exhaust
-    cyl(b, (-.34, 2.0, -1.05), (-.34, 2.35, -1.05), .11, DK, seg=12)              # pre-cleaner
+    # Engine hood sloping down to the front (a "visibility" hood) so the operator sees the blade over it; the exhaust
+    # and the pre-cleaner stand at its sides, out of the middle of the view.
+    prism(b, [(-1.9, .95), (-.2, .95), (-.2, 1.85), (-1.62, 1.55), (-1.9, 1.42)], -.66, .66, Y)   # engine hood
+    box(b, (0, 1.2, -1.92), (1.15, .44, .06), DK)                                # radiator grille
+    for k in range(5):
+        box(b, (0, 1.02 + k * .085, -1.955), (1.05, .025, .02), ST)
+    cyl(b, (.56, 1.66, -1.15), (.56, 2.45, -1.15), .075, DK, seg=10)             # exhaust
+    cyl(b, (-.56, 1.68, -1.05), (-.56, 2.0, -1.05), .11, DK, seg=12)              # pre-cleaner
     for sx in (-1, 1):
         box(b, (sx * 1.03, 1.06, .2), (.62, .06, 3.0), Y, bevel=.02)            # fenders
         box(b, (sx * 1.3, .86, .2), (.06, .4, 3.0), Y)
@@ -182,7 +184,7 @@ def dozer():
         work_light(b, (sx * .55, 3.02, .22), -1)
         work_light(b, (sx * .55, 3.02, 1.47), 1)
     beacon(b, (.5, 3.04, 1.3))
-    cyl(b, (-.62, 1.2, -.4), (-.62, 2.3, .2), .025, Y, seg=6)                      # grab rail
+    cyl(b, (-.74, 1.2, .3), (-.74, 2.3, .3), .025, Y, seg=6)                        # grab rail (beside the door)
     r.node('body', root, mesh=b, ground=0)
     for i, sx in enumerate((-1, 1)):
         t = Mesh(); track(t, 3.05, .9, .56, ST, DK, 0, front_r=.36, rear_r=.42, shoes=42)
@@ -498,7 +500,7 @@ def crane():
     box(s, (0, .65, .9), (2.3, .8, 2.6), Y, bevel=.12)                                # turntable house
     box(s, (0, .75, 2.35), (2.4, 1.0, .7), DK, bevel=.1)                               # counterweight
     cyl(s, (-.5, 1.0, 1.5), (.5, 1.0, 1.5), .35, DK, seg=16)                          # winch
-    cab_box(s, (-1.05, .25, -.4), .9, 1.5, 1.6)
+    cab_box(s, (-1.05, .25, -.4), .9, 1.5, 1.6, roof=GL)                              # roof window: the boom and hook overhead
     r.node('superMesh', sup, mesh=s)
     boom = r.node('boomBase', sup, (0, 1.0, 1.4))
     bm = Mesh()
@@ -638,21 +640,23 @@ def props():
     sk2 = Mesh(); cyl(sk2, (0, .2, 0), (0, 1.5, 0), .55, 'MI_Site_Skip', seg=16, r2=.85)
     cyl(sk2, (0, 0, 0), (0, .2, 0), .3, DK, seg=10)
     meshes['SM_Load_skip'] = sk2
-    # The gravel access track from the gate to the park path (world coordinates, ground heights from site.json).
+    # The gravel aprons through the gates, from the park path outside to inside (world coordinates, ground and soil
+    # heights from site.json).
     site = json.load(open(os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data', 'site.json')))
     tr = Mesh()
-    P = [np.array(p, float) for p in site.get('track', [])]
-    def side(i):   # the track's half-width vector at point i (across the mean direction there, so the strip joins up)
-        a, b = P[max(0, i - 1)], P[min(len(P) - 1, i + 1)]
-        d = np.array([b[0] - a[0], b[2] - a[2]]); d /= max(1e-6, np.linalg.norm(d))
-        return np.array([-d[1], 0, d[0]]) * 2.25
-    for i in range(len(P) - 1):
-        a, b, na, nb = P[i], P[i + 1], side(i), side(i + 1)
-        la, ra, lb, rb = a + na, a - na, b + nb, b - nb
-        if np.cross(ra - la, lb - la)[1] > 0:   # faces up
-            tr.quad(la, ra, rb, lb, 'MI_Site_Gravel')
-        else:
-            tr.quad(la, lb, rb, ra, 'MI_Site_Gravel')
+    for line in site.get('tracks', [site['track']] if 'track' in site else []):
+        P = [np.array(p, float) for p in line]
+        def side(i):   # the track's half-width vector at point i (across the mean direction there, so the strip joins up)
+            a, b = P[max(0, i - 1)], P[min(len(P) - 1, i + 1)]
+            d = np.array([b[0] - a[0], b[2] - a[2]]); d /= max(1e-6, np.linalg.norm(d))
+            return np.array([-d[1], 0, d[0]]) * 2.25
+        for i in range(len(P) - 1):
+            a, b, na, nb = P[i], P[i + 1], side(i), side(i + 1)
+            la, ra, lb, rb = a + na, a - na, b + nb, b - nb
+            if np.cross(ra - la, lb - la)[1] > 0:   # faces up
+                tr.quad(la, ra, rb, lb, 'MI_Site_Gravel')
+            else:
+                tr.quad(la, lb, rb, ra, 'MI_Site_Gravel')
     if len(tr.P):
         meshes['SM_Site_track'] = tr
     bpy.ops.wm.read_factory_settings(use_empty=True)

@@ -63,6 +63,10 @@ public:
 
 	struct FTree { double X, S, H; };
 	TArray<FTree> AllTrees;   // world.trees: data.trees + courtyard trees (local frame)
+	// Ground the game made its own (local frame): the construction site's soil field and the paintball yard. The park's
+	// trees, bushes and their collision shapes there are left out (not in the web game; new features, 28 Oct 2026).
+	TArray<FBox2D> Cleared;
+	bool InCleared(double X, double Z) const { const FVector2D L = ToLocal(X, Z); for (const FBox2D& B : Cleared) if (B.IsInside(L)) return true; return false; }
 
 	// The player's collision world (apartment, stair towers, surroundings, firepit) and the vehicles' worlds.
 	FHKWalkWorld WalkWorld;
