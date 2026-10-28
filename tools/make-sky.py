@@ -3,7 +3,8 @@
 
     python tools/make-sky.py
 
-Writes tools/out/textures/T_SkyPhoto.exr (the long-lat HDR as half floats, imported by materials_sky.py) and
+Writes tools/out/textures/T_SkyPhoto.exr (the long-lat HDR as half floats, imported by materials_sky.py),
+T_SkyAmbient.hdr (the same sky with its sun clipped, for the sky light) and
 sky.json with the turn that puts the photo's sun at the game's sun azimuth: the material samples
 u = atan2(dir.y, dir.x) / 2pi + u0, v = acos(dir.z) / pi with dir the Unreal world direction.
 """
@@ -33,6 +34,14 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     cv2.imwrite(os.path.join(OUT, 'T_SkyPhoto.exr'), im.astype(np.float32), [cv2.IMWRITE_EXR_TYPE, cv2.IMWRITE_EXR_TYPE_HALF])
     sky_median = float(np.median(lum[: h // 2]))
+    # Ambient light for the sky light: the same photo with the sun clipped (the sun light already does the sun),
+    # 1024 x 512, as Radiance HDR (Unreal imports it as a long-lat cube map).
+    amb = im.copy()
+    cap = sky_median * 12
+    scale = np.minimum(1.0, cap / np.maximum(lum, 1e-6))
+    amb *= scale[..., None]
+    amb = cv2.resize(amb, (1024, 512), interpolation=cv2.INTER_AREA)
+    cv2.imwrite(os.path.join(OUT, 'T_SkyAmbient.hdr'), amb.astype(np.float32))
     json.dump({'u0': u0, 'sunElevation': elev, 'skyMedian': sky_median}, open(os.path.join(OUT, 'sky.json'), 'w'), indent=1)
     print(f'HK: sky photo sun at u {u_sun:.3f}, {elev:.1f} deg; game sun azimuth {math.degrees(az):.1f} deg -> u0 {u0:.4f}')
 

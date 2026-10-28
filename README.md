@@ -26,8 +26,8 @@ Refresh after changes in the web game: `powershell -File tools\refresh-reference
   `wss://haarklous-ue5-test.server-smoke.workers.dev`, see `docs/ONLINE.md`). Never point it at the live game.
 
 ## Frame rates (28 Oct 2026, this laptop, 2240 × 1400 full screen, quality "Balanced")
-Packaged game with the photo-real pass: home 30.9 fps, firepit 25.3, park 25.8, street 26.4, flying 29.2 (averages;
-slowest 1 % of frames 20.9–26.4 fps; a second run within 0.2 fps; before the photo-real pass 4–7 fps faster). Measure again: `dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps
+Packaged game with the photo-real pass: home 32.3 fps, firepit 26.1, park 27.6, street 27.4, flying 30.5 (averages;
+slowest 1 % of frames 20.8–25.7 fps; a second run within 1.4 fps; before the photo-real pass 3–7 fps faster). Measure again: `dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps
 -hkout=<folder> -fullscreen -ResX=2240 -ResY=1400` (results in `<folder>\fps.txt`), or in the editor build
 `powershell -File tools\run-game.ps1 -Test fps -Res 2240x1400 -Fullscreen`. Details: `docs/REPORT.md`.
 
@@ -46,7 +46,8 @@ See `docs/ARCHITECTURE.md`. In short:
   downpipes, chimneys, kerbs), `tools/unreal/materials_photoreal.py`; the light and camera look is
   `tools/unreal/look.py` (`apply_look.py` changes the level without re-baking), the sky photo (`tools/make-sky.py`,
   `tools/unreal/materials_sky.py`) the new car and tree crowns (`tools/blender/car_model.py`, `tree_model.py`, used by build_assets.py;
-  `tools/blender/build_trees.py` + `tools/unreal/import_trees.py` rebuild only the crowns). Also run
+  `tools/blender/build_trees.py` + `tools/unreal/import_trees.py` rebuild only the crowns), and the 3D walls near
+  home (`tools/blender/build_facades.py`, `tools/unreal/import_facades.py`; then bake the lighting). Also run
   by `tools\build-assets.ps1`.
 - `powershell -File tools\build-unreal.ps1` - compile the C++ game.
 - `powershell -File tools\run-tests.ps1` - automation tests (the C++ port against the web code's own answers).

@@ -90,6 +90,22 @@ def material(tex):
     return m
 
 
+AMBIENT_INTENSITY = 1.0 / SKY['skyMedian'] * 0.45     # the photo's sky median to about the old sky light's level
+
+
+def ambient():
+    t = unreal.AssetImportTask()
+    t.filename = os.path.join(TEX, 'T_SkyAmbient.hdr')
+    t.destination_path = '/Game/Haarklous/Textures/Lib'
+    t.destination_name = 'T_SkyAmbient'
+    t.automated = True; t.replace_existing = True; t.save = False
+    AT.import_asset_tasks([t])
+    tex = unreal.load_asset('/Game/Haarklous/Textures/Lib/T_SkyAmbient')
+    EAL.save_loaded_asset(tex)
+    log('sky ambient', type(tex).__name__)
+    return tex
+
+
 def main():
     m = material(texture())
     LES.load_level('/Game/Maps/Torshov')
@@ -103,11 +119,20 @@ def main():
             a.static_mesh_component.set_editor_property('visible_in_real_time_sky_captures', False)
             a.set_actor_hidden_in_game(False)
             done += 1
+    amb = ambient()
     for a in EAS.get_all_level_actors():
         if a.get_actor_label() == 'Sky light':
-            a.light_component.recapture_sky()
+            c = a.light_component
+            # Light from the photographed sky itself (sun clipped), turned like the dome, so the shade has the
+            # photo's real cloud-white and blue instead of the bare atmosphere's deep blue.
+            c.set_editor_property('source_type', unreal.SkyLightSourceType.SLS_SPECIFIED_CUBEMAP)
+            c.set_editor_property('cubemap', amb)
+            c.set_editor_property('source_cubemap_angle', (-SKY['u0'] * 360.0) % 360.0)
+            c.set_editor_property('intensity', AMBIENT_INTENSITY)
+            c.set_editor_property('light_color', unreal.Color(255, 255, 255, 255))
+            c.recapture_sky()
     LES.save_current_level()
-    log(f'sky photo on {done} dome(s), exposure {EXPOSURE:.3f}, u0 {SKY["u0"]:.4f}')
+    log(f'sky photo on {done} dome(s), exposure {EXPOSURE:.3f}, u0 {SKY["u0"]:.4f}, sky light {AMBIENT_INTENSITY:.2f} from the photo')
 
 
 main()

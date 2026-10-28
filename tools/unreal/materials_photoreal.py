@@ -551,7 +551,7 @@ def ground():
 
 def trees():
     # Crowns and bushes: the leaf cluster of scanned leaves (tools/make-leaf-atlas.py), three shades of green.
-    for key, tint in (('MI_HK_LeavesA', (1.0, 1.0, 1.0)), ('MI_HK_LeavesB', (0.9, 1.0, 0.82)), ('MI_HK_LeavesBush', (0.8, 0.92, 0.78))):
+    for key, tint in (('MI_HK_LeavesA', (0.8, 0.82, 0.78)), ('MI_HK_LeavesB', (0.72, 0.82, 0.64)), ('MI_HK_LeavesBush', (0.66, 0.76, 0.62))):
         mi = unreal.load_asset(f'{MAT_DIR}/Foliage/{key}')
         if not mi:
             log('missing', key); continue

@@ -98,6 +98,16 @@ The web material instances keep their names, slots and colours; their parents ch
   five-spoke wheels (closed lathe solids, mirrored for the left side); `build_assets.py` swaps them for the web's
   exterior materials of SM_car__body and the wheel meshes, keeping the interior. Other vehicles get `soften()`:
   welded, 12 mm bevel on edges over 35 degrees, weighted normals.
+- **3D walls:** `tools/blender/facade_model.py` lists the brick-block walls within 170 m of home (not near stair
+  towers, not shared with another footprint or 17A, at least 3.4 m) and builds them with window openings in the
+  web's 3 m bays (u from the web's walls() order), sill 0.876 m / head 2.301 m per 2.85 m storey; vertex colour =
+  the building's tint / 2.5 (alpha 1 = plaster) for `M_HK_Wall3D`; glass `M_HK_Glass3D` (interior mapping from
+  uv0 room cell, uv1 window, vertex red = seed). `build_facades.py` writes 50 m tiles; `build_assets.py` drops
+  the web's flat facade triangles on those walls from world_near; `tools/unreal/import_facades.py` makes the
+  materials, imports (lightmap 512) and places static actors (also called by build_level.py). Re-bake after.
+- **Sky light:** `make-sky.py` also writes `T_SkyAmbient.hdr` (the photo with its sun clipped at 12x the sky
+  median); `materials_sky.py` makes it the sky light's specified cube map (turned like the dome). look.py no
+  longer sets the sky light.
 - **Gutters:** `build_details.py` puts a stretched half-round gutter along each eave of the hipped roofs.
   Cornices (stepped, 0.32 m out, casting shadow) along every wall top and concrete ledges on brick plinths,
   stretched per wall, overlapping at corners; skipped next to 17A's own stair tower.

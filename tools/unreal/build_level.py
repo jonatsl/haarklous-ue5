@@ -16,6 +16,7 @@ import unreal
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import look  # noqa: E402
+import import_facades  # noqa: E402  (photo-real pass: 3D facades near home)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 DATA = os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data')
@@ -259,6 +260,8 @@ def world_settings():
 def main():
     open_level()
     place_static()
+    if os.path.exists(os.path.join(FBX, 'facades.manifest.json')):
+        import_facades.place()
     lights()
     world_settings()
     LES.save_current_level()

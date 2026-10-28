@@ -266,6 +266,13 @@ What changed (all made by scripts, details in `docs/ARCHITECTURE.md`):
   five-spoke alloy wheels with rounded tyres; seats, dashboard, steering wheel and hands are the web's.
   `tools/blender/car_model.py`. Motorcycle, excavator, helicopter and plane keep their shapes but get rounded,
   light-catching edges and smooth shading.
+- **Real 3D walls near home:** within 170 m of 17A (66 blocks, 199 walls) the flat web wall is replaced by
+  geometry: real window openings with side, head and sill reveals 10–13 cm deep, the glass set back with a room
+  behind it, painted frames, mullions and a transom, and concrete sills that stick out
+  (`tools/blender/facade_model.py`). Further away the walls keep the depth-drawing material. Walls next to stair
+  towers and 17A itself are unchanged; collision is the web's.
+- **Light from the real sky:** the sky light now comes from the photographed sky itself (its sun clipped out),
+  so shade has the photo's natural mix of cloud-white and blue; lighting baked again.
 - **Gutters and cornices:** half-round eaves gutters along every hipped roof (1,896 pieces); a stepped cornice
   under every roof edge with its shadow line, and a concrete ledge on every brick plinth (4,896 walls each), so
   the blocks are no longer plain boxes.
@@ -275,7 +282,7 @@ What changed (all made by scripts, details in `docs/ARCHITECTURE.md`):
 ![Before: the front of 17A](img/before-photoreal--02-front-of-17A.jpg)
 ![After: salmon brick, three-light windows in deep reveals, grey plinth with basement windows](img/shots--02-front-of-17A.jpg)
 ![Next to 17A, from where Google Street View stands in Sigurd Lies gate: kerbs, scanned asphalt, the block's brick and windows](img/shots--04e-street-view-match.jpg)
-![A facade from the side: the windows sit back in the wall](img/shots--04c-facade-side.jpg)
+![Real 3D walls: window openings with reveals, frames and sills, lit by the photographed sky](img/shots--04c-facade-side.jpg)
 ![Before: the firepit](img/before-photoreal--03-firepit.jpg)
 ![After: scanned lawn, 3D grass, leafy trees, chimneys](img/shots--03-firepit.jpg)
 ![The 3D lawn at your feet](img/shots--04b-lawn-closeup.jpg)
@@ -302,19 +309,19 @@ Radeon. This is what its look is made of, and where this game now stands on this
 | Battlefield 4 | Here | |
 | --- | --- | --- |
 | Physically based materials from photographed surfaces | CC0 photo scans for brick, plaster, concrete, roofs, asphalt, lawn, bark and leaves | yes |
-| Detailed, irregular buildings | the web's footprints and heights, with deep windows (parallax), cornices, plinth ledges, balconies, gutters, downpipes, chimneys | partly: walls are still flat boxes under the detail |
+| Detailed, irregular buildings | the web's footprints and heights; near home real 3D walls with window openings, reveals, frames and sills; further away deep windows drawn by the material; cornices, plinth ledges, balconies, gutters, downpipes, chimneys everywhere | yes near you, drawn depth further away |
 | Dense ground cover and grass | 3D grass from photographed tufts within 15 m, scanned lawn beyond | yes, within 15 m |
 | Trees with branches, leaves that let light through, wind | limbs, separate leaf masses, two-sided foliage light, wind sway | yes |
 | Detailed vehicles | new car body and wheels; the others keep their shapes with rounded edges | partly |
 | Sky with real clouds | a photographed sky, its sun on the game's sun | yes (static clouds) |
 | HBAO, bloom, lens flares, colour grading, chromatic fringe | SSAO, bloom, lens flares, grading, fringe, vignette | yes |
 | Screen-space reflections | in windows, paint and glass | yes |
-| Dynamic sun, shadows and bounce light | stationary sun with dynamic cascaded shadows; bounce light baked (Lightmass) | baked: fully dynamic global light is beyond this laptop at 20 fps |
+| Dynamic sun, shadows and bounce light; sky lighting | stationary sun with dynamic cascaded shadows; bounce light baked (Lightmass); sky light from the photographed sky | baked bounce light (Battlefield 4 also pre-computed much of its bounce light); a moving sun is not needed, the web's sun stands still |
 | Destruction, particles, decals | fire, smoke and sparks; no destruction (the web game has none) | not applicable |
 
 ## Frame rates on this laptop
 
-Measured on 28 Oct 2026, after the photo-real pass with the new cars, trees, cornices, gutters, the sky photo and the road paint, in **the
+Measured on 28 Oct 2026, after the photo-real pass with the 3D walls, new cars, trees, cornices, gutters, the sky photo and the road paint, in **the
 packaged game you start** (`dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps -fullscreen -ResX=2240 -ResY=1400`,
 results in `tools\out\shots\fps-packaged\fps.txt`): full screen at the laptop's own resolution (2240 × 1400),
 graphics quality "Balanced" (the default: 75 % screen percentage, screen-space reflections, lens flares; light
@@ -323,14 +330,14 @@ else running. At each place the camera turns one full circle in 12 seconds, so e
 
 | Place | Average (run 1 / run 2) | Slowest 1 % of frames | Slowest single frame |
 | --- | --- | --- | --- |
-| Home (apartment, looking into the living room and out of the windows) | **30.9 / 31.0 fps** | 26.4 / 25.9 fps | 18.3 / 19.0 fps |
-| Firepit (fire, smoke, cars, grass and the block behind) | **25.3 / 25.5 fps** | 21.4 / 20.9 fps | 17.5 / 16.7 fps |
-| The park (Torshovdalen, the most trees and grass) | **25.8 / 25.9 fps** | 21.2 / 21.1 fps | 17.1 / 18.0 fps |
-| The street outside 17A | **26.4 / 26.5 fps** | 21.4 / 22.1 fps | 18.2 / 16.8 fps |
-| Flying (110 m above the district) | **29.2 / 29.2 fps** | 23.7 / 23.0 fps | 17.8 / 18.2 fps |
+| Home (apartment, looking into the living room and out of the windows) | **32.3 / 30.9 fps** | 25.7 / 24.0 fps | 17.1 / 19.5 fps |
+| Firepit (fire, smoke, cars, grass and the block behind) | **26.1 / 26.4 fps** | 21.3 / 21.1 fps | 14.1 / 17.0 fps |
+| The park (Torshovdalen, the most trees and grass) | **27.6 / 27.6 fps** | 20.8 / 21.7 fps | 16.4 / 17.5 fps |
+| The street outside 17A | **27.4 / 27.4 fps** | 22.6 / 22.6 fps | 17.7 / 18.6 fps |
+| Flying (110 m above the district) | **30.5 / 30.6 fps** | 24.9 / 24.9 fps | 17.5 / 18.0 fps |
 
 Every place stays above the 20 fps goal on average and in the slowest 1 % of frames; single frames dip to 15–19 fps
-now and then. The photo-real pass costs 4–7 fps against the realism pass (home 37.3, firepit 29.7, park 29.8, street
+now and then. The photo-real pass costs 3–7 fps against the realism pass (home 37.3, firepit 29.7, park 29.8, street
 30.0, flying 33.8) and the original port (32–40 fps). Balconies, kerbs and the other details cost about 2–3 fps
 (after taking the shadows off kerbs, road paint and railings and laying kerbs as 2 m stones); reflections, contact
 shadows and light shafts about 1 fps each (so the last two are only on "Sharp"); the 3D grass under 1 fps. The

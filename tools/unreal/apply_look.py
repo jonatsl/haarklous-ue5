@@ -17,8 +17,6 @@ for a in EAS.get_all_level_actors():
     label = a.get_actor_label()
     if label == 'Sun':
         look.sun(a.light_component); done.append(label)
-    elif label == 'Sky light':
-        look.sky_light(a.light_component); done.append(label)
     elif label == 'Post process':
         a.settings = look.post(a.settings); done.append(label)
 LES.save_current_level()

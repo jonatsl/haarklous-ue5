@@ -20,15 +20,17 @@ try {
   if ($From -le 1) { node tools/web-export/export.mjs; if ($LASTEXITCODE) { throw "export failed" } }
   if ($From -le 2) { node tools/web-export/make-rigs.mjs; if ($LASTEXITCODE) { throw "make-rigs failed" } }
   if ($From -le 3) {
+    # The building map first: build_assets.py (world_near) leaves out the walls the 3D facades replace.
+    python tools/make-building-map.py; if ($LASTEXITCODE) { throw "make-building-map failed" }
     & $blender -b --factory-startup -P tools/blender/build_assets.py -- $Rigs.Split(' ') 2>&1 | Select-String "HK:|Error|Traceback"
     & $blender -b --factory-startup -P tools/blender/make_textures.py 2>&1 | Select-String "Error|Traceback"
     python tools/fetch-library.py; if ($LASTEXITCODE) { throw "fetch-library failed" }
-    python tools/make-building-map.py; if ($LASTEXITCODE) { throw "make-building-map failed" }
     python tools/make-grass-atlas.py; if ($LASTEXITCODE) { throw "make-grass-atlas failed" }
     python tools/make-leaf-atlas.py; if ($LASTEXITCODE) { throw "make-leaf-atlas failed" }
     python tools/make-sky.py; if ($LASTEXITCODE) { throw "make-sky failed" }
     & $blender -b --factory-startup -P tools/blender/build_grass.py 2>&1 | Select-String "HK:|Error|Traceback"
     & $blender -b --factory-startup -P tools/blender/build_details.py 2>&1 | Select-String "HK:|Error|Traceback"
+    & $blender -b --factory-startup -P tools/blender/build_facades.py 2>&1 | Select-String "HK:|Error|Traceback"
   }
   if ($From -le 4) {
     $extra = if ($Rigs) { @("-ScriptArgs", $Rigs) } else { @() }
@@ -39,6 +41,7 @@ try {
     powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/materials_extra.py | Select-String "HK:|Error:|Traceback"
     powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/materials_realism.py | Select-String "HK:|Error:|Traceback"
     powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/materials_photoreal.py | Select-String "HK:|Error:|Traceback"
+    powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/import_facades.py | Select-String "HK:|Error:|Traceback"
     powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/material_usage.py | Select-String "HK:|Error:|Traceback"
   }
   if ($From -le 6) {

@@ -23,6 +23,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import car_model  # noqa: E402  (photo-real pass: the car's new body and wheels)
 import tree_model  # noqa: E402  (photo-real pass: tree crowns with limbs and leaf masses)
+import facade_model  # noqa: E402  (photo-real pass: 3D facades near home replace the flat web walls)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 EXPORT = os.path.join(ROOT, 'tools', 'out', 'web-export')
@@ -303,6 +304,17 @@ def soften(ob):
     ob.modifiers.new('smooth by angle', 'WEIGHTED_NORMAL').keep_sharp = True
 
 
+def drop_rebuilt_facades(data, slot_keys):
+    """Photo-real pass: the web's flat facade triangles on the walls that tools/blender/build_facades.py rebuilds
+    in 3D (facade_model.covered_walls) are left out of the city tiles."""
+    cells = facade_model.index_walls(facade_model.covered_walls())
+    fac = slot_keys.index('MI_facade')
+    cen = data['pos'].mean(axis=1)
+    drop = np.array([s == fac and facade_model.on_wall(c, None, cells) for s, c in zip(data['slot'], cen)], dtype=bool)
+    print(f'HK: {int(drop.sum())} flat facade triangles replaced by 3D facades')
+    return {k: v[~drop] for k, v in data.items()}
+
+
 def material(key):
     m = bpy.data.materials.get(key)
     if not m:
@@ -386,6 +398,8 @@ def build_rig(rig):
         data = gather(exp, bin_data, a['meshes'], a['slots'])
         if rig == 'car' and data is not None:
             data = car_parts(a['asset'], data, a['slotKeys'])
+        if rig == 'world_near' and data is not None and 'MI_facade' in a['slotKeys']:
+            data = drop_rebuilt_facades(data, a['slotKeys'])
         tile = TILES.get(rig) if a.get('levelStatic') else None
         if data is not None and tile:
             cx = data['pos'][:, :, 0].mean(axis=1)

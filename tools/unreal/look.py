@@ -32,11 +32,12 @@ def sun(lc):
 
 
 def sky_light(sc):
+    # The sky light's source and strength come from the sky photo (materials_sky.py); this is the level before it.
     _set(sc, [('intensity', 1.2)], 'sky light')
 
 
 def post(s):
-    _set(s, [('override_auto_exposure_bias', True), ('auto_exposure_bias', 0.4),
+    _set(s, [('override_auto_exposure_bias', True), ('auto_exposure_bias', 0.55),
              ('override_bloom_intensity', True), ('bloom_intensity', 0.55),
              ('override_lens_flare_intensity', True), ('lens_flare_intensity', 0.22),
              ('override_lens_flare_bokeh_size', True), ('lens_flare_bokeh_size', 2.5),
@@ -49,7 +50,7 @@ def post(s):
              ('override_ambient_occlusion_power', True), ('ambient_occlusion_power', 1.6),
              ('override_color_saturation', True), ('color_saturation', unreal.Vector4(0.92, 0.92, 0.92, 1.0)),
              ('override_color_contrast', True), ('color_contrast', unreal.Vector4(1.1, 1.1, 1.1, 1.0)),
-             ('override_color_gain_shadows', True), ('color_gain_shadows', unreal.Vector4(0.95, 0.99, 1.05, 1.0)),
+             ('override_color_gain_shadows', True), ('color_gain_shadows', unreal.Vector4(1.0, 1.0, 1.0, 1.0)),
              ('override_color_gain_highlights', True), ('color_gain_highlights', unreal.Vector4(1.04, 1.01, 0.95, 1.0)),
              ('override_film_slope', True), ('film_slope', 0.9),
              ('override_film_toe', True), ('film_toe', 0.57),
