@@ -20,6 +20,9 @@ import sys
 
 import numpy as np
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import car_model  # noqa: E402  (photo-real pass: the car's new body and wheels)
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 EXPORT = os.path.join(ROOT, 'tools', 'out', 'web-export')
 PLAN = os.path.join(ROOT, 'tools', 'out', 'build-plan')
@@ -244,6 +247,61 @@ def gather(exp, bin_data, mesh_indices, slots):
     return out
 
 
+# The web car's exterior materials (body paint, glass, bumpers, lights, plate, handles): replaced by car_model.
+CAR_EXTERIOR = {'MI_Physical_111214_362', 'MI_Physical_1d2328_363', 'MI_polymer_141516', 'MI_Standard_e8eef2_365',
+                'MI_Standard_a00000_366', 'MI_chrome', 'MI_Standard_e8eef2_368', 'MI_Standard_a00000_369',
+                'MI_Standard_f2f2ee_370'}
+
+
+def corners_to_data(P, N, U, K, slot_keys):
+    T = len(K)
+    return {'pos': P, 'nor': N, 'uv': U, 'slot': np.array([slot_keys.index(k) for k in K], dtype=np.int64),
+            'cast': np.ones(T, dtype=bool)}
+
+
+def car_parts(asset, data, slot_keys):
+    """Photo-real pass: the car keeps the web's interior, seats, dashboard and steering wheel, gets a smooth body
+    (car_model.car_shell) and alloy wheels (car_model.car_wheel, mirrored on the left side)."""
+    if asset == 'SM_car__body':
+        keep = np.array([slot_keys[s] not in CAR_EXTERIOR for s in data['slot']], dtype=bool)
+        inner = {k: v[keep] for k, v in data.items() if k in ('pos', 'nor', 'uv', 'slot', 'cast')}
+        shell = corners_to_data(*car_model.car_shell(), slot_keys)
+        return {k: np.concatenate([inner[k], shell[k]]) for k in inner}
+    if asset.startswith('SM_car__wheels_') and asset.endswith('_wheel'):
+        P, N, U, K = car_model.car_wheel()
+        if int(asset.split('_')[-2]) in (0, 2):                 # the left wheels (x = -0.78): outer face toward -x
+            P, N = P * [-1, 1, 1], N * [-1, 1, 1]
+            P, N, U = P[:, ::-1], N[:, ::-1], U[:, ::-1]
+        return corners_to_data(P, N, U, K, slot_keys)
+    return data
+
+
+# Photo-real pass: these rigs keep the web's shapes but get rounded edges (a small bevel that catches the light, as
+# real metal and plastic edges do) and smooth, weighted normals instead of the web's flat facets.
+SOFTEN_RIGS = {'motorcycle', 'excavator', 'helicopter', 'plane'}
+
+
+def soften(ob):
+    import bmesh
+    me = ob.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+    bm.to_mesh(me)
+    bm.free()
+    if me.has_custom_normals:
+        me.attributes.remove(me.attributes['custom_normal'])
+    for poly in me.polygons:
+        poly.use_smooth = True
+    bev = ob.modifiers.new('round edges', 'BEVEL')
+    bev.width = 0.012
+    bev.segments = 2
+    bev.limit_method = 'ANGLE'
+    bev.angle_limit = math.radians(35)
+    bev.harden_normals = True
+    ob.modifiers.new('smooth by angle', 'WEIGHTED_NORMAL').keep_sharp = True
+
+
 def material(key):
     m = bpy.data.materials.get(key)
     if not m:
@@ -325,6 +383,8 @@ def build_rig(rig):
     made, instances = [], []
     for a in plan['assets']:
         data = gather(exp, bin_data, a['meshes'], a['slots'])
+        if rig == 'car' and data is not None:
+            data = car_parts(a['asset'], data, a['slotKeys'])
         tile = TILES.get(rig) if a.get('levelStatic') else None
         if data is not None and tile:
             cx = data['pos'][:, :, 0].mean(axis=1)
@@ -352,7 +412,9 @@ def build_rig(rig):
             made.append({'asset': a['asset'], 'levelStatic': True})
             made.append({'asset': a['asset'] + '__noshadow', 'levelStatic': True, 'castShadow': False})
         elif data is not None:
-            build_object(a['asset'], data, a['slotKeys'])
+            ob = build_object(a['asset'], data, a['slotKeys'])
+            if rig in SOFTEN_RIGS:
+                soften(ob)
             made.append({'asset': a['asset'], 'levelStatic': bool(a.get('levelStatic'))})
         # Instanced meshes of this node: one base mesh each plus its placements.
         for mi in a['meshes']:

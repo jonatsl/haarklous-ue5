@@ -246,6 +246,9 @@ void AHKGame::SpawnTrees()
 		{
 			const TSharedPtr<FJsonObject> O = V->AsObject();
 			const FString Asset = HKJson::Str(O, TEXT("asset"));
+			static FString Skip;   // frame-rate comparisons: -HKSkipDetails=SM_Kerb,SM_Balcony
+			static const bool bSkip = FParse::Value(FCommandLine::Get(), TEXT("HKSkipDetails="), Skip);
+			if (bSkip && Skip.Contains(Asset)) continue;
 			UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr, *FString::Printf(TEXT("/Game/Haarklous/Meshes/%s/%s.%s"), Rig, *Asset, *Asset));
 			if (!Mesh) continue;
 			UHierarchicalInstancedStaticMeshComponent* H = NewObject<UHierarchicalInstancedStaticMeshComponent>(this);
@@ -253,8 +256,8 @@ void AHKGame::SpawnTrees()
 			H->SetMobility(EComponentMobility::Static);
 			H->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 			H->SetCastShadow(HKJson::Bool(O, TEXT("cast"), true));
-			// Details are small: shorter view distances, and kerb stones and railings cast no shadow (frame rate).
-			const bool bDetail = FString(Rig) == TEXT("details"), bKerb = Asset == TEXT("SM_Kerb");
+			// Details are small: shorter view distances, and kerb stones, road paint and railings cast no shadow.
+			const bool bDetail = FString(Rig) == TEXT("details"), bKerb = Asset == TEXT("SM_Kerb") || Asset == TEXT("SM_RoadDash") || Asset == TEXT("SM_ZebraStripe");
 			H->SetCullDistances(0, bDetail ? (Asset == TEXT("SM_Chimney") ? 60000 : bKerb ? 7000 : Asset == TEXT("SM_Downpipe") ? 9000 : 15000) : FString(Rig) == TEXT("world_far") ? 150000 : 90000);
 			if (bKerb || Asset == TEXT("SM_BalconyRail")) H->SetCastShadow(false);
 			H->RegisterComponent();
@@ -932,13 +935,13 @@ void AHKGame::ApplyQuality()
 {
 	// Web: 0 Fast (no shadows), 1 Balanced, 2 Sharp. Unreal: scalability levels and screen percentage for this laptop,
 	// plus the photo-real effects of tools/unreal/look.py (reflections, light shafts, lens flares, contact shadows).
-	// Balanced leaves out the light shafts (about 1 fps on this laptop; they only show toward the sun).
+	// Balanced leaves out the light shafts and contact shadows (about 1 fps each on this laptop; subtle effects).
 	if (!GEngine) return;
 	static const TArray<const TCHAR*> Cmds[3] = {
 		{TEXT("sg.ShadowQuality 0"), TEXT("sg.PostProcessQuality 0"), TEXT("sg.EffectsQuality 0"), TEXT("sg.FoliageQuality 0"), TEXT("sg.TextureQuality 1"), TEXT("r.ScreenPercentage 65"),
 		 TEXT("r.SSR.Quality 0"), TEXT("r.LightShaftQuality 0"), TEXT("r.LensFlareQuality 0"), TEXT("r.ContactShadows 0")},
 		{TEXT("sg.ShadowQuality 1"), TEXT("sg.PostProcessQuality 1"), TEXT("sg.EffectsQuality 1"), TEXT("sg.FoliageQuality 1"), TEXT("sg.TextureQuality 2"), TEXT("r.ScreenPercentage 75"),
-		 TEXT("r.SSR.Quality 1"), TEXT("r.LightShaftQuality 0"), TEXT("r.LensFlareQuality 1"), TEXT("r.ContactShadows 1"), TEXT("r.BloomQuality 4"), TEXT("r.SceneColorFringeQuality 1")},
+		 TEXT("r.SSR.Quality 1"), TEXT("r.LightShaftQuality 0"), TEXT("r.LensFlareQuality 1"), TEXT("r.ContactShadows 0"), TEXT("r.BloomQuality 4"), TEXT("r.SceneColorFringeQuality 1")},
 		{TEXT("sg.ShadowQuality 2"), TEXT("sg.PostProcessQuality 2"), TEXT("sg.EffectsQuality 2"), TEXT("sg.FoliageQuality 2"), TEXT("sg.TextureQuality 2"), TEXT("r.ScreenPercentage 100"),
 		 TEXT("r.SSR.Quality 2"), TEXT("r.LightShaftQuality 1"), TEXT("r.LensFlareQuality 2"), TEXT("r.ContactShadows 1"), TEXT("r.BloomQuality 5"), TEXT("r.SceneColorFringeQuality 1")}};
 	for (const TCHAR* C : Cmds[FMath::Clamp(Quality, 0, 2)]) GEngine->Exec(GetWorld(), C);

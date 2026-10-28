@@ -47,7 +47,9 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
   `docs/ARCHITECTURE.md` "Photo-real pass". The real blocks around 17A are salmon brick with dark-brown windows,
   grey plinths and concrete balconies; neighbours yellow/red plaster; roofs dark slate, some red tile (Street View,
   Esri aerial, OSM colours). Free CC0 scans from Poly Haven and ambientCG are allowed (user, 27 Oct 2026; re-download
-  with `python tools/fetch-library.py`); Fab/Megascans is not used (needs the user's Epic sign-in and licence).
+  with `python tools/fetch-library.py`; the sky photo kloofendal_38d_partly_cloudy_puresky allowed 28 Oct 2026);
+  Fab/Megascans is not used (needs the user's Epic sign-in and licence). Vehicles: the car has a new Blender body
+  (`tools/blender/car_model.py`); the others keep the web shapes with rounded edges.
 - Bugs found in the web game and ideas (not changed without the user's OK): `docs/GAMEPLAY-IDEAS.md`.
 - Final report: `docs/REPORT.md`; `python tools\make-report.py` turns it into `docs/report/Haarklous-UE5-report.html`
   with the screenshots embedded.

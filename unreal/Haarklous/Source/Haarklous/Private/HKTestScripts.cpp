@@ -57,6 +57,8 @@ namespace
 				// Where Google Street View stands in Sigurd Lies gate (panorama at 59.93614 N 10.77697 E), looking at
 				// bearing 322 degrees toward the next block, to compare with the real photo.
 				Ground(T, -31.42, -2.52, 2.2, Toward(-31.42, -2.52, -21.78, .15), -.09); T.Wait(1.5); T.Shot(TEXT("04e-street-view-match"));
+				// A bigger street to the west: yellow centre dashes and a zebra crossing (tools/blender/build_details.py).
+				Ground(T, -224.5, -38, 1.7, Toward(-224.5, -38, -230, -54.5), -.12); T.Wait(1); T.Shot(TEXT("04f-street-markings"));
 				// Apartment rooms (apartment-data.js): living x 0..2.9 z 0..4.9, kitchen x 1.7..5.7 z 6.3..8.9, bedroom z 8.5..10.
 				T.Pose(0.4, 1.62, 0.4, Toward(0.4, 0.4, 2.6, 4.5), -.1); T.Shot(TEXT("05-apartment-living"));
 				T.Pose(2.0, 1.62, 6.6, Toward(2.0, 6.6, 5.4, 8.6), -.2); T.Shot(TEXT("06-apartment-kitchen"));

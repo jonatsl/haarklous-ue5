@@ -85,9 +85,23 @@ The web material instances keep their names, slots and colours; their parents ch
   the lawn scan under them. `PerInstanceFadeAmount` is 1 when fully shown (it sinks the cards near the cull distance).
   Tiles reach 15 m, fade 9-13 m.
 - **Trees:** `tools/make-leaf-atlas.py` scatters ~1,100 scanned leaves (Poly Haven tree_small_02) over a card.
+- **Sky photo:** `tools/make-sky.py` turns the CC0 HDR (sun at 38 degrees like the game's) into `T_SkyPhoto` (BC6H,
+  no mips so the u wrap has no seam) and finds the turn (u0) that puts its sun on the game's sun azimuth;
+  `tools/unreal/materials_sky.py` puts `M_HK_SkyPhoto` (unlit, "is sky": no fog or aerial perspective, sun capped)
+  on the cloud dome and keeps the dome out of the sky light and reflection captures, so the lighting still comes
+  from the sky atmosphere. Run it after build_level.py. (Volumetric clouds were tried: 3-5 fps, removed.)
+- **Cars:** `tools/blender/car_model.py` builds a subdivided hatchback shell over the web car's profile (cage of
+  cross-sections, arches over the web's wheels, glass/pillar/roof faces by band, a lining inside without glass) and
+  five-spoke wheels (closed lathe solids, mirrored for the left side); `build_assets.py` swaps them for the web's
+  exterior materials of SM_car__body and the wheel meshes, keeping the interior. Other vehicles get `soften()`:
+  welded, 12 mm bevel on edges over 35 degrees, weighted normals.
+- **Road paint:** `build_details.py` `markings()`: yellow centre dashes (3 m every 12 m) on tertiary and bigger
+  roads, zebra crossings (0.5 m stripes) where footpaths cross them, pitched with the ground like the kerbs.
 - **Look:** `tools/unreal/look.py` (sun 4.2 with light shafts and contact shadows, sky light 1.2, bloom, lens flares,
   SSR, AO, grading) is used by build_level.py and can be applied to the existing level without re-baking by
-  `apply_look.py`. `AHKGame::ApplyQuality` switches SSR, light shafts, lens flares and contact shadows per quality.
+  `apply_look.py`. `AHKGame::ApplyQuality` switches SSR, light shafts, lens flares and contact shadows per quality
+  (Balanced: SSR and lens flares; Sharp: all). Test switches: `-HKNoGrass`, `-HKNoDetails`, `-HKSkipDetails=`,
+  `-HKCmds=cvar:value,...`.
 
 ## Core C++ (Source/Haarklous)
 | File | What |

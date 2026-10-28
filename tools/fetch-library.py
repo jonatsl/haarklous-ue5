@@ -2,7 +2,8 @@
 
     python tools/fetch-library.py
 
-Sources: Poly Haven (polyhaven.com, public API, CC0) and ambientCG (ambientcg.com, CC0). 2K JPG maps only, into
+Sources: Poly Haven (polyhaven.com, public API, CC0) and ambientCG (ambientcg.com, CC0). 2K JPG maps (and one 4K
+HDR sky photo), into
 tools/out/library/<asset>/ (not in git; the imported Unreal textures are). Files already there are kept.
 Credits: docs/REPORT.md "Licences" and README.
 """
@@ -25,7 +26,6 @@ POLYHAVEN = {
     'asphalt_04': ['Diffuse', 'nor_gl', 'Rough'],
     'grey_roof_01': ['Diffuse', 'nor_gl', 'Rough', 'AO'],                            # dark slate roofs of the blocks
     'clay_roof_tiles_02': ['Diffuse', 'nor_gl', 'Rough', 'AO'],                      # red tile roofs
-    'granite_tile': ['Diffuse', 'nor_gl', 'Rough'],                                  # granite kerbs
     'bark_brown_02': ['Diffuse', 'nor_gl', 'Rough'],                                 # tree bark
     'grass_bermuda_01': ['Diffuse', 'Alpha', 'nor_gl', 'Rough', 'AO'],               # real grass blades (model maps)
     'grass_medium_01': ['Diffuse', 'Alpha', 'nor_gl', 'dry_diff'],
@@ -34,6 +34,8 @@ POLYHAVEN = {
 # Geometry of the two grass models (glTF, 1K textures), to cut the blade cards from their atlases.
 POLYHAVEN_GLTF = ['grass_bermuda_01', 'grass_medium_01']
 AMBIENTCG = ['Grass001', 'Grass004', 'Ground037']                                    # lawn and worn ground
+# The sky photo (allowed by the user on 28 Oct 2026): sun at 38 degrees like the game's sun, partly cloudy.
+HDRI = 'kloofendal_38d_partly_cloudy_puresky'
 
 
 def get(url):
@@ -65,6 +67,14 @@ def polyhaven():
                 print('HK: got', os.path.relpath(path, ROOT))
 
 
+def hdri():
+    f = json.loads(get(f'https://api.polyhaven.com/files/{HDRI}'))['hdri']['4k']['hdr']
+    path = os.path.join(OUT, HDRI, os.path.basename(f['url']))
+    if not os.path.exists(path):
+        save(path, get(f['url']))
+        print('HK: got', os.path.relpath(path, ROOT), round(f['size'] / 1e6, 1), 'MB')
+
+
 def ambientcg():
     for asset in AMBIENTCG:
         folder = os.path.join(OUT, asset)
@@ -80,6 +90,7 @@ def ambientcg():
 
 if __name__ == '__main__':
     polyhaven()
+    hdri()
     ambientcg()
     total = sum(os.path.getsize(os.path.join(d, f)) for d, _, fs in os.walk(OUT) for f in fs)
     print(f'HK: library {total / 1e6:.0f} MB in {os.path.relpath(OUT, ROOT)}')

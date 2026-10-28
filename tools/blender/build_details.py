@@ -13,6 +13,7 @@ Meshes (metres, Blender z up, the wall plane at y = 0, sticking out toward -y):
   SM_BalconyPanel   a slab with a solid painted front (slot 0 concrete, 1 railing, 2 panel)
   SM_Downpipe       8-sided pipe, 1 m tall (scaled to the building), with wall brackets (slot 0 metal)
   SM_Chimney        brick stack with a concrete cap, its base 1.5 m below the given point (slot 0 brick, 1 cap)
+  SM_RoadDash, SM_ZebraStripe  a 1 m road-paint square, stretched per mark (slot 0 yellow / white paint)
   SM_Kerb           a 1 m granite kerb stone, 15 cm wide, 10 cm above the ground (slot 0 granite), placed 2 m
                     long (stretched) to halve the number of objects
 each written to tools/out/fbx/details_<name>.fbx.
@@ -23,7 +24,7 @@ apartment blocks (three storeys or more), on some of the window bays (3 m, as M_
 the stair towers and not on Haarklous plass 17 itself (its own flat and balcony are real geometry); downpipes at
 about half of the outside corners; two chimneys on each hipped ridge; kerb stones along both edges of the
 drivable streets (the web paints them w wide), except where the ground beyond is asphalt too (junctions, drives,
-parking) according to the game's own surface map.
+parking) according to the game's own surface map; yellow centre dashes and zebra crossings on the bigger streets.
 """
 import json
 import math
@@ -137,7 +138,8 @@ def kerb():
 DRIVABLE = {'residential', 'service', 'tertiary', 'secondary', 'primary', 'unclassified', 'trunk', 'trunk_link'}
 
 
-def kerbs(s, game, to_world, ue):
+def ground_helpers(s, game):
+    """height(x, z): the drawn ground in the map frame; asphalt(x, z): the game's surface map says asphalt."""
     import base64
     ter = s['terrain']
     n, half, step = ter['n'], ter['half'], ter['step']
@@ -160,6 +162,11 @@ def kerbs(s, game, to_world, ue):
         i, j = int((x + play) / (2 * play) * 1024), int((z + play) / (2 * play) * 1024)
         return 0 <= i < 1024 and 0 <= j < 1024 and surf[j, i] == 1
 
+    return height, asphalt, play
+
+
+def kerbs(s, game, to_world, ue):
+    height, asphalt, play = ground_helpers(s, game)
     out = []
     for r in s['roads']:
         if r['k'] not in DRIVABLE:
@@ -183,8 +190,89 @@ def kerbs(s, game, to_world, ue):
                     # The stone's street side (-y in Blender, +Y in Unreal) faces the road.
                     wn = np.array(to_world(*(p - nrm * side))) - np.array([wx, wz])
                     yaw_n = math.degrees(math.atan2(wn[1], wn[0])) - 90.0
-                    out.append(ue(wx, height(*p), wz, yaw_n, sx=2.0))
+                    # Tilted with the street: pitch from the ground under the stone's two ends (its +X end first).
+                    fx = np.array(to_world(*(p + d))) - np.array([wx, wz])
+                    sgn = 1.0 if fx[0] * math.cos(math.radians(yaw_n)) + fx[1] * math.sin(math.radians(yaw_n)) > 0 else -1.0
+                    pitch = math.degrees(math.atan2(height(*(p + d * sgn)) - height(*(p - d * sgn)), 2.0))
+                    out.append(ue_rot(wx, height(*p), wz, yaw_n, pitch, 2.0))
     return out
+
+
+MAIN = {'tertiary', 'secondary', 'primary', 'trunk', 'trunk_link'}
+PATHS = {'footway', 'path', 'cycleway', 'pedestrian', 'steps'}
+
+
+def ue_rot(x, y, z, yaw_deg, pitch_deg, sx=1.0, sy=1.0, sz=1.0):
+    """Unreal transform from a web point, yaw and pitch (FRotator::Quaternion with no roll)."""
+    p, w = math.radians(pitch_deg) / 2, math.radians(yaw_deg) / 2
+    SP, CP, SY, CY = math.sin(p), math.cos(p), math.sin(w), math.cos(w)
+    return [x * 100, z * 100, y * 100, SP * SY, -SP * CY, CP * SY, CP * CY, sx, sy, sz]
+
+
+def markings(s, game, to_world):
+    """Norwegian road paint on the bigger streets: yellow centre dashes (3 m every 12 m) and white zebra crossings
+    (0.5 m stripes, 1 m apart, 3 m long) where a footpath crosses them (at most one per 20 m of street)."""
+    height, asphalt, play = ground_helpers(s, game)
+    dashes, zebras = [], []
+
+    def flat(p, d, length):
+        """Unreal yaw and pitch of a mark of this length along direction d (map frame) at p, and its height."""
+        a, b = p - d * length / 2, p + d * length / 2
+        wa, wb = np.array(to_world(*a)), np.array(to_world(*b))
+        yaw = math.degrees(math.atan2(wb[1] - wa[1], wb[0] - wa[0]))
+        pitch = math.degrees(math.atan2(height(*b) - height(*a), length))
+        return yaw, pitch, max(height(*a), height(*b), height(*p)) + 0.02
+
+    roads = [(r['k'], r['w'], np.array(r['p'], dtype=float).reshape(-1, 2)) for r in s['roads']]
+    paths = [p for k, w, p in roads if k in PATHS]
+    for k, w, pts in roads:
+        if k not in MAIN:
+            continue
+        acc = 0.0
+        placed = []
+        for a, c in zip(pts[:-1], pts[1:]):
+            L = float(np.hypot(*(c - a)))
+            if L < 0.5:
+                continue
+            d = (c - a) / L
+            nrm = np.array([-d[1], d[0]])
+            t = (6.0 - acc) % 12.0
+            while t < L - 1.5:
+                p = a + d * t
+                if abs(p[0]) < play and abs(p[1]) < play and t > 1.5:
+                    yaw, pitch, y = flat(p, d, 3.0)
+                    wx, wz = to_world(*p)
+                    dashes.append(ue_rot(wx, y, wz, yaw, pitch, 3.0, 0.12))
+                t += 12.0
+            acc = (acc + L) % 12.0
+            for q in paths:
+                for e, f in zip(q[:-1], q[1:]):
+                    r_, s_ = c - a, f - e
+                    den = r_[0] * s_[1] - r_[1] * s_[0]
+                    if abs(den) < 1e-9:
+                        continue
+                    tt = ((e - a)[0] * s_[1] - (e - a)[1] * s_[0]) / den
+                    uu = ((e - a)[0] * r_[1] - (e - a)[1] * r_[0]) / den
+                    if not (0 <= tt <= 1 and 0 <= uu <= 1):
+                        continue
+                    x = a + r_ * tt
+                    if any(np.hypot(*(x - o)) < 20 for o in placed) or abs(x[0]) > play or abs(x[1]) > play:
+                        continue
+                    placed.append(x)
+                    off = -w / 2 + 0.75
+                    while off <= w / 2 - 0.5:
+                        p = x + nrm * off
+                        yaw, pitch, y = flat(p, d, 3.0)
+                        wx, wz = to_world(*p)
+                        zebras.append(ue_rot(wx, y, wz, yaw, pitch, 3.0, 0.5))
+                        off += 1.0
+    return dashes, zebras
+
+
+def road_mark():
+    m = MeshBuilder()
+    m.quad((-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.5, 0.5, 0.0), (-0.5, 0.5, 0.0), 0)
+    return m
 
 
 def chimney():
@@ -297,6 +385,7 @@ def main():
                 yaw = math.degrees(math.atan2(w2[1] - w1[1], w2[0] - w1[0]))
                 lists['SM_Chimney'].append(ue(wx, top + rise, wz, yaw))
     lists['SM_Kerb'] = kerbs(s, game, to_world, ue)
+    lists['SM_RoadDash'], lists['SM_ZebraStripe'] = markings(s, game, to_world)
     return lists
 
 
@@ -318,7 +407,9 @@ for name, mb, slots in (('SM_Balcony', balcony(False), ['MI_HK_DetailConcrete'])
                         ('SM_BalconyPanel', balcony(True), ['MI_HK_DetailConcrete', 'MI_HK_Railing', 'MI_HK_DetailPanel']),
                         ('SM_Downpipe', downpipe(), ['MI_HK_DetailMetal']),
                         ('SM_Chimney', chimney(), ['MI_HK_DetailBrick', 'MI_HK_DetailConcrete']),
-                        ('SM_Kerb', kerb(), ['MI_HK_DetailGranite'])):
+                        ('SM_Kerb', kerb(), ['MI_HK_DetailGranite']),
+                        ('SM_RoadDash', road_mark(), ['MI_HK_PaintYellow']),
+                        ('SM_ZebraStripe', road_mark(), ['MI_HK_PaintWhite'])):
     for o in list(bpy.data.objects):
         bpy.data.objects.remove(o)
     ob = mb.object(name, slots)

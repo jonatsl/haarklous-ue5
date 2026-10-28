@@ -42,7 +42,6 @@ LIBRARY = {
     'Tiles': PH('clay_roof_tiles_02'),
     'Bitumen': PH('asphalt_04'),
     'Bark': PH('bark_brown_02'),
-    'Granite': PH('granite_tile'),
     'Lawn': ('Grass001', 'Grass001_2K-JPG_', {'D': 'Color.jpg', 'N': 'NormalGL.jpg', 'R': 'Roughness.jpg'}),
 }
 # Average linear colour of each scan (measured from the 2K maps), to tint them to a wanted colour.
@@ -627,7 +626,9 @@ def details():
             ('MI_HK_DetailPanel', 'Plaster', 1 / 2.23, (1.15, 1.25, 1.25), 0.0, 0.8),
             ('MI_HK_DetailBrick', 'Brick', 1 / 2.01, SALMON_TINT, 0.0, 1.0),
             ('MI_HK_DetailMetal', 'Concrete', 1 / 2.71, (1.2, 1.3, 1.6), 0.7, 0.5),
-            ('MI_HK_DetailGranite', 'Granite', 1 / 2.3, (4.6, 4.5, 4.3), 0.0, 1.0)):
+            ('MI_HK_DetailGranite', 'Concrete', 1 / 2.71, (1.25, 1.35, 1.75), 0.0, 1.0),   # granite grey (the granite scan has tile joints)
+            ('MI_HK_PaintWhite', 'Plaster', 1 / 2.23, (1.55, 1.6, 1.65), 0.0, 0.75),
+            ('MI_HK_PaintYellow', 'Plaster', 1 / 2.23, (1.75, 1.3, 0.22), 0.0, 0.75)):
         path = f'{MAT_DIR}/Details/{name}'
         if not EAL.does_asset_exist(path):
             AT.create_asset(name, f'{MAT_DIR}/Details', unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
@@ -648,7 +649,9 @@ def details():
              'SM_BalconyPanel': ['MI_HK_DetailConcrete', 'MI_HK_Railing', 'MI_HK_DetailPanel'],
              'SM_Downpipe': ['MI_HK_DetailMetal'],
              'SM_Chimney': ['MI_HK_DetailBrick', 'MI_HK_DetailConcrete'],
-             'SM_Kerb': ['MI_HK_DetailGranite']}
+             'SM_Kerb': ['MI_HK_DetailGranite'],
+             'SM_RoadDash': ['MI_HK_PaintYellow'],
+             'SM_ZebraStripe': ['MI_HK_PaintWhite']}
     for asset, names in slots.items():
         t = unreal.AssetImportTask()
         t.filename = os.path.join(ROOT, 'tools', 'out', 'fbx', f'details_{asset}.fbx')
