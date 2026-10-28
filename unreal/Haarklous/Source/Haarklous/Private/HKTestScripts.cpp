@@ -133,6 +133,8 @@ namespace
 				Sweep(TEXT("park"), FHKData::Get().ToWorld(110, 40).X, FHKData::Get().HeightWorld(FHKData::Get().ToWorld(110, 40).X, FHKData::Get().ToWorld(110, 40).Y) + 1.65, FHKData::Get().ToWorld(110, 40).Y, 0);
 				Sweep(TEXT("street"), 2, -8.3, 22, 0);
 				Sweep(TEXT("flying"), 30, 110, 60, -.35);
+				// The construction site (machines, soil, crane): from the middle of its pad.
+				Sweep(TEXT("site"), -161.9, FHKData::Get().GroundWorld(-161.9, -287.9) + 1.65, -287.9, -.05);
 				T.FreeCamera();
 			});
 

@@ -156,6 +156,24 @@ void AHKTestDriver::Pose(double X, double Y, double Z, double Yaw, double Pitch)
 	});
 }
 
+void AHKTestDriver::WaitShaders(double MaxSeconds)
+{
+#if WITH_EDITOR
+	TSharedPtr<double> Waited = MakeShared<double>(0);
+	Steps.Add([Waited, MaxSeconds](double Dt)
+	{
+		*Waited += Dt;
+		const int32 Left = GShaderCompilingManager ? GShaderCompilingManager->GetNumRemainingJobs() : 0;
+		if ((Left == 0 && *Waited > .5) || *Waited > MaxSeconds)
+		{
+			UE_LOG(LogHaarklous, Display, TEXT("HK-TEST shaders compiled after %.0f s (%d jobs left)"), *Waited, Left);
+			return true;
+		}
+		return false;
+	});
+#endif
+}
+
 void AHKTestDriver::FreeCamera()
 {
 	Do([this]() { Game()->bCameraOverride = false; });

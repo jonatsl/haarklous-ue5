@@ -49,6 +49,10 @@ public:
 	double RelLocal(double X, double S) const;
 	double YLocal(double X, double S) const { return Ground + RelLocal(X, S); }
 	double HeightWorld(double X, double Z) const { const FVector2D L = ToLocal(X, Z); return YLocal(L.X, L.Y); }
+	/** The construction site (new feature): when set, the ground inside the site is its soil (FHKDirtField). Walking
+	 *  and driving use GroundWorld; HeightWorld stays the web's terrain (the automation tests compare it). */
+	TFunction<bool(double, double, double&)> SiteGround;
+	double GroundWorld(double X, double Z) const { double H; if (SiteGround && SiteGround(X, Z, H)) return H; return HeightWorld(X, Z); }
 	/** Looks only: the height of the drawn ground (the web's terrain mesh triangles, 4 m cells within 300 m, else
 	 *  8 m cells 0.5 m lower), which differs from the bilinear HeightWorld by a few cm. For grass and kerbs. */
 	double VisualHeightWorld(double X, double Z) const;

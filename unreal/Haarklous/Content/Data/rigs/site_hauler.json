@@ -1,0 +1,379 @@
+{
+"rig": "site_hauler",
+"source": "site",
+"levelStatic": false,
+"nodes": [
+{
+"name": "root",
+"parent": -1,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true
+},
+{
+"name": "tractor",
+"parent": 0,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_hauler__tractor"
+},
+{
+"name": "fwheels[0]",
+"parent": 0,
+"pos": [
+-1.1,
+0.78,
+-2.1
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_hauler__fwheels_0"
+},
+{
+"name": "fwheels[1]",
+"parent": 0,
+"pos": [
+1.1,
+0.78,
+-2.1
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_hauler__fwheels_1"
+},
+{
+"name": "trailer",
+"parent": 0,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true
+},
+{
+"name": "trailerMesh",
+"parent": 4,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_hauler__trailerMesh"
+},
+{
+"name": "rwheels[0]",
+"parent": 4,
+"pos": [
+-1.1,
+0.78,
+2.3
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_hauler__rwheels_0"
+},
+{
+"name": "rwheels[1]",
+"parent": 4,
+"pos": [
+1.1,
+0.78,
+2.3
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_hauler__rwheels_1"
+},
+{
+"name": "rwheels[2]",
+"parent": 4,
+"pos": [
+-1.1,
+0.78,
+3.95
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_hauler__rwheels_2"
+},
+{
+"name": "rwheels[3]",
+"parent": 4,
+"pos": [
+1.1,
+0.78,
+3.95
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_hauler__rwheels_3"
+},
+{
+"name": "body",
+"parent": 4,
+"pos": [
+0.0,
+1.6,
+5.05
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true
+},
+{
+"name": "bodyMesh",
+"parent": 10,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_hauler__bodyMesh"
+},
+{
+"name": "load",
+"parent": 10,
+"pos": [
+0.0,
+0.45,
+-2.5
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": false,
+"mesh": "SM_site_hauler__load"
+},
+{
+"name": "rams[0].barrel",
+"parent": 0,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_hauler__rams_0_barrel"
+},
+{
+"name": "rams[0].rod",
+"parent": 0,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_hauler__rams_0_rod"
+},
+{
+"name": "rams[1].barrel",
+"parent": 0,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_hauler__rams_1_barrel"
+},
+{
+"name": "rams[1].rod",
+"parent": 0,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_hauler__rams_1_rod"
+}
+],
+"lights": []
+}

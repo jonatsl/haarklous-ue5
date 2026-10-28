@@ -304,6 +304,31 @@ def soften(ob):
     ob.modifiers.new('smooth by angle', 'WEIGHTED_NORMAL').keep_sharp = True
 
 
+TERRAIN_KEYS = ('MI_Standard_a6a6a6_0', 'MI_Standard_a6a6a6_18')   # the web's near and far terrain materials
+
+
+def drop_site_terrain(data, slot_keys):
+    """The construction site (tools/make-site.py, site.json) is the game's own soil mesh: the terrain triangles inside
+    its square (map-local frame, on the far terrain's 8 m grid) are left out of the tiles."""
+    site_path = os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data', 'site.json')
+    keys = [slot_keys.index(k) for k in TERRAIN_KEYS if k in slot_keys]
+    if not keys or not os.path.exists(site_path):
+        return data
+    site = json.load(open(site_path, encoding='utf-8'))
+    r = site['rect']
+    sur = json.load(open(os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data', 'surroundings.json'), encoding='utf-8'))
+    th, gx, gz = sur['geo']['theta'], sur['geo']['x'], sur['geo']['z']
+    cT, sT = math.cos(th), math.sin(th)
+    px, pz = data['pos'][:, :, 0] - gx, data['pos'][:, :, 2] - gz
+    lx, ls = px * cT - pz * sT, px * sT + pz * cT
+    e = 1e-3
+    inside = ((lx >= r['x0'] - e) & (lx <= r['x0'] + r['w'] + e) & (ls >= r['s0'] - e) & (ls <= r['s0'] + r['d'] + e)).all(axis=1)
+    drop = inside & np.isin(data['slot'], keys)
+    if drop.any():
+        print(f'HK: {int(drop.sum())} terrain triangles under the construction site left out')
+    return {k: v[~drop] for k, v in data.items()}
+
+
 def drop_rebuilt_facades(data, slot_keys):
     """Photo-real pass: the web's flat facade triangles on the walls that tools/blender/build_facades.py rebuilds
     in 3D (facade_model.covered_walls) are left out of the city tiles."""
@@ -313,6 +338,22 @@ def drop_rebuilt_facades(data, slot_keys):
     drop = np.array([s == fac and facade_model.on_wall(c, None, cells) for s, c in zip(data['slot'], cen)], dtype=bool)
     print(f'HK: {int(drop.sum())} flat facade triangles replaced by 3D facades')
     return {k: v[~drop] for k, v in data.items()}
+
+
+# Motorcycle wheels (game-vehicles.js Motorcycle: 17" cast wheels, front 0.3 m x 0.12 m, rear 0.31 m x 0.17 m, six
+# spokes): the web's torus tyre and flat spokes become a rounded tyre and a cast rim; the brake discs are kept.
+MOTO_WHEELS = {'SM_motorcycle__fw': (0.30, 0.12), 'SM_motorcycle__rw': (0.31, 0.17)}
+
+
+def moto_parts(asset, data, slot_keys):
+    if asset not in MOTO_WHEELS:
+        return data
+    R, W = MOTO_WHEELS[asset]
+    tyre, rim, disc = 'MI_Standard_161616_439', 'MI_paint_17181a', 'MI_metal_b7bcc0'
+    keep = np.array([slot_keys[s] == disc for s in data['slot']], dtype=bool)
+    discs = {k: v[keep] for k, v in data.items() if k in ('pos', 'nor', 'uv', 'slot', 'cast')}
+    wheel = corners_to_data(*car_model.car_wheel(R, W, 6, tyre, rim, centred=True), slot_keys)
+    return {k: np.concatenate([discs[k], wheel[k]]) for k in discs}
 
 
 def material(key):
@@ -398,6 +439,10 @@ def build_rig(rig):
         data = gather(exp, bin_data, a['meshes'], a['slots'])
         if rig == 'car' and data is not None:
             data = car_parts(a['asset'], data, a['slotKeys'])
+        if rig == 'motorcycle' and data is not None:
+            data = moto_parts(a['asset'], data, a['slotKeys'])
+        if rig in ('world_near', 'world_far') and data is not None:
+            data = drop_site_terrain(data, a['slotKeys'])
         if rig == 'world_near' and data is not None and 'MI_facade' in a['slotKeys']:
             data = drop_rebuilt_facades(data, a['slotKeys'])
         tile = TILES.get(rig) if a.get('levelStatic') else None

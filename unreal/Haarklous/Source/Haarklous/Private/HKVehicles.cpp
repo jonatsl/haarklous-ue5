@@ -16,7 +16,7 @@ namespace
 	TFunction<double()> GRandom;
 	TFunction<double()> GClock;
 	FHKAudio& Snd() { return FHKAudio::Get(); }
-	double HeightAt(double X, double Z) { return FHKData::Get().HeightWorld(X, Z); }
+	double HeightAt(double X, double Z) { return FHKData::Get().GroundWorld(X, Z); }   // the site's soil inside the site
 	double At(const TArray<double>& A, int32 I) { return A.IsValidIndex(I) && !FMath::IsNaN(A[I]) ? A[I] : 0; }
 }
 
@@ -180,8 +180,8 @@ bool FHKGroundVehicle::Clear(double NX, double NZ) const
 	FHKData& Data = FHKData::Get();
 	const FHKWalkWorld& W = Data.VehicleWorld(Radius);
 	const FVector2D F = Forward();
-	const double H = Length / 2 - Radius, Yh = Data.HeightWorld(NX, NZ);
-	auto Stand = [&](double K) { const FHKPt P(NX + F.X * K, NZ + F.Y * K); return W.CanStand(P, 1.2, Data.HeightWorld(P.X, P.Z)); };
+	const double H = Length / 2 - Radius, Yh = Data.GroundWorld(NX, NZ);
+	auto Stand = [&](double K) { const FHKPt P(NX + F.X * K, NZ + F.Y * K); return W.CanStand(P, 1.2, Data.GroundWorld(P.X, P.Z)); };
 	if (H > 0) { if (!Stand(-H) || !Stand(H)) return false; }
 	else if (!Stand(0)) return false;
 	return FMath::Abs(Yh - Y) < 1.5;

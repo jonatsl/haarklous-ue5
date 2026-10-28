@@ -49,6 +49,13 @@ See `docs/ARCHITECTURE.md`. In short:
   `tools/blender/build_trees.py` + `tools/unreal/import_trees.py` rebuild only the crowns), and the 3D walls of the
   near district (`tools/blender/build_facades.py`, `tools/unreal/import_facades.py`; then bake the lighting). Also run
   by `tools\build-assets.ps1`.
+- Construction site (28 Oct 2026, a new feature the user asked for): `python tools/make-site.py` (place, soil,
+  machines, props -> `Content/Data/site.json`), `tools/blender/build_machines.py` (dozer, excavator, wheel loader,
+  hauler, tipper, mobile and tower crane, site props), `tools/unreal/materials_site.py` (soil and machine materials,
+  imports). See `docs/ARCHITECTURE.md` "Construction site".
+- Realistic people (28 Oct 2026): MakeHuman (CC0) figures. `powershell -File tools\setup-people.ps1` once (MPFB add-on and
+  asset packs into a private Blender profile), then with `BLENDER_USER_RESOURCES=tools\out\blender-user`:
+  `blender -b -P tools/blender/build_people.py`, then `tools\unreal\run-python.ps1 tools\unreal\import_people.py`.
 - `powershell -File tools\build-unreal.ps1` - compile the C++ game.
 - `powershell -File tools\run-tests.ps1` - automation tests (the C++ port against the web code's own answers).
 - `powershell -File tools\run-game.ps1 -Test walkhome` - scripted play-through with a simulated DualShock 4; screenshots in `tools\out\shots\<test>`.
@@ -57,4 +64,4 @@ See `docs/ARCHITECTURE.md`. In short:
 ## Licences of the data
 Map data © OpenStreetMap contributors (ODbL); height data © Kartverket (CC BY 4.0). Keep these credits in the game.
 Photo-scanned textures from Poly Haven (polyhaven.com) and ambientCG (ambientcg.com), both CC0 (public domain; no
-credit required, credited anyway).
+credit required, credited anyway). People: MakeHuman assets (makehumancommunity.org, CC0) built with the MPFB 2 add-on.

@@ -11,6 +11,8 @@
 #include "HKMinigames.h"
 #include "HKFire.h"
 #include "HKMission.h"
+#include "HKSite.h"
+#include "HKSiteVehicles.h"
 #include "HKGame.generated.h"
 
 class AHKRigActor;
@@ -240,6 +242,16 @@ public:
 	TUniquePtr<class FHKDrone> Drone;
 	TUniquePtr<struct FHKMinigames> Mini;
 	TUniquePtr<class FHKFire> FirePit;
+	// The construction site (new feature): its soil, the soil's mesh, the site furniture and the crane loads.
+	TUniquePtr<FHKDirtField> Site;
+	UPROPERTY() TObjectPtr<AHKSiteActor> SiteActor;
+	UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> SiteProps;
+	void SetupSite();
+	void SpillSoil(double X, double Z, double Volume);
+	void SyncSiteLoads();
+	double SpilledSoil = 0;
+	TArray<TUniquePtr<FHKSiteLoad>> SiteLoads;
+	UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> SiteLoadMeshes;
 	class FHKMinigame* ActiveMinigame = nullptr;
 	TSharedPtr<class IHKEngineSound> PassengerEngine;
 	// Multiplayer (offline defaults: every seat is yours, nobody else is around).

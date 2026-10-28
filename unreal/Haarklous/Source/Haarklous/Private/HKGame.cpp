@@ -1,6 +1,7 @@
 // Port of game-main.js: the frame loop, the player on foot, stances, jumping, doors, interaction, drinks, the firepit seats.
 // The numbers are the web version's; comments in quotes are its own.
 #include "HKGame.h"
+#include "HKSiteVehicles.h"
 #include "HKAudio.h"
 #include "HKData.h"
 #include "HKMath.h"
@@ -156,6 +157,7 @@ void AHKGame::BuildWorld()
 	GrassMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Haarklous/Meshes/grass/SM_GrassClump.SM_GrassClump"));
 	SpawnOverlay();
 	SetupModules();
+	SetupSite();
 	SetupMission();
 	// Online play (game-net.js, game-multiplayer.js, avatars, voice); off unless enabled. Wraps some hooks, so it comes last.
 	Online = AHKOnline::Setup(this);
@@ -277,7 +279,7 @@ void AHKGame::SpawnTrees()
 void AHKGame::Place(double X, double Z, double Yaw, double Y, bool bKeepYaw)
 {
 	FHKData& Data = FHKData::Get();
-	const double Yy = FMath::IsNaN(Y) ? Data.HeightWorld(X, Z) : Y;
+	const double Yy = FMath::IsNaN(Y) ? Data.GroundWorld(X, Z) : Y;
 	FVector Sp;
 	const bool bFound = Data.WalkWorld.FindSafeSpawn(FHKPt(X, Z), StanceEye(TEXT("stand")), Sp, 6, .08, Yy);
 	Player.X = bFound ? Sp.X : X;
@@ -617,6 +619,7 @@ void AHKGame::Tick(float DeltaSeconds)
 	// camera.near: the web's .05 m on foot; its pistol had its own overlay camera, so the mission uses 1 cm here.
 	if (Player.Mode == TEXT("foot") || Player.Mode == TEXT("sit") || Player.Mode == TEXT("minigame")) SetClip(bDynamicEveryFrame ? .01 : .05);
 	Frame_(FixedDt > 0 ? FixedDt : Dt);
+	if (Site) { Site->Step(FixedDt > 0 ? FixedDt : Dt); SyncSiteLoads(); }
 	// The mission runs its own requestAnimationFrame loop in the web, on real time.
 	if (Mission) Mission->Tick(FixedDt > 0 ? FixedDt : DeltaSeconds);
 	UpdateGrass();
@@ -671,6 +674,7 @@ void AHKGame::UpdateGrass()
 			const double Wx = Best.X * Tile + X + R.FRandRange(0, Step), Wz = Best.Y * Tile + Z + R.FRandRange(0, Step);
 			const double Yaw = R.FRandRange(0, 360), S = R.FRandRange(.75, 1.3);
 			if (D.SurfaceAt(Wx, Wz) != TEXT("grass")) continue;
+			if (Site && Site->Contains(Wx, Wz, -.5)) continue;                       // bare soil on the building site
 			if (HK::Hypot(Wx - FireCenter.X, Wz - FireCenter.Z) < 2.6) continue;     // the fire ring
 			const double Y = D.HeightWorld(Wx, Wz);
 			int32 Ti; FVector L;
@@ -869,7 +873,7 @@ void AHKGame::UpdateAmbience()
 	A.Indoor = bInApt || bTower ? 1 : (Player.Vehicle && Player.Vehicle->Kind == TEXT("car")) ? .7 : (Player.Vehicle && Player.Vehicle->bAircraft) ? .4 : 0;
 	A.Green = Data.Greenery(Player.X, Player.Z);
 	A.Traffic = Data.TrafficDistance(Player.X, Player.Z);
-	A.Height = FMath::Max(0.0, Player.Feet - Data.HeightWorld(Player.X, Player.Z)) + (bInApt ? 10 : 0);
+	A.Height = FMath::Max(0.0, Player.Feet - Data.GroundWorld(Player.X, Player.Z)) + (bInApt ? 10 : 0);
 	A.bStair = bTower;
 	A.bKitchen = bInApt && RoomAt() == TEXT("kitchen");
 	FHKAudio::Get().Ambience(A);

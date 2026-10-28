@@ -1,0 +1,270 @@
+{
+"rig": "site_dozer",
+"source": "site",
+"levelStatic": false,
+"nodes": [
+{
+"name": "root",
+"parent": -1,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true
+},
+{
+"name": "body",
+"parent": 0,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_dozer__body"
+},
+{
+"name": "tracks[0]",
+"parent": 0,
+"pos": [
+-0.99,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_dozer__tracks_0"
+},
+{
+"name": "tracks[1]",
+"parent": 0,
+"pos": [
+0.99,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_dozer__tracks_1"
+},
+{
+"name": "bladeArm",
+"parent": 0,
+"pos": [
+0.0,
+0.62,
+-0.45
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": null
+},
+{
+"name": "bladeArmMesh",
+"parent": 4,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_dozer__bladeArmMesh"
+},
+{
+"name": "blade",
+"parent": 4,
+"pos": [
+0.0,
+-0.62,
+-1.95
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_dozer__blade"
+},
+{
+"name": "bladeEdge",
+"parent": 4,
+"pos": [
+0.0,
+-0.62,
+-1.95
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true
+},
+{
+"name": "rams[0].barrel",
+"parent": 0,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_dozer__rams_0_barrel"
+},
+{
+"name": "rams[0].rod",
+"parent": 0,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_dozer__rams_0_rod"
+},
+{
+"name": "rams[1].barrel",
+"parent": 0,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_dozer__rams_1_barrel"
+},
+{
+"name": "rams[1].rod",
+"parent": 0,
+"pos": [
+0.0,
+0.0,
+0.0
+],
+"quat": [
+0,
+0,
+0,
+1
+],
+"scale": [
+1,
+1,
+1
+],
+"visible": true,
+"mesh": "SM_site_dozer__rams_1_rod"
+}
+],
+"lights": []
+}

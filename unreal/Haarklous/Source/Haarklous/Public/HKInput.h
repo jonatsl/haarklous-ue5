@@ -97,6 +97,7 @@ public:
 	void SimulateMouse(double Dx, double Dy, int32 Button = -1, bool bDown = false);
 	FHKPadState CurrentPad();
 	bool bMouseCaptured = true;
+	bool bWasActive = true;     // the window had focus last frame (keys are cleared when it loses it)
 	FString PadDescription() const;
 
 private:

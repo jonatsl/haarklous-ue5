@@ -11,7 +11,7 @@ namespace
 	constexpr double G = 9.81;
 	constexpr double RHO = 1.225;
 	FHKAudio& Snd() { return FHKAudio::Get(); }
-	double HeightAt(double X, double Z) { return FHKData::Get().HeightWorld(X, Z); }
+	double HeightAt(double X, double Z) { return FHKData::Get().GroundWorld(X, Z); }
 	double At(const TArray<double>& A, int32 I) { return A.IsValidIndex(I) ? A[I] : 0; }
 	const FVector XAxis(1, 0, 0), YAxis(0, 1, 0), ZAxis(0, 0, 1), NegZ(0, 0, -1);
 	// Right hand around a vertical stick grip (stickGrip): only the meshes use it; nothing to do here.

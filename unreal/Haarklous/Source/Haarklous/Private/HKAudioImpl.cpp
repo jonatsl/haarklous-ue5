@@ -636,6 +636,7 @@ TSharedPtr<FHKEngineVoice> FHKGameAudio::Engine(const FString& InKind)
 	FSpec Spec = {4, 800, 6200, .6, .16};   // car (also for unknown kinds, like game-main's `|| 'car'`)
 	if (Kind == TEXT("bike")) Spec = {4, 1300, 11500, 1, .22};
 	else if (Kind == TEXT("excavator")) Spec = {4, 900, 2100, .45, .2};
+	else if (Kind == TEXT("diesel")) Spec = {6, 650, 2200, .4, .22};   // construction-site machines and trucks (new)
 	else if (Kind == TEXT("plane")) Spec = {4, 700, 2750, .85, .22};
 	return MakeShared<FPistonEngine>(*this, Spec);
 }

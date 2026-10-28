@@ -29,11 +29,13 @@ namespace
 	const TCHAR* AirHelpPlane = TEXT("Plane (Mode 2) · left stick ↑ to add throttle (it stays), ←→ rudder/nose wheel · right stick pitch/roll · pull back at about 85 km/h · L2 brakes · R3 / V view");
 	FString Verb(const FHKVehicle* V)
 	{
+		if (!V->VerbText.IsEmpty()) return V->VerbText;
 		return V->Kind == TEXT("motorcycle") ? TEXT("Ride the") : V->Kind == TEXT("excavator") ? TEXT("Climb into the") : V->bAircraft ? TEXT("Fly the") : TEXT("Drive the");
 	}
 	bool Stopped(const FHKVehicle* V) { return V->bAircraft ? V->bGrounded && V->Speed < 3 : FMath::Abs(V->Speed) < 3; }
-	const TCHAR* RigNameOf(const FHKVehicle* V)
+	FString RigNameOf(const FHKVehicle* V)
 	{
+		if (!V->RigFile.IsEmpty()) return V->RigFile;
 		return V->Kind == TEXT("motorcycle") ? TEXT("motorcycle") : V->Kind == TEXT("excavator") ? TEXT("excavator") : V->Kind == TEXT("helicopter") ? TEXT("helicopter") : V->Kind == TEXT("plane") ? TEXT("plane") : TEXT("car");
 	}
 }
@@ -59,7 +61,7 @@ void AHKGame::AddDirtPile(double X, double Z, double R)
 	M->SetMobility(EComponentMobility::Movable);
 	M->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	M->RegisterComponent();
-	M->SetWorldLocation(HK::ToUE(FVector(X, FHKData::Get().HeightWorld(X, Z) + R * .3, Z)));
+	M->SetWorldLocation(HK::ToUE(FVector(X, FHKData::Get().GroundWorld(X, Z) + R * .3, Z)));
 	M->SetWorldScale3D(FVector(R * 2, R * 2, R * .7));   // engine cone: 100 tall, radius 50
 	if (UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Haarklous/Materials/M_HK_Master.M_HK_Master")))
 	{
@@ -188,6 +190,7 @@ void AHKGame::EnterVehicle(FHKVehicle* V)
 	V->Enter();
 	UpdateDynamic();
 	if (V->bAircraft) SetClip(.12);
+	if (!V->HelpText.IsEmpty()) { Notice(V->HelpText, 9); return; }
 	Notice(V->bAircraft ? FString(V->Kind == TEXT("helicopter") ? AirHelpHeli : AirHelpPlane) : V->Kind == TEXT("excavator") ? FString(TEXT("Tracks: L1/L2 left, R1/R2 right · Left stick: swing / stick · Right stick: boom / bucket · □ get out")) : FString(TEXT("R2 throttle · L2 brake / reverse · Left stick steer · Right stick look · □ get off")), V->bAircraft ? 9 : 6);
 }
 
@@ -242,7 +245,7 @@ void AHKGame::ExitPassenger()
 	const FVector2D P = V->bAircraft ? FVector2D(V->X + R.X * 1.8 - F.X * 1.8, V->Z + R.Y * 1.8 - F.Y * 1.8) : FVector2D(V->X + R.X * D, V->Z + R.Y * D);
 	FVector Sp;
 	FHKData& Data = FHKData::Get();
-	if (Data.WalkWorld.FindSafeSpawn(FHKPt(P.X, P.Y), Player.Eye, Sp, 6, .08, Data.HeightWorld(P.X, P.Y))) { Player.X = Sp.X; Player.Z = Sp.Y; Player.Feet = Sp.Z; }
+	if (Data.WalkWorld.FindSafeSpawn(FHKPt(P.X, P.Y), Player.Eye, Sp, 6, .08, Data.GroundWorld(P.X, P.Y))) { Player.X = Sp.X; Player.Z = Sp.Y; Player.Feet = Sp.Z; }
 	Player.Yaw = V->Yaw; Player.Pitch = 0;
 }
 
@@ -257,7 +260,7 @@ void AHKGame::ExitVehicle()
 	UpdateDynamic();
 	FHKData& Data = FHKData::Get();
 	FVector Sp;
-	if (Data.WalkWorld.FindSafeSpawn(FHKPt(P.X, P.Y), Player.Eye, Sp, 5, .08, Data.HeightWorld(P.X, P.Y))) { Player.X = Sp.X; Player.Z = Sp.Y; Player.Feet = Sp.Z; }
+	if (Data.WalkWorld.FindSafeSpawn(FHKPt(P.X, P.Y), Player.Eye, Sp, 5, .08, Data.GroundWorld(P.X, P.Y))) { Player.X = Sp.X; Player.Z = Sp.Y; Player.Feet = Sp.Z; }
 	Player.Yaw = V->Yaw; Player.Pitch = 0;
 	// "for (const [, w] of vehicleWorlds) collision.setDynamic(w, []); updateDynamic();"
 	Data.ForEachVehicleWorld([](FHKWalkWorld& W) { W.SetDynamic({}); });
@@ -275,9 +278,10 @@ void AHKGame::UpdateVehicle(double Dt, double Dl)
 	In.Throttle = Frame.R2; In.Brake = Frame.L2; In.Steer = FMath::Abs(Frame.Move.X) > .08 ? Frame.Move.X : 0; In.Drunk = Dl;
 	In.L1 = Frame.IsHeld("l1"); In.L2 = Frame.L2; In.R1 = Frame.IsHeld("r1"); In.R2 = Frame.R2;
 	In.LX = Frame.Move.X; In.LY = Frame.Move.Y; In.RX = Frame.Look.X; In.RY = Frame.Look.Y;
+	In.bCross = Frame.WasPressed("cross");
 	V->Update(Dt, In);
 	// "Look around from the seat (right stick / mouse); excavator uses the right stick for the boom, so mouse only there."
-	const bool bEx = V->Kind == TEXT("excavator");
+	const bool bEx = V->Kind == TEXT("excavator") || V->bRightStickTool;
 	const double LookX = bEx ? 0 : Frame.Look.X, LookY = bEx ? 0 : Frame.Look.Y;
 	Player.LookYaw = Player.LookYaw - Frame.Mouse.Dx * .0024 * Sensitivity.Mouse - LookX * 2.2 * Dt;
 	Player.LookPitch = HK::Clamp(Player.LookPitch - Frame.Mouse.Dy * .0024 * Sensitivity.Mouse - LookY * 1.6 * Dt, -1.2, 1);
@@ -285,11 +289,14 @@ void AHKGame::UpdateVehicle(double Dt, double Dl)
 	const FHKSeatPose S = V->Seat();
 	const double Sway = Dl ? FMath::Sin(Time * 1000 / 1300) * .08 * Dl : 0;
 	CamPos = FVector(S.X + S.Lateral * FMath::Cos(V->Yaw), S.Y, S.Z - S.Lateral * FMath::Sin(V->Yaw));
-	SetCameraFromEuler(S.Pitch + Player.LookPitch - (V->Kind == TEXT("motorcycle") ? .12 : bEx ? .38 : .05), S.Yaw + Player.LookYaw - (bEx ? .22 : 0), -S.Roll + Sway);
+	const bool bWebEx = V->Kind == TEXT("excavator");
+	SetCameraFromEuler(S.Pitch + Player.LookPitch - (V->Kind == TEXT("motorcycle") ? .12 : bWebEx ? .38 : .05) + V->CamPitch, S.Yaw + Player.LookYaw - (bWebEx ? .22 : 0) + V->CamYaw, -S.Roll + Sway);
 	Fov = 70;
 	Player.X = V->X; Player.Z = V->Z; Player.Feet = V->Y; Player.Yaw = V->Yaw;
 	bSpeedoAir = false;
-	if (bEx) SpeedoText = FString::Printf(TEXT("%s km/h · bucket %d %%"), *HKJs::ToFixed(FMath::Abs(V->Speed) * 3.6, 1), (int32)HK::JsRound(V->Load * 100));
+	const FString MachineHud = V->Hud();
+	if (!MachineHud.IsEmpty()) SpeedoText = MachineHud;
+	else if (bWebEx) SpeedoText = FString::Printf(TEXT("%s km/h · bucket %d %%"), *HKJs::ToFixed(FMath::Abs(V->Speed) * 3.6, 1), (int32)HK::JsRound(V->Load * 100));
 	else SpeedoText = FString::Printf(TEXT("%d km/h%s"), (int32)HK::JsRound(FMath::Abs(V->Speed) * 3.6), V->Kind == TEXT("motorcycle") ? *FString::Printf(TEXT(" · gear %d · %d rpm"), V->Gear, (int32)(HK::JsRound(V->Rpm / 100) * 100)) : TEXT(""));
 }
 
@@ -356,7 +363,7 @@ void AHKGame::UpdatePassenger(double Dt, double Dl)
 	}
 	bSpeedoAir = V->bAircraft;
 	SpeedoText = FString::Printf(TEXT("Passenger%s · %d km/h%s"), Drv ? *FString::Printf(TEXT(" · %s%s"), NameOf ? *NameOf(Drv) : TEXT("someone"), V->bAircraft ? TEXT(" flying") : TEXT(" driving")) : TEXT(""),
-		(int32)HK::JsRound(Kmh), V->bAircraft ? *FString::Printf(TEXT(" · alt %s m"), *HKJs::ToFixed(FMath::Max(0.0, V->Y - FHKData::Get().HeightWorld(V->X, V->Z)), 0)) : TEXT(""));
+		(int32)HK::JsRound(Kmh), V->bAircraft ? *FString::Printf(TEXT(" · alt %s m"), *HKJs::ToFixed(FMath::Max(0.0, V->Y - FHKData::Get().GroundWorld(V->X, V->Z)), 0)) : TEXT(""));
 }
 
 // ---------- FPV drone ----------
@@ -409,7 +416,7 @@ void AHKGame::UpdateDrone(double Dt, double Dl)
 	if ((OsdT -= Dt) > 0) return;
 	OsdT = .1;
 	const TOptional<FHKDroneFloor> Fl = FHKDrone::FloorBelow(Data.WalkWorld, Drone->Pos, Drone->Pos.Y + .1);
-	const FHKDroneOsd O = Drone->Osd(Fl.IsSet() ? Fl->Y : Data.HeightWorld(Drone->Pos.X, Drone->Pos.Z));
+	const FHKDroneOsd O = Drone->Osd(Fl.IsSet() ? Fl->Y : Data.GroundWorld(Drone->Pos.X, Drone->Pos.Z));
 	const int32 Mm = (int32)FMath::FloorToDouble(O.Time / 60);
 	const FString Ss = FString::Printf(TEXT("%02d"), (int32)FMath::FloorToDouble(FMath::Fmod(O.Time, 60.0)));
 	Osd.bShow = true;

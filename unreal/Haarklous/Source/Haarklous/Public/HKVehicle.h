@@ -20,6 +20,7 @@ struct FHKVehicleInput
 	// sticks {lx, ly, rx, ry}; for aircraft and the drone these are the Mode 2 flight sticks (flightSticks()).
 	double LX = 0, LY = 0, RX = 0, RY = 0;
 	bool bEmpty = true;   // update(dt, {}) for parked / idle vehicles
+	bool bCross = false;  // ✕ pressed this frame (construction-site cranes: hook / unhook)
 };
 
 struct FHKSeatPose
@@ -64,6 +65,11 @@ public:
 	bool bHasPaint = false;
 	TFunction<void(FHKVehicle*)> OnCrash;          // aircraft
 	TFunction<void(double, double)> OnDump;        // excavator: dumped a pile at (x, z)
+	// Construction-site machines (new feature): their rig file, prompt verb ("Climb into the"), help line on entering,
+	// whether the right stick works a tool (then only the mouse looks around) and the camera's extra pitch / yaw.
+	FString RigFile, VerbText, HelpText;
+	bool bRightStickTool = false;
+	double CamPitch = 0, CamYaw = 0;
 
 	FVector2D Forward() const { return FVector2D(-FMath::Sin(Yaw), -FMath::Cos(Yaw)); }
 	virtual void Update(double Dt, const FHKVehicleInput& In) = 0;

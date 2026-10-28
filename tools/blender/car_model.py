@@ -223,30 +223,35 @@ def lathe(profile, segments, key):
     return out
 
 
-def car_wheel():
-    """Tyre (rounded section, 0.31 m radius, 0.2 m wide) and a five-spoke alloy rim; axle along x (the web
-    wheel's frame), outer face toward +x (mirrored for the left wheels by build_assets)."""
-    R, W = WHEEL_R, 0.2
-    tyre = [(-W / 2 + 0.02, 0.2), (-W / 2, 0.23), (-W / 2 - 0.005, 0.27), (-W / 2 + 0.01, 0.298), (-W / 2 + 0.035, R),
-            (W / 2 - 0.035, R), (W / 2 - 0.01, 0.298), (W / 2 + 0.005, 0.27), (W / 2, 0.23), (W / 2 - 0.02, 0.2)]
-    rim = [(W / 2 - 0.015, 0.21), (W / 2 - 0.015, 0.18), (-W / 2 + 0.02, 0.18), (-W / 2 + 0.02, 0.205), (-W / 2 + 0.012, 0.212)]
-    hub = [(W / 2 - 0.06, 0.0), (W / 2 - 0.06, 0.055), (W / 2 - 0.035, 0.065), (W / 2 - 0.03, 0.0)]
-    parts = [lathe(tyre, 36, TYRE), lathe(rim, 36, RIM), lathe(hub, 16, RIM)]
-    # Five spokes from the hub to the rim, dished toward the outer face.
-    for i in range(5):
-        a = 2 * math.pi * i / 5
+def car_wheel(R=WHEEL_R, W=0.2, spokes=5, tyre_key=TYRE, rim_key=RIM, centred=False):
+    """Tyre (rounded section) and a cast alloy rim with straight spokes; axle along x (the web wheel's frame).
+    Car: 0.31 m radius, 0.2 m wide, five spokes dished toward the outer face (+x; build_assets mirrors the left
+    wheels). Motorcycle: centred=True puts the spokes in the middle of the wheel (both sides look the same)."""
+    side = R - 0.11                                                   # tyre sidewall starts at the rim lip
+    tyre = [(-W / 2 + 0.02, side), (-W / 2, side + 0.03), (-W / 2 - 0.005, R - 0.04), (-W / 2 + 0.01, R - 0.012),
+            (-W / 2 + 0.035, R), (W / 2 - 0.035, R), (W / 2 - 0.01, R - 0.012), (W / 2 + 0.005, R - 0.04),
+            (W / 2, side + 0.03), (W / 2 - 0.02, side)]
+    lip = side + 0.01
+    rim = [(W / 2 - 0.015, lip), (W / 2 - 0.015, side - 0.02), (-W / 2 + 0.02, side - 0.02), (-W / 2 + 0.02, lip - 0.005),
+           (-W / 2 + 0.012, lip + 0.002)]
+    hx = 0.0 if centred else W / 2 - 0.045
+    hub = [(hx - 0.015, 0.0), (hx - 0.015, 0.055), (hx + 0.01, 0.065), (hx + 0.015, 0.0)]
+    parts = [lathe(tyre, 36, tyre_key), lathe(rim, 36, rim_key), lathe(hub, 16, rim_key)]
+    reach = side - 0.02 - 0.05
+    for i in range(spokes):
+        a = 2 * math.pi * i / spokes
         bm = bmesh.new()
         bmesh.ops.create_cube(bm, size=1.0)
         for v in bm.verts:
             x, y, z = v.co
             t = y + 0.5                                                 # 0 at the hub .. 1 at the rim
-            r = 0.05 + t * 0.135
+            r = 0.05 + t * reach
             half_w = 0.03 - t * 0.012
             off = z * half_w * 2
-            xx = W / 2 - 0.045 - t * 0.02 + x * 0.026
+            xx = (x * 0.024) if centred else (W / 2 - 0.045 - t * 0.02 + x * 0.026)
             v.co = (xx, r * math.cos(a) - off * math.sin(a), r * math.sin(a) + off * math.cos(a))
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-        ob, names = make_object(bm, [RIM] * 6, 0, 'spoke_tmp')
+        ob, names = make_object(bm, [rim_key] * 6, 0, 'spoke_tmp')
         parts.append(to_corners(ob, names))
         bpy.data.objects.remove(ob)
     return concat(parts)

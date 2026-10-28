@@ -41,7 +41,11 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
 - Play-throughs (`tools\run-game.ps1 -Test <name>`, scripts in `HKTestScripts.cpp` / `HKOnlineTestScript.cpp`): `shots`
   (tour of the world), `walkhome`, `vehicles`, `activities`, `mission`, `drunk`, `menus` (keyboard, mouse, pause menu,
   settings; add `-Extra "-HKOnline -HKVoiceTone"` for the lobby section on the test server), `stairwells`, `mic` (real microphone level), `fps` (frame rate in the busiest
-  places), `online` (via `tools\net-test\run-live.ps1`, test server only).
+  places), `online` (via `tools\net-test\run-live.ps1`, test server only), `site` (construction site machines),
+  `people` (the realistic people in every pose). Scripted tests ignore the real keyboard and mouse.
+- New features the user asked for (28 Oct 2026, not in the web game): the construction site and realistic people
+  (`docs/ARCHITECTURE.md`). MakeHuman tools live in a private Blender profile (`tools\out\blender-user`, made by
+  `tools\setup-people.ps1`); never install them into the user's own Blender.
 - Look decisions (sky, horizon, lamp globes without shadows, ground, trees): `docs/ARCHITECTURE.md` "Look of the world".
 - Photo-real pass (28 Oct 2026, goal: real grass, buildings like the real ones, Battlefield 4-style realism):
   `docs/ARCHITECTURE.md` "Photo-real pass". The real blocks around 17A are salmon brick with dark-brown windows,

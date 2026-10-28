@@ -271,6 +271,7 @@ bool FHKInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const FK
 		if (i >= 0) { XPad.Buttons[i] = 1; XPad.Pressed[i] = true; XPadLastInput = FPlatformTime::Seconds(); }
 		return false;
 	}
+	if (bUseSimulatedPad) return false;   // scripted tests: only simulated input (a window that grabs focus gets stray typing)
 	const FString Code = CodeOf(K);
 	if (bTextEntry)
 	{
@@ -292,13 +293,14 @@ bool FHKInputProcessor::HandleKeyUpEvent(FSlateApplication& SlateApp, const FKey
 		if (i >= 0) { XPad.Buttons[i] = 0; XPad.Pressed[i] = false; }
 		return false;
 	}
+	if (bUseSimulatedPad) return false;
 	Keys.Remove(CodeOf(K));
 	return false;
 }
 
 void FHKInputProcessor::HandleChar(TCHAR C)
 {
-	if (bTextEntry && C >= 32 && C != 127) TypedText.AppendChar(C);
+	if (bTextEntry && !bUseSimulatedPad && C >= 32 && C != 127) TypedText.AppendChar(C);
 }
 
 bool FHKInputProcessor::HandleAnalogInputEvent(FSlateApplication& SlateApp, const FAnalogInputEvent& E)
@@ -319,12 +321,13 @@ bool FHKInputProcessor::HandleAnalogInputEvent(FSlateApplication& SlateApp, cons
 
 bool FHKInputProcessor::HandleMouseMoveEvent(FSlateApplication& SlateApp, const FPointerEvent& E)
 {
-	if (bMouseCaptured) { Mouse.Dx += E.GetCursorDelta().X; Mouse.Dy += E.GetCursorDelta().Y; }
+	if (bMouseCaptured && !bUseSimulatedPad) { Mouse.Dx += E.GetCursorDelta().X; Mouse.Dy += E.GetCursorDelta().Y; }
 	return false;
 }
 
 bool FHKInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp, const FPointerEvent& E)
 {
+	if (bUseSimulatedPad) return false;
 	if (E.GetEffectingButton() == EKeys::LeftMouseButton) { Mouse.bLeft = true; Mouse.bLeftEdge = true; }
 	if (E.GetEffectingButton() == EKeys::RightMouseButton) Mouse.bRight = true;
 	return false;
@@ -332,6 +335,7 @@ bool FHKInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp, 
 
 bool FHKInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp, const FPointerEvent& E)
 {
+	if (bUseSimulatedPad) return false;
 	if (E.GetEffectingButton() == EKeys::LeftMouseButton) { if (Mouse.bLeft) Mouse.bLeftUp = true; Mouse.bLeft = false; }
 	if (E.GetEffectingButton() == EKeys::RightMouseButton) Mouse.bRight = false;
 	return false;
@@ -339,7 +343,7 @@ bool FHKInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp, co
 
 bool FHKInputProcessor::HandleMouseWheelOrGestureEvent(FSlateApplication& SlateApp, const FPointerEvent& E, const FPointerEvent* Gesture)
 {
-	Mouse.Wheel += E.GetWheelDelta();
+	if (!bUseSimulatedPad) Mouse.Wheel += E.GetWheelDelta();
 	return false;
 }
 
@@ -374,6 +378,11 @@ FString FHKInputProcessor::PadDescription() const
 
 FHKInputFrame FHKInputProcessor::ReadFrame(bool bInVehicle)
 {
+	// "window.addEventListener('blur', () => keys.clear())": keys held while the window loses focus never get their
+	// key-up, so they would stay down.
+	const bool bActive = !FSlateApplication::IsInitialized() || FSlateApplication::Get().IsActive();
+	if (bWasActive && !bActive && !bUseSimulatedPad) { Keys.Reset(); Mouse.bLeft = Mouse.bRight = false; }
+	bWasActive = bActive;
 	FHKInputFrame In;
 	const FHKPadState Pad = CurrentPad();
 	if (Pad.bConnected)

@@ -121,7 +121,7 @@ TArray<FHKFloor> FHKData::FloorsFromJson(const TArray<TSharedPtr<FJsonValue>>& A
 			const TArray<double> Or = HKJson::Nums(S, TEXT("origin"));
 			if (Or.Num() >= 2) F.SlopeOrigin = FHKPt(Or[0], Or[1]);
 		}
-		if (HKJson::Bool(O, TEXT("terrain"))) F.Height = [](const FHKPt& P) { return FHKData::Get().HeightWorld(P.X, P.Z); };
+		if (HKJson::Bool(O, TEXT("terrain"))) F.Height = [](const FHKPt& P) { return FHKData::Get().GroundWorld(P.X, P.Z); };
 		R.Add(MoveTemp(F));
 	}
 	return R;
@@ -227,7 +227,7 @@ FHKFloor FHKData::TerrainFloor() const
 		const FVector2D W = ToWorld(C.X, C.Y);
 		F.Points.Add(FHKPt(W.X, W.Y));
 	}
-	F.Height = [](const FHKPt& P) { return FHKData::Get().HeightWorld(P.X, P.Z); };
+	F.Height = [](const FHKPt& P) { return FHKData::Get().GroundWorld(P.X, P.Z); };
 	return F;
 }
 

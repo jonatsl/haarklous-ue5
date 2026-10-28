@@ -36,6 +36,7 @@ public:
 	void Pose(double X, double Y, double Z, double Yaw, double Pitch);   // fixed camera (web frame)
 	void FreeCamera();
 	void MeasureFps(const FString& Label, double Seconds);
+	void WaitShaders(double MaxSeconds = 600);   // uncooked runs: until materials that just came into view are compiled
 	void Log(TFunction<FString()> Fn);
 	void Expect(const FString& What, TFunction<bool()> Fn);
 	void Quit();

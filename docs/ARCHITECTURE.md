@@ -119,6 +119,41 @@ The web material instances keep their names, slots and colours; their parents ch
   (Balanced: SSR and lens flares; Sharp: all). Test switches: `-HKNoGrass`, `-HKNoDetails`, `-HKSkipDetails=`,
   `-HKCmds=cvar:value,...`.
 
+## Construction site (new feature, 28 Oct 2026; not in the web game)
+The user asked for one big construction site with dozers, excavators, wheel loaders, big trucks and two cranes that
+drive like real machines, and soil that can be moved realistically.
+- Place: a 64 x 64 m square of the map's local frame (x -80..-16, s 304..368; world centre about (-161.9, -287.9)),
+  on the far terrain's 8 m grid; `build_assets.py` (`drop_site_terrain`) cuts the terrain mesh open there.
+  `tools/make-site.py` writes `Content/Data/site.json`: the soil (0.25 m cells: surface, compacted level "firm"),
+  a level pad blended into the slopes, an 18 x 12 m foundation pit 2.6 m deep with a ramp, three loose stockpiles,
+  the machines' places, fence panels with a gate, site offices, toilet, signs, pallets, pipes, skip, floodlights and
+  four crane loads.
+- Soil (`HKSite`): `FHKDirtField` height field; tools cut (soil above an oriented rectangle's bottom) and deposit;
+  loose soil slides to 34 degrees; volume is conserved (what is cut is carried until it is put down). `AHKSiteActor`
+  draws it as a procedural mesh in 32 x 32-cell tiles (only changed tiles rebuilt; vertex colour: loose / subsoil);
+  `M_HK_Dirt` is tri-planar (no smearing on pit walls). `FHKData::GroundWorld` = the soil inside the site, the terrain
+  elsewhere (walking, placing, vehicles); `HeightWorld` is unchanged so the web-checked tests and the vehicle
+  numbering stay the same.
+- Machines (`HKSiteVehicles`, rigs `site_*` from `tools/blender/build_machines.py`): Cat D6-class dozer (hydrostatic
+  tracks, blade cuts and pushes), 30 t excavator (ISO controls like the web excavator, backhoe bucket fills when the
+  teeth drag through soil, spills when its opening turns down), articulated wheel loader (self-levelling bucket),
+  articulated hauler and 8x4 tipper (tipping bodies), all-terrain crane (outriggers, slew, luff, telescope, hoist),
+  tower crane (slewing inertia, trolley, hook pendulum); power, grip, rolling resistance by ground, slope, brakes and
+  gearboxes. Machines come after the web's vehicle list, so web players simply do not see them.
+- Test: `tools\run-game.ps1 -Test site` (each machine driven with the simulated pad; soil conserved; fps).
+
+## People (28 Oct 2026)
+- MakeHuman figures (CC0) made headless with the MPFB 2 add-on in a private Blender profile (`tools\setup-people.ps1`,
+  `tools/blender/build_people.py`), imported by `tools/unreal/import_people.py`.
+- Players: skeletal meshes `/Game/Haarklous/People/avatar_<slot>/SK_avatar_<slot>` (game_engine skeleton), rest pose
+  = the web avatar rig with every joint at zero (arms 6 degrees out, relaxed hands). `AHKRigActor` drives the bones
+  from the rig's joints (hips, torso, neck, head, shoulders, elbows, hips, knees) every frame and hides the rig's own
+  body parts, so all web poses (walk, crouch, prone, sit, drive, ride, beer, drone) work unchanged. Sweater tinted
+  with the slot's jacket colour, trousers the web's dark blue.
+- Mission figures: static meshes in the web mannequins' poses replace the `body` meshes of `mission_hostage` (kneeling,
+  hands on head) and `mission_hostile` (balaclava, red armband, pistol in both hands). Hit boxes are unchanged.
+- Test: `tools\run-game.ps1 -Test people`.
+
 ## Core C++ (Source/Haarklous)
 | File | What |
 | --- | --- |
@@ -129,7 +164,8 @@ The web material instances keep their names, slots and colours; their parents ch
 | `HKVehicle` | base class of all vehicles and aircraft: what the main loop uses |
 | `HKAudio` | sound API (`FHKAudio::Get().Sfx(...)`, `Engine(kind)`, `FHKMusic::Get().Play(track)`); silent until the audio module registers |
 | `HKUi` | 2D drawing on the Unreal canvas (panels, text, meters, projection of web-space points); all HUD and menus use it |
-| `HKRigActor` | shows an `FHKRig` with its meshes, copies node poses to Unreal every frame |
+| `HKRigActor` | shows an `FHKRig` with its meshes, copies node poses to Unreal every frame; drives the people's skeletons |
+| `HKSite`, `HKSiteVehicles` | the construction site's soil and machines |
 | `HKGame` | port of `game-main.js`: the frame loop, player, modes, doors, interaction, HUD, menus |
 
 ## Rules for module ports
