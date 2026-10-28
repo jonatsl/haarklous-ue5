@@ -8,7 +8,8 @@ you: a test with the real DualShock 4 (none was connected).
 
 28 October 2026: a photo-real pass on top (see "Photo-real pass" below): every building looks like the real one
 (salmon brick or coloured plaster, deep windows, balconies, chimneys), real 3D grass, scanned materials from free
-CC0 libraries, a photographed sky, new car models, road paint and kerbs, Battlefield-style light.
+CC0 libraries, a photographed sky, new car models, trees with real limbs, road paint, kerbs and gutters,
+Battlefield-style light.
 
 ## How to start the game
 
@@ -250,7 +251,9 @@ What changed (all made by scripts, details in `docs/ARCHITECTURE.md`):
 - **Real grass:** the lawn is a photo scan (ambientCG Grass001), and up to 15 m around you it grows real 3D grass:
   cards cut from photographed grass tufts (Poly Haven grass_medium_01), 16 per 0.6 m clump, coloured from the lawn
   under them, swaying in the wind.
-- **Trees:** crowns made of hundreds of scanned leaves per card, scanned bark.
+- **Trees:** real tree structure instead of one round cloud: a leader and 5–7 curving limbs with side twigs, and
+  separate leaf masses at their tips with sky between them (`tools/blender/tree_model.py`), made of scanned leaves;
+  scanned bark. Same places and sizes as the web's trees.
 - **Ground:** scanned asphalt with cracks; the lawn no longer reflects the sky.
 - **Light and camera (Battlefield-style):** stronger sun against a softer sky, bloom, lens flares, screen-space
   reflections in windows and paint, tighter ambient occlusion, cool shadows / warm highlights with a filmic curve,
@@ -263,6 +266,7 @@ What changed (all made by scripts, details in `docs/ARCHITECTURE.md`):
   five-spoke alloy wheels with rounded tyres; seats, dashboard, steering wheel and hands are the web's.
   `tools/blender/car_model.py`. Motorcycle, excavator, helicopter and plane keep their shapes but get rounded,
   light-catching edges and smooth shading.
+- **Gutters:** half-round eaves gutters along every hipped roof (1,896 pieces).
 - **Road paint:** yellow centre dashes (Norwegian style) and white zebra crossings where footpaths cross the bigger
   streets; kerb stones follow the slope of the street.
 
@@ -290,7 +294,7 @@ better than the sky photo.
 
 ## Frame rates on this laptop
 
-Measured on 28 Oct 2026, after the photo-real pass with the new cars, the sky photo and the road paint, in **the
+Measured on 28 Oct 2026, after the photo-real pass with the new cars, trees, gutters, the sky photo and the road paint, in **the
 packaged game you start** (`dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps -fullscreen -ResX=2240 -ResY=1400`,
 results in `tools\out\shots\fps-packaged\fps.txt`): full screen at the laptop's own resolution (2240 × 1400),
 graphics quality "Balanced" (the default: 75 % screen percentage, screen-space reflections, lens flares; light
@@ -299,14 +303,14 @@ else running. At each place the camera turns one full circle in 12 seconds, so e
 
 | Place | Average (run 1 / run 2) | Slowest 1 % of frames | Slowest single frame |
 | --- | --- | --- | --- |
-| Home (apartment, looking into the living room and out of the windows) | **32.6 / 32.7 fps** | 24.1 / 26.1 fps | 18.7 / 19.4 fps |
-| Firepit (fire, smoke, cars, grass and the block behind) | **26.9 / 26.8 fps** | 21.7 / 21.6 fps | 17.1 / 17.1 fps |
-| The park (Torshovdalen, the most trees and grass) | **27.2 / 27.4 fps** | 22.4 / 22.3 fps | 17.8 / 18.9 fps |
-| The street outside 17A | **27.5 / 27.3 fps** | 21.3 / 20.5 fps | 17.3 / 18.0 fps |
-| Flying (110 m above the district) | **31.4 / 31.5 fps** | 25.5 / 26.0 fps | 18.4 / 18.7 fps |
+| Home (apartment, looking into the living room and out of the windows) | **31.2 / 31.8 fps** | 26.0 / 25.2 fps | 18.7 / 19.3 fps |
+| Firepit (fire, smoke, cars, grass and the block behind) | **25.9 / 26.2 fps** | 20.9 / 21.4 fps | 14.7 / 16.6 fps |
+| The park (Torshovdalen, the most trees and grass) | **26.5 / 26.5 fps** | 21.3 / 20.7 fps | 17.6 / 17.5 fps |
+| The street outside 17A | **27.1 / 26.5 fps** | 21.7 / 20.6 fps | 17.6 / 16.9 fps |
+| Flying (110 m above the district) | **30.3 / 30.5 fps** | 22.3 / 25.4 fps | 17.6 / 17.3 fps |
 
-Every place stays above the 20 fps goal on average and in the slowest 1 % of frames; single frames dip to 17–19 fps
-now and then. The photo-real pass costs 3–5 fps against the realism pass (home 37.3, firepit 29.7, park 29.8, street
+Every place stays above the 20 fps goal on average and in the slowest 1 % of frames; single frames dip to 15–19 fps
+now and then. The photo-real pass costs 3–6 fps against the realism pass (home 37.3, firepit 29.7, park 29.8, street
 30.0, flying 33.8) and the original port (32–40 fps). Balconies, kerbs and the other details cost about 2–3 fps
 (after taking the shadows off kerbs, road paint and railings and laying kerbs as 2 m stones); reflections, contact
 shadows and light shafts about 1 fps each (so the last two are only on "Sharp"); the 3D grass under 1 fps. The

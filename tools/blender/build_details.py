@@ -13,6 +13,7 @@ Meshes (metres, Blender z up, the wall plane at y = 0, sticking out toward -y):
   SM_BalconyPanel   a slab with a solid painted front (slot 0 concrete, 1 railing, 2 panel)
   SM_Downpipe       8-sided pipe, 1 m tall (scaled to the building), with wall brackets (slot 0 metal)
   SM_Chimney        brick stack with a concrete cap, its base 1.5 m below the given point (slot 0 brick, 1 cap)
+  SM_Gutter         a 1 m half-round eaves gutter, stretched along each eave of the hipped roofs (slot 0 metal)
   SM_RoadDash, SM_ZebraStripe  a 1 m road-paint square, stretched per mark (slot 0 yellow / white paint)
   SM_Kerb           a 1 m granite kerb stone, 15 cm wide, 10 cm above the ground (slot 0 granite), placed 2 m
                     long (stretched) to halve the number of objects
@@ -123,6 +124,20 @@ def downpipe():
         p0, p1 = (math.cos(a0) * r, math.sin(a0) * r), (math.cos(a1) * r, math.sin(a1) * r)
         m.quad((p0[0], p0[1], 0), (p1[0], p1[1], 0), (p1[0], p1[1], 1), (p0[0], p0[1], 1), 0,
                [(i / n * 0.28, 0), ((i + 1) / n * 0.28, 0), ((i + 1) / n * 0.28, 1), (i / n * 0.28, 1)])
+    return m
+
+
+def gutter():
+    """A 1 m half-round eaves gutter (12 cm wide) hanging just outside the eave line, open toward +y (the roof),
+    with its lip at the eave height; stretched along each eave."""
+    m = MeshBuilder()
+    n, r = 6, 0.06
+    for i in range(n):
+        a0, a1 = math.pi * i / n, math.pi * (i + 1) / n
+        y0, z0 = -0.06 - math.cos(a0) * r, -math.sin(a0) * r
+        y1, z1 = -0.06 - math.cos(a1) * r, -math.sin(a1) * r
+        m.quad((-0.5, y0, z0), (0.5, y0, z0), (0.5, y1, z1), (-0.5, y1, z1), 0)
+        m.quad((0.5, y0, z0), (-0.5, y0, z0), (-0.5, y1, z1), (0.5, y1, z1), 0)
     return m
 
 
@@ -302,7 +317,7 @@ def main():
         x = math.sin(sum(a * b for a, b in zip(v, (12.9898, 78.233, 37.719)))) * 43758.5453
         return x - math.floor(x)
 
-    lists = {'SM_Balcony': [], 'SM_BalconyRail': [], 'SM_BalconyPanel': [], 'SM_Downpipe': [], 'SM_Chimney': [], 'SM_Kerb': []}
+    lists = {'SM_Balcony': [], 'SM_BalconyRail': [], 'SM_BalconyPanel': [], 'SM_Downpipe': [], 'SM_Chimney': [], 'SM_Gutter': [], 'SM_Kerb': []}
     for i, b in enumerate(s['buildings']):
         look = LOOKS.get(str(i))
         if not look or b['s'] != 'brick':
@@ -376,6 +391,18 @@ def main():
             axis = (B - A) / np.hypot(*(B - A))
             r1 = (A + D) / 2 + axis * width / 2
             r2 = (B + C) / 2 - axis * width / 2
+            # Eaves gutters: a half-round gutter along every edge of the hip roof's eave rectangle (stretched 1 m pieces).
+            for e0, e1 in ((A, B), (B, C), (C, D), (D, A)):
+                L = float(np.hypot(*(e1 - e0)))
+                w0, w1 = np.array(to_world(*e0)), np.array(to_world(*e1))
+                yaw_g = math.degrees(math.atan2(w1[1] - w0[1], w1[0] - w0[0]))
+                mid = (w0 + w1) / 2
+                # The gutter's open side (+Y of the mesh) faces the roof: turn it if the roof centre is on the other side.
+                ctr = np.array(to_world(*cen))
+                side = np.array([-math.sin(math.radians(yaw_g)), math.cos(math.radians(yaw_g))])
+                if np.dot(ctr - mid, side) < 0:
+                    yaw_g += 180.0
+                lists['SM_Gutter'].append(ue(mid[0], top - 0.02, mid[1], yaw_g, L, 1, 1))
             for f in (0.3, 0.72):
                 if h01(i, f, 13.0) > 0.85:
                     continue
@@ -407,6 +434,7 @@ for name, mb, slots in (('SM_Balcony', balcony(False), ['MI_HK_DetailConcrete'])
                         ('SM_BalconyPanel', balcony(True), ['MI_HK_DetailConcrete', 'MI_HK_Railing', 'MI_HK_DetailPanel']),
                         ('SM_Downpipe', downpipe(), ['MI_HK_DetailMetal']),
                         ('SM_Chimney', chimney(), ['MI_HK_DetailBrick', 'MI_HK_DetailConcrete']),
+                        ('SM_Gutter', gutter(), ['MI_HK_DetailMetal']),
                         ('SM_Kerb', kerb(), ['MI_HK_DetailGranite']),
                         ('SM_RoadDash', road_mark(), ['MI_HK_PaintYellow']),
                         ('SM_ZebraStripe', road_mark(), ['MI_HK_PaintWhite'])):

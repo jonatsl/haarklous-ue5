@@ -84,7 +84,10 @@ The web material instances keep their names, slots and colours; their parents ch
   (alpha-coverage mips keep thin blades); `build_grass.py` makes 16-card clumps; `M_HK_GrassCards` colours them from
   the lawn scan under them. `PerInstanceFadeAmount` is 1 when fully shown (it sinks the cards near the cull distance).
   Tiles reach 15 m, fade 9-13 m.
-- **Trees:** `tools/make-leaf-atlas.py` scatters ~1,100 scanned leaves (Poly Haven tree_small_02) over a card.
+- **Trees:** `tools/make-leaf-atlas.py` scatters ~1,100 scanned leaves (Poly Haven tree_small_02) over a card;
+  `tools/blender/tree_model.py` builds the crowns in the web's normalised crown space: leader, 5-7 limbs, side
+  twigs, fill masses, 12-15 leaf cards per mass (normals blend crown and mass direction). `build_trees.py` +
+  `import_trees.py` replace just the crown meshes (same asset names, so the web's placements stay).
 - **Sky photo:** `tools/make-sky.py` turns the CC0 HDR (sun at 38 degrees like the game's) into `T_SkyPhoto` (BC6H,
   no mips so the u wrap has no seam) and finds the turn (u0) that puts its sun on the game's sun azimuth;
   `tools/unreal/materials_sky.py` puts `M_HK_SkyPhoto` (unlit, "is sky": no fog or aerial perspective, sun capped)
@@ -95,6 +98,7 @@ The web material instances keep their names, slots and colours; their parents ch
   five-spoke wheels (closed lathe solids, mirrored for the left side); `build_assets.py` swaps them for the web's
   exterior materials of SM_car__body and the wheel meshes, keeping the interior. Other vehicles get `soften()`:
   welded, 12 mm bevel on edges over 35 degrees, weighted normals.
+- **Gutters:** `build_details.py` puts a stretched half-round gutter along each eave of the hipped roofs.
 - **Road paint:** `build_details.py` `markings()`: yellow centre dashes (3 m every 12 m) on tertiary and bigger
   roads, zebra crossings (0.5 m stripes) where footpaths cross them, pitched with the ground like the kerbs.
 - **Look:** `tools/unreal/look.py` (sun 4.2 with light shafts and contact shadows, sky light 1.2, bloom, lens flares,

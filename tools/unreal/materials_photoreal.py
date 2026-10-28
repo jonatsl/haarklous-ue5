@@ -648,6 +648,7 @@ def details():
              'SM_BalconyRail': ['MI_HK_Railing'],
              'SM_BalconyPanel': ['MI_HK_DetailConcrete', 'MI_HK_Railing', 'MI_HK_DetailPanel'],
              'SM_Downpipe': ['MI_HK_DetailMetal'],
+             'SM_Gutter': ['MI_HK_DetailMetal'],
              'SM_Chimney': ['MI_HK_DetailBrick', 'MI_HK_DetailConcrete'],
              'SM_Kerb': ['MI_HK_DetailGranite'],
              'SM_RoadDash': ['MI_HK_PaintYellow'],

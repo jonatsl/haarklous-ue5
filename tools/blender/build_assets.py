@@ -22,6 +22,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import car_model  # noqa: E402  (photo-real pass: the car's new body and wheels)
+import tree_model  # noqa: E402  (photo-real pass: tree crowns with limbs and leaf masses)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 EXPORT = os.path.join(ROOT, 'tools', 'out', 'web-export')
@@ -433,7 +434,10 @@ def build_rig(rig):
                 is_bush = m['instanceCount'] == len(json.load(open(os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data', 'surroundings.json'), encoding='utf-8'))['bushes']) // 3
                 crown_index = sum(1 for x in instances if 'Leaves' in x.get('kind', '') and 'Bush' not in x.get('kind', ''))
                 key = 'MI_HK_LeavesBush' if is_bush else ('MI_HK_LeavesA' if crown_index % 2 == 0 else 'MI_HK_LeavesB')
-                base, nslots = foliage('bush' if is_bush else 'crown', crown_index)
+                if is_bush:
+                    base, nslots = foliage('bush', crown_index)
+                else:
+                    base = tree_model.crown(crown_index, far=rig == 'world_far')
                 build_object(name, base, [key] + ([] if is_bush else ['MI_HK_Bark']))
             else:
                 # The base geometry: the same mesh entry without its instance list.
