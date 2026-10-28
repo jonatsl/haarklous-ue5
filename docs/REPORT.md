@@ -422,7 +422,9 @@ its window loses focus, like the web game does.
 
 **Frame rates** (fps test, editor build in a 1280 x 720 window, quality "Balanced", average / 1 % low): construction
 site 52.9 / 32.3, paintball course 70.3 / 38.1 (86 with a game going in the play-through), home 72.3 / 48.3, firepit
-59.2 / 42.3, park 60.3 / 38.1, street 61.0 / 40.5, flying 63.8 / 35.7. All well above the 20-30 fps target.
+59.2 / 42.3, park 60.3 / 38.1, street 61.0 / 40.5, flying 63.8 / 35.7. The packaged Shipping build (same window):
+site 59.3 / 36.5, paintball course 76.6 / 43.2, home 75.4 / 59.2, firepit 59.5 / 42.0, park 62.0 / 41.4, street
+63.3 / 48.0, flying 65.3 / 42.6. All well above the 20-30 fps target.
 
 ![Frame-rate test: the construction site](img/fps--fps-site.jpg)
 ![Frame-rate test: the paintball course](img/fps--fps-paintball.jpg)
