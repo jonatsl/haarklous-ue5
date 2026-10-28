@@ -463,7 +463,8 @@ nobody could join or start one. The test leaves a game, sees it end, starts a ne
 and walls, frames and glass no longer get in the way. Before, the first apartment part in front of the balcony door
 (a wall edge, the frame, the glass) hid it, so the □ prompt hardly ever showed. A new test (`balcony`) looks at the
 door from 25 places in the living room: before the fix the prompt showed from 0 of them, now from all 25; it opens,
-and it can be closed from the balcony.
+it can be closed from the balcony and opened again from there, and you walk back in (the door swings out over the
+narrow balcony, so if you stand right in its way the game asks you to step back first, as in the web game).
 
 ![The balcony door open](img/balcony--02-open.jpg)
 

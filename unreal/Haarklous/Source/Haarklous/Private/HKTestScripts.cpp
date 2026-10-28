@@ -745,6 +745,38 @@ namespace
 				T.Log([&T]() { return TEXT("looking at the open door from the balcony, prompt: ") + T.Game()->LastPromptText(); });
 				T.Expect(TEXT("the open door can be closed from the balcony"), [&T]() { return T.Game()->LastPromptText().Contains(TEXT("Close balcony door")); });
 				T.Shot(TEXT("03-on-the-balcony"));
+				// Close it from the balcony, then open it again from there (the door swings out over the whole balcony).
+				T.Press(2);
+				T.Wait(1.2);
+				T.Expect(TEXT("closed from the balcony"), [Door]() { return !Door()->bOpen; });
+				// Look at the closed leaf (in the wall now) and open it from the balcony.
+				T.Do([&T, B]()
+				{
+					AHKGame* G = T.Game();
+					const FVector E(G->Player.X, G->Player.Feet + G->Player.EyeNow, G->Player.Z);
+					G->Player.Yaw = FMath::Atan2(-(B->C.X - E.X), -(B->C.Z - E.Z));
+					G->Player.Pitch = FMath::Atan2(B->C.Y - E.Y, HK::Hypot(B->C.X - E.X, B->C.Z - E.Z));
+				});
+				T.Wait(.3);
+				T.Log([&T]() { return TEXT("on the balcony, door closed, prompt: ") + T.Game()->LastPromptText(); });
+				T.Expect(TEXT("from the balcony the closed door offers to open"), [&T]() { return T.Game()->LastPromptText().Contains(TEXT("Open balcony door")); });
+				T.Press(2);
+				T.Wait(1.2);
+				T.Log([&T]() { return TEXT("notice after trying to open it from the balcony: ") + T.Game()->LastNoticeText(); });
+				T.Expect(TEXT("the door opens again from the balcony (nobody is shut out)"), [Door]() { return Door()->bOpen; });
+				T.Shot(TEXT("04-open-from-the-balcony"));
+				// Walk back in through it.
+				T.Do([&T, B]() { T.Game()->Player.Yaw = FMath::Atan2(-B->N.X, -B->N.Z); T.Game()->Player.Pitch = 0; });
+				T.Steps.Add([&T, B](double)
+				{
+					AHKGame* G = T.Game();
+					const double In = (G->Player.X - B->C.X) * B->N.X + (G->Player.Z - B->C.Z) * B->N.Z;
+					if (TSharedPtr<FHKInputProcessor> P = FHKInputProcessor::Get()) P->SimulatedPad.Axes[1] = In < 1.2 ? -1.f : 0.f;
+					static double Tm = 0; Tm += .016;
+					if (In >= 1.2 || Tm > 6) { if (TSharedPtr<FHKInputProcessor> P = FHKInputProcessor::Get()) P->SimulatedPad.Axes[1] = 0; Tm = 0; return true; }
+					return false;
+				});
+				T.Expect(TEXT("back inside through the balcony door"), [&T, B]() { const AHKGame* G = T.Game(); return (G->Player.X - B->C.X) * B->N.X + (G->Player.Z - B->C.Z) * B->N.Z > 1.0; });
 			});
 
 			// On foot: street door -> stairs -> 4th floor -> entrance door -> the flat -> a beer (the web's verified route).

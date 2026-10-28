@@ -44,7 +44,7 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
   settings; add `-Extra "-HKOnline -HKVoiceTone"` for the lobby section on the test server), `stairwells`, `mic` (real microphone level), `fps` (frame rate in the busiest
   places), `online` (via `tools\net-test\run-live.ps1`, test server only), `site` (construction site machines),
   `people` (the realistic people in every pose), `paintball` (the course with five simulated friends), `balcony` (the
-  balcony door prompt from 25 places, open, close from outside), `sitecabs` (one screenshot from every machine's
+  balcony door prompt from 25 places, open, close and reopen it from the balcony, walk back in), `sitecabs` (one screenshot from every machine's
   seat); tests also write `results.txt` in their shots folder, so they can be checked in the packaged build (no log):
   `dist\...\Haarklous.exe -hktest=<name> -hkout=<folder>`;
   `tools\net-test\run-paintball.ps1` (the real game and seven bot clients on the test server). Scripted tests ignore the
