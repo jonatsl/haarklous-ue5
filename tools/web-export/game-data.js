@@ -29,7 +29,9 @@
   // (The walk world keeps no 'kind', so check the tail against the paintball obstacles and the fence panels' 4 corners.)
   {const pb = G.paintball ? G.paintball.obstacles : [], tail = extra.slice(extra.length - pb.length);
     if (tail.some((o, i) => Math.abs(o.points[0].x - pb[i].points[0].x) > 1e-9) || extra.slice(0, extra.length - pb.length).some(o => o.points.length !== 4)) throw new Error(`unexpected obstacles after the sculpture: ${extra.length}, paintball ${pb.length}`);}
-  out.obstacles = ww.obstacles.slice(0, own).map(obstacle);
+  // The walk world keeps no 'kind'; take it from the lists it was made of, in the same order (lamp, tree, building ...).
+  const kinds = [...apt.obstacles, ...G.towers.flatMap(t => t.stair.obstacles().map(() => ({kind: 'tower'}))), ...W.obstacles(), ...G.fire.obstacles, ...G.stash.obstacles, ...G.shops.obstacles, ...G.sculpture.obstacles].map(o => o.kind || '');
+  out.obstacles = ww.obstacles.slice(0, own).map((o, i) => ({...obstacle(o), kind: kinds[i]}));
   out.boundary = ww.boundary.map(b => ({a: [num(b.a.x), num(b.a.z)], b: [num(b.b.x), num(b.b.z)], floor: ww.floors.indexOf(b.floor)}));
   // Vehicles and aircraft collide with buildings, trees, hedges, stair towers and the firepit, not with the flat's furniture.
   // walkWorld.obstacles = [apartment, stair towers, surroundings, firepit]; vehicle worlds use [surroundings, towers, firepit].

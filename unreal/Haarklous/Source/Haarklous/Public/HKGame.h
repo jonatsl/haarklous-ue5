@@ -152,6 +152,7 @@ public:
 	void CloseAllDoors();
 	void UpdateDynamic();
 	void Notice(const FString& Text, double Seconds = 3);
+	const FString& CurrentNotice() const { return NoticeText; }   // tests
 	FHKPrompt FindPrompt();
 	bool Interact(bool bSilent = false);
 	void Drink(FHKDrink& D);

@@ -3,20 +3,21 @@
 The Unreal version copies the web game's behaviour 1:1, including these bugs. Each one is a small fix in both games
 once you say yes.
 
-## Bugs found while porting
-1. **Petanque never ends after 13.** When a side reaches 13, `endMene()` in `game-minigames.js` runs again every frame:
-   the score keeps climbing ("Arne wins 7–13!", then 7–14 … 7–163) and the 4-second finish timer restarts every frame,
-   so the game only ends when you press ○. Fix: stop calling `endMene()` once the finish timer is running.
-2. **Petanque can freeze.** If no boule is left in the court and you have none left, `nextThrower()` calls `left(null)`,
-   which throws an error; the update stops there every frame until ○. Fix: treat "no boule in the court" as the end of
-   the mène.
-3. **Vehicle obstacles appear one update late.** `updateDynamic()` only puts doors and vehicles into collision worlds
-   that already exist; a world made later (for example the bike's 0.45 m world on the first ride) has no vehicle
-   obstacles until the next update. Barely noticeable; fix by building the world before filling it.
+## Bugs found while porting (fixed in both games, 29 Oct 2026)
+The user had them fixed in the web game (web PR #9, Unreal issues #7–#9); the Unreal version has the same fixes:
+1. **Petanque never ended after 13** (the end of the last mène was counted every frame). Now no new turn starts once
+   the finish timer runs (`FHKPetanque::Update`, `!bHasFinish`), so the score and the 150 kr reward count once.
+2. **Petanque could freeze** when no boule was left in the court. Now whoever still has boules plays on
+   (`FHKPetanque::PetanqueNext`, the web's `petanqueNext`); test `Haarklous.Minigames.PetanqueNext`.
+3. **Vehicle obstacles appeared one update late** in a vehicle world made during play (the bike on its first ride drove
+   through parked cars). Now a new world gets the last dynamic list at once (`FHKData::LastVehicleDynamic`).
+Also fixed from the web (issue #1): the concrete barriers' end caps were filled as a fan, which left a see-through
+gap on the concave profile; `site_geometry.prism()` now uses ear clipping (`tools/tests/test_site_geometry.py`).
 
 ## Not in the snapshot yet
-- Web pull request #4 (three hidden stashes with 30-second boosts) was open when the snapshot was taken. Refresh the
-  snapshot (`tools\refresh-reference.ps1`) after it is merged, then port it.
+- Web pull requests #18 (distant land below the real ground) and #19 (flying with the mouse) were still open on
+  29 Oct 2026. They are ported from their branches (Unreal issues #14 and #13); refresh the snapshot once they are
+  merged and check that nothing else changed.
 
 ## Ideas
 - The web's "aerial imagery" ground option is not used in Unreal (the ground has real materials). It could come back

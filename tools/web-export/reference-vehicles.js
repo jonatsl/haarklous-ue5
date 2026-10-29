@@ -37,7 +37,8 @@
       v.group.traverse(o => {if (c !== null || !o.isMesh) return;for (const m of [].concat(o.material)) if (m.isMeshPhysicalMaterial && m.clearcoat === 1 && (v.kind === 'car' ? m.clearcoatRoughness === .06 && m.metalness === .6 : m.clearcoatRoughness === .08 && m.metalness === .55)) {c = m.color.getHex();break;}});
       return c;
     };
-    out.list = G.vehicles.map((v, i) => ({i, kind: v.kind, name: v.name, x: v.x, y: v.y, z: v.z, yaw: v.yaw, paint: paintOf(v), spawn: v.spawn}));
+    // Without the web game's copy of our site machines (appended after its own vehicles): those are the C++ originals.
+    out.list = G.vehicles.filter(v => !(G.site && G.site.machines.includes(v))).map((v, i) => ({i, kind: v.kind, name: v.name, x: v.x, y: v.y, z: v.z, yaw: v.yaw, paint: paintOf(v), spawn: v.spawn}));
 
     // ---------- Helpers ----------
     const ctorOf = kind => (kind === 'drone' ? G.drone : G.vehicles.find(v => v.kind === kind)).constructor;

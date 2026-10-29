@@ -10,7 +10,7 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
 
 ## Online features: keep them, but stay offline
 - Keep every online feature (lobbies with 4-letter codes, up to 12 players (the user's decision on 28 Oct 2026, for the
-  whole lobby; the web game and the live server still say 5), synced players and vehicles, passengers, chat, voice, shared doors and firepit) so the game can be launched later.
+  whole lobby; since 29 Oct 2026 the web game's main code says 12 too), synced players and vehicles, passengers, chat, voice, shared doors and firepit) so the game can be launched later.
 - The backend is `reference/web-game/cloud/` (Cloudflare Worker + Durable Objects). Keep it unchanged. The Unreal client must speak the same WebSocket JSON protocol (`cloud/src/index.js`, `game-net.js`, `game-multiplayer.js`), including the same vehicle numbering (vehicle list order and the seeded generator in `game-main.js`).
 - **Live game untouched:** never deploy to, change or connect to the live Worker `haarklous-online` (`haarklous-online.server-smoke.workers.dev`). Online code is switched off by default in builds.
 - **Online testing (allowed since 26 Oct 2026):** on a separate test server only. Copy `reference/web-game/cloud/` to `server/`, change nothing but the Worker name to `haarklous-ue5-test` in `server/wrangler.toml` and, since 28 Oct 2026 with the user's OK, `MAX_PLAYERS = 12` in `server/src/index.js` for paintball 6 v 6 (and put the reference `haarklous-game.html` in `server/public/index.html`), test with `npx wrangler dev` locally, then deploy that test Worker to the user's Cloudflare account (46fd597da1c5fe9de4c3ebbaae86f906, Wrangler is logged in on this PC) at `haarklous-ue5-test.server-smoke.workers.dev`. Test the Unreal client together with the web client served by that test Worker in one lobby.
@@ -45,15 +45,22 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
   places), `online` (via `tools\net-test\run-live.ps1`, test server only), `site` (construction site machines),
   `people` (the realistic people in every pose), `paintball` (the course with five simulated friends), `balcony` (the
   balcony door prompt from 25 places, open, close and reopen it from the balcony, walk back in), `sitecabs` (one screenshot from every machine's
-  seat); tests also write `results.txt` in their shots folder, so they can be checked in the packaged build (no log):
+  seat), `mouseflight` (helicopter, drone and plane flown with the mouse, free look with Shift or the right mouse
+  button), `places` (the checks of GitHub issues #1-#14: the moved site and paintball course, HODET N.N., street
+  lamps, Muselunden, the bike's first ride, petanque at 13, the stashes and boosts, the shops and money, the distant
+  land); tests also write `results.txt` in their shots folder, so they can be checked in the packaged build (no log):
   `dist\...\Haarklous.exe -hktest=<name> -hkout=<folder>`;
   `tools\net-test\run-paintball.ps1` (the real game and seven bot clients on the test server). Scripted tests ignore the
   real keyboard and mouse.
 - Paintball (28 Oct 2026, the user's own feature): `docs/ARCHITECTURE.md` "Paintball course". The TEST server
   (`server/`) allows 12 players a lobby (allowed by the user on 28 Oct 2026, for 6 v 6); that is the only change to the
   test server's code. The live server keeps 5; changing it is the user's decision.
-- Open issues the user filed (not started): GitHub issues on jonatsl/haarklous-ue5 (#1 paintball cover that looks
-  see-through, #2 street lamps, #3 the Torshovdalen sculpture). Do not code them unless the user asks.
+- GitHub issues #1-#14 on jonatsl/haarklous-ue5 (29 Oct 2026, the user: "implement all of them"): the catch-up with the
+  web game listed in #12. Done; see `docs/ARCHITECTURE.md` "Catching up with the web game". Snapshot: web `main` at
+  d4ec404; web PRs #18 (distant land) and #19 (mouse flying) were open and were read from their branches. After a new
+  web export, `tools/unreal/import_assets.py` remakes the web materials (their numbers can move) and the reference
+  answers need recording again (`node tools/web-export/export.mjs --only=tests`).
+- The wallet (money, bottles, bag) is saved per player in `Saved/HKWallet.json` (the web keeps it in localStorage).
 - Gameplay changes the user asked for (28 Oct 2026, differ from the web game on purpose): walking speed standing
   3.5 m/s (`HKFoot::Speed`; the web walks at 1.45; running stays 3.6, crouch and prone keep the web's speeds); a
   paintball game with nobody left in it ends after 3 s (back to the lobby); the construction site is 140 x 90 m with

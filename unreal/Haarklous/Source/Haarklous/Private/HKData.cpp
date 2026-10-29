@@ -191,15 +191,20 @@ bool FHKData::Load()
 			Cleared.Add(FBox2D(FVector2D(X0, S0), FVector2D(X0 + HKJson::Num(R, TEXT("w")), S0 + HKJson::Num(R, TEXT("d")))));
 		}
 	auto ClearedLocal = [this](double X, double S) { for (const FBox2D& B : Cleared) if (B.IsInside(FVector2D(X, S))) return true; return false; };
-	// Trees (data.trees + courtyard trees, in that order) and bushes, local frame: the web's lists as they are (greenery
-	// and the minigames match the web); on cleared ground they are not drawn (SpawnTrees) and do not collide (below).
+	// Trees (data.trees + courtyard trees, in that order) and bushes, local frame, as surroundings.js keeps them (greenery
+	// and the minigames match the web): since 29 Oct 2026 the web leaves out the trees and bushes in its "holes", the site
+	// rect and the paintball rect 1 m wider (strictly inside); the courtyard trees always stay. On cleared ground nothing
+	// is drawn (SpawnTrees) and nothing collides (below).
 	{
+		TArray<FBox2D> Holes = Cleared;
+		if (Holes.Num() > 1) Holes[1] = Holes[1].ExpandBy(1.0);
+		auto InHole = [&Holes](double X, double S) { for (const FBox2D& H : Holes) if (X > H.Min.X && X < H.Max.X && S > H.Min.Y && S < H.Max.Y) return true; return false; };
 		const TArray<double> T = HKJson::Nums(D, TEXT("trees"));
-		for (int32 i = 0; i + 2 < T.Num(); i += 3) AllTrees.Add({T[i], T[i + 1], T[i + 2]});
+		for (int32 i = 0; i + 2 < T.Num(); i += 3) if (!InHole(T[i], T[i + 1])) AllTrees.Add({T[i], T[i + 1], T[i + 2]});
 		const TArray<double> Y = HKJson::Nums(HKJson::Obj(D, TEXT("courtyard")), TEXT("trees"));
 		for (int32 i = 0; i + 2 < Y.Num(); i += 3) AllTrees.Add({Y[i], Y[i + 1], Y[i + 2]});
 		const TArray<double> B = HKJson::Nums(D, TEXT("bushes"));
-		for (int32 i = 0; i + 2 < B.Num(); i += 3) Bushes.Add({B[i], B[i + 1], B[i + 2]});
+		for (int32 i = 0; i + 2 < B.Num(); i += 3) if (!InHole(B[i], B[i + 1])) Bushes.Add({B[i], B[i + 1], B[i + 2]});
 	}
 	// Traffic noise sources: residential .35 ... trunk 2 (relative loudness widens the distance).
 	{
@@ -282,7 +287,9 @@ double FHKData::RelLocal(double X, double S) const
 double FHKData::VisualHeightWorld(double X, double Z) const
 {
 	const FVector2D L = ToLocal(X, Z);
-	const bool bNear = FMath::Max(FMath::Abs(L.X), FMath::Abs(L.Y)) < 300;
+	// The near terrain (+-300 m) and since 29 Oct 2026 the outer terrain out to +-playHalf are drawn on the 4 m grid;
+	// beyond that the district terrain (8 m, 0.5 m low).
+	const bool bNear = FMath::Max(FMath::Abs(L.X), FMath::Abs(L.Y)) < PlayHalf;
 	const int32 K = FMath::Max(1, FMath::RoundToInt32((bNear ? 4 : 8) / TerStep)), N = TerN;
 	const double Fi = FMath::Min(N - 1.0 - K, FMath::Max(0.0, (L.X + TerHalf) / TerStep)) / K, Fj = FMath::Min(N - 1.0 - K, FMath::Max(0.0, (L.Y + TerHalf) / TerStep)) / K;
 	const int32 i = FMath::FloorToInt32(Fi), j = FMath::FloorToInt32(Fj);

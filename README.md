@@ -11,9 +11,10 @@ Rebuilding the look of **Haarklous online** – the open-world game around Haark
 - `server/` – copy of the web game's cloud server with only the Worker name changed (`haarklous-ue5-test`), for online tests.
 
 ## Not in the snapshot yet
-Open pull requests in the web game at snapshot time (port them once merged, after refreshing the snapshot):
-- #3 – web-only rendering fix for buildings and ground far from home (nothing to port; Unreal handles distance its own way).
-- #4 – three hidden stashes with 30-second boosts (3× speed, 3× jump, bullet time).
+Open pull requests in the web game at snapshot time (29 Oct 2026), already ported from their branches:
+- #18 – the distant land lies below the real ground and joins it with an apron (Unreal issue #14).
+- #19 – fly the helicopter, plane and drone with the mouse like in Battlefield; hold Shift to look around (issue #13).
+Web PR #3 (far-away buildings and ground) is web-only rendering: nothing to port.
 
 Refresh after changes in the web game: `powershell -File tools\refresh-reference.ps1`.
 
@@ -22,6 +23,15 @@ Refresh after changes in the web game: `powershell -File tools\refresh-reference
 - **From the project (no packaging):**
   `"C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe" unreal\Haarklous\Haarklous.uproject -game -dx11`.
 - Controls are the web game's: DualShock 4 (USB or Bluetooth, plug it in before starting) or keyboard and mouse.
+- Flying with keyboard and mouse (Battlefield style, 29 Oct 2026): helicopter and plane W/S collective or throttle, A/D
+  pedals or rudder, the mouse pitches and rolls (mouse up = nose down) and the aircraft keeps the tilt you gave it; the
+  drone W/S thrust, A/D yaw, the mouse tilts it. Hold Shift or the right mouse button to look around; let go and the
+  view turns back. The arrow keys and the DualShock 4 still work as before.
+- New from the web game (29 Oct 2026): the Joker and Kiwi shops (□ takes an item, pay at the till, D-pad ↓ / ↓ opens
+  your bag, money in kroner saved in `Saved/HKWallet.json`), three hidden stashes with 30-second boosts, cars and
+  motorcycles that jump over crests, HODET N.N. in Torshovdalen, street lamps, the 12-hole Muselunden DiscGolfPark and
+  a bigger world (±760 m). The construction site moved 96 m south / 72 m west and the paintball course into the old
+  site area.
 - The real DualShock 4 works (tested by the user on 28 Oct 2026).
 - **Online is off.** To play online on the test server: start with `-HKOnline` (12 players a lobby; share the 4-letter
   code, friends join with `-HKOnline -HKLobby=CODE` or the code pad, or in the web game at the test server's address) (server

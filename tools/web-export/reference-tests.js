@@ -16,7 +16,13 @@
     if (r < .35) return {x: between(aptBox.x0 - .5, aptBox.x1 + .5), z: between(aptBox.z0 - .5, aptBox.z1 + .5), y: rnd() < .8 ? 0 : between(-.4, .4)};
     if (r < .55) return {x: between(stairBox.x0 - .5, stairBox.x1 + .5), z: between(stairBox.z0 - .5, stairBox.z1 + .5), y: stairYs[Math.floor(rnd() * stairYs.length)] + between(-.3, .6)};
     if (r < .8) {const x = between(-40, 60), z = between(-30, 60);return {x, z, y: W.heightWorld(x, z) + between(-.2, .3)};}
-    const x = between(-500, 500), z = between(-500, 500);return {x, z, y: W.heightWorld(x, z) + between(-.2, .3)};
+    // Not on the construction site or in the paintball yard: their ground is the game's own (the C++ tests of HKSite /
+    // HKPaintball check it); the web's copy of them is a port of ours.
+    for (;;) {
+      const x = between(-500, 500), z = between(-500, 500), l = W.toLocal(x, z);
+      if ([window.SITE, window.PAINTBALL].some(d => d && l.x > d.rect.x0 - 1 && l.x < d.rect.x0 + d.rect.w + 1 && l.s > d.rect.s0 - 1 && l.s < d.rect.s0 + d.rect.d + 1)) continue;
+      return {x, z, y: W.heightWorld(x, z) + between(-.2, .3)};
+    }
   }
   const out = {dynamic: (ww.dynamic || []).map(o => ({points: o.points.map(p => [num(p.x), num(p.z)]), minY: num(o.minY ?? -Infinity), maxY: num(o.maxY ?? Infinity)})), heights: [], support: [], move: [], hits: [], spawn: [], surface: [], traffic: [], green: [], local: []};
   for (let i = 0; i < 3000; i++) {const x = between(-650, 650), z = between(-650, 650);out.heights.push([num(x), num(z), num(W.heightWorld(x, z))]);}

@@ -33,9 +33,11 @@ Blender files use (x, −z, y) of the web frame (metres, z up), which the FBX im
   drawn as instanced meshes (`AHKGame::SpawnTrees`, lists in `Content/Data/instances`).
 - **Sky:** Unreal's sky atmosphere and height fog instead of the web's gradient dome; the web's clouds (same formula,
   baked into `T_Clouds`) on an unlit dome (`M_HK_Clouds`, no fog, as the web drew its sky without fog).
-- **Horizon:** the web drew its far scene (18 km plane, hills, fjord) in a separate pass behind the district. In one
-  Unreal scene the plane would cut through the district, so `horizon_with_hole()` cuts a hole over the district
-  terrain whose rim follows the terrain's edge heights.
+- **Horizon:** the web drew its far scene (18 km plane, hills, fjord) in a separate pass behind the district. Since the
+  web fix for floating land (web PR #18, issue #14, 29 Oct 2026) the plane lies at the lowest terrain value - 2.5 m,
+  under every bit of real ground, so it no longer needs a hole; `horizon_and_apron()` (build_assets.py) adds the web's
+  apron: a ring from the district terrain's +-800 m edge (8 m ticks, the edge heights - 0.5) out to +3 km, easing to
+  the plane's level (screenshots: `-hktest=places`, 14 and 15).
 - **Lighting:** stationary sun along the web's `sunDir` with cascaded shadows, stationary sky light, baked indirect
   light (Lightmass, `tools/unreal/build-lighting.ps1`), static lamps with the web's values. No Lumen, Nanite, virtual
   shadow maps or ray tracing (integrated Radeon laptop).
@@ -122,6 +124,10 @@ The web material instances keep their names, slots and colours; their parents ch
 ## Construction site (new feature, 28 Oct 2026; not in the web game)
 The user asked for one big construction site with dozers, excavators, wheel loaders, big trucks and two cranes that
 drive like real machines, and soil that can be moved realistically.
+- Moved on 29 Oct 2026 (issue #10, the same as web PR #12): 96 m south and 72 m west, so HODET N.N. can stand at its
+  real place on the old north fence. Field x -160..-16, s 368..464; fence x -158..-18, s 371..461; gates where
+  footway 97 crosses the fence (north x -120.0, south x -121.8); platform -29.97 m, grade 5 % / -1.5 %
+  (`tools/make-site.py` DX, DS; the web's site-data.js is identical). The numbers below are the first place.
 - Place (made bigger at the user's request, 28 Oct 2026: "140x90 meters"): a 140 x 90 m fence (local x -86..54,
   s 275..365) inside a 144 x 96 m soil field (x -88..56, s 272..368; world centre about (-178.1, -256.0)), on the far
   terrain's 8 m grid. It takes in the first 64 x 64 m site (x -80..-16, s 304..368) and the slope east of it. No free
@@ -184,6 +190,9 @@ drive like real machines, and soil that can be moved realistically.
 ## Paintball course (new feature, 28 Oct 2026; not in the web game)
 The user asked for an urban paintball / reball course to play with friends, up to 6 v 6, normal paintball rules, team
 deathmatch and capture the flag, about 60 x 40 m, with a lobby at the course (the first one in is the admin).
+- Moved on 29 Oct 2026 (issue #10): into the valley floor the site left; yard x -72..-8, s 296..344 (floor -27.05 m),
+  play area x -70..-10, s 298..338, gate x -51..-47, lobby x -61..-33, s 339..356 (`tools/make-paintball.py`; the
+  web's paintball-data.js is identical). The numbers below are the first place.
 - Place: the park valley next to the construction site; a 64 x 48 m paved yard (local x -112..-48, s 376..424, on the
   far terrain's 8 m grid, cut open by `build_assets.py`), one level at the median height with retaining walls; the
   60 x 40 m play area inside a 5 m net; the lobby on the lawn outside the gate (where the lawn is level with the yard).
@@ -218,6 +227,47 @@ deathmatch and capture the flag, about 60 x 40 m, with a lobby at the course (th
   empty game ending);
   `tools\net-test\run-paintball.ps1 -Mode local|deployed` (the real game with seven bot clients, `pb-bots.mjs`, on the
   test server: 8 in one lobby, a 4 v 4 game).
+
+## Catching up with the web game (29 Oct 2026, GitHub issues #1-#14)
+The web game ported this project's site, paintball and 12-player lobbies and added features of its own; issue #12 lists
+them. The snapshot is web `main` at d4ec404; web PRs #18 and #19 (still open) were read from their branches.
+- **Export** (`tools/web-export`): the web's copies of our site (fence, machines) and paintball course are left out of
+  game.json and the geometry (`exporter.js`, `game-data.js`); game.json gets the obstacle kinds (tree, building, lamp,
+  bush, shop ...), `stash`, `shops`, `sculpture` and `muselunden`; `exporter-places.js` exports the rigs `sculpture`
+  (level), `stash`, `shops` (level, sliding doors as nodes; the product facings as one vertex-coloured mesh) and
+  `muselunden`. Walk world obstacles: [apartment, towers, surroundings, firepit, stashes, shops, sculpture]; the
+  vehicle worlds take all but the apartment and the stash crates (`FHKData::Load`).
+- **Material numbers:** the web material keys carry export ids; a new export can move them (29 Oct 2026: +1 to +3).
+  `import_assets.py` deletes and remakes the web material instances and textures when materials.json changed; the few
+  keys named in scripts (car body, motorcycle tyre, terrain) were updated in `car_model.py` / `build_assets.py`.
+- **Bigger world (#11):** walkable +-760 m (`playHalf`), terrain +-800 m; the web's outer terrain (300-760 m, 4 m) is
+  in world_near with its own ground mask (`exporter-ground.js` near / outer / far, `materials_ground.py`); the city is
+  tiled out to 1200 m; Lightmass importance +-1100 m, -70..+70 m high.
+- **Muselunden (#11):** `FHKDiscGolf` takes a course (name, holes, rig); `FHKMinigames` has Torshovdalen, Muselunden
+  (game.json `muselunden`, rig `muselunden`) and petanque; prompts, HUD and end text carry the course name; rewards
+  par 50 / birdie 100 / eagle 200 kr (`FHKMinigamesContext::Reward`).
+- **Street lamps (#2):** `SM_StreetLamp` (`build_details.py`: tapered pole, collar, shade, opal diffuser; the web's
+  footprint and 5.1 m height) at all 389 lamp spots except the site and the yard, spawned like the details; the web's
+  plain poles are dropped from world_near (`LAMP_KEY`). 359 lamp posts are solid (game.json, kind `lamp`). No light at
+  night (the web's sun is fixed).
+- **HODET N.N. (#3):** the web's sculpture (game-sculpture.js: bell, neck, head with the face, 28 stone steps) is
+  level geometry from the export; `materials_places.py` makes its bronze; its ring and steps come with the walk world.
+- **Stashes and boosts (#6):** `HKStash` (crates, items, 90 s cooldown, hit boxes) and `HKGameShops.cpp`
+  (`StashPrompt`, `TakeBoost`, `BoostKind`/`BoostT`, `WorldScale()` = 0.35 in bullet time for parked vehicles, the
+  fire, the site soil, the minigames and the mission's hostiles); speed x3 and FOV 82, jump x sqrt 3; the badge, the
+  pulsing screen edge (`DrawShopsHud`), camera colour grading (`BoostLook`) and `FHKAudio::Muffle` (a low-pass after
+  the master bus). Online: each player's boost is their own (it only changes their own movement and view).
+- **Shops and money (#5):** `HKShops` (products, Kiwi prices, beer hours, `FHKWallet` saved in `Saved/HKWallet.json`,
+  shop frames, door animation, the cashier's turning) and `HKGameShops.cpp` (prompts, basket, paying, the alarm, the
+  bag, the bottle return, `Earn` with the coin sound; rewards from the mission 400 kr, disc golf and petanque). Shop
+  lights are baked lamps (`build_level.py`); the cashiers are realistic people tinted in the shop colour
+  (`AHKRigActor::TintPerson`). Aiming at items uses the exported hit boxes (`FHKHitBox::Ray`, in `LookTarget`).
+- **Jumps (#4):** `FHKGroundVehicle::Settle` with gravity for cars and motorcycles (see the vehicle tests
+  `CarJump`, `MotorcycleJump`, `Jump`). **Mouse flying (#13):** `AHKGame::FlightSticks` / `FlightLook`,
+  `FHKInputFrame::bFreeLook`, `FHKVehicleInput::bHold` (play-through `mouseflight`, test `Vehicles.MouseHold`).
+- **Fixes (#1, #7, #8, #9):** see `docs/GAMEPLAY-IDEAS.md`.
+- **Checks:** `toolsun-game.ps1 -Test places` (every issue's in-game checks with screenshots), `mouseflight`,
+  `vehicles` (a jump over the hump at local (392, -392)), the automation tests and `python tools/tests/test_site_geometry.py`.
 
 ## Core C++ (Source/Haarklous)
 | File | What |
