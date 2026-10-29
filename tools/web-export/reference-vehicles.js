@@ -8,6 +8,8 @@
  * only replays them. Vehicle worlds and the walk world are used without their dynamic obstacles (other vehicles, doors)
  * during the recording (restored afterwards), so both sides see only the static map.
  * Math.random (only used for the excavator's scrape sound) is a seeded Park-Miller generator during the recording.
+ * Cars and motorcycles follow gravity since web PR #5 (jonatsl/haarklous-online): the recording of 29 Oct 2026 ran on the
+ * snapshot (main at d4ec404) with only that PR's game-vehicles.js changes applied to haarklous-game.html.
  */
 (() => {
   'use strict';
@@ -331,6 +333,41 @@
       R.rec({op: 'init'});v.enter();R.rec({op: 'enter'});
       run(R, v, 300, inp({t: .5, drunk: .8}));
       summary.push(`motorcycleDrunk: ${R.sc.steps.length} steps, lean ${v.lean.toFixed(3)}`);
+    }
+
+    // ---------- Jumps (gravity 9.81 m/s², web PR #5): the grass hump at local (392, -392), driven along local (0.707, 0.707) ----------
+    // The crest is at distance 0; gravity lets go there above about 67 km/h. The run starts 30 m before the crest (downhill)
+    // with the speed set at once (op 'speed'), which gives a short hop at the start; on the ground a cruise control picks the
+    // throttle that keeps exactly that speed. In the air over the crest the pilot holds full throttle, half brake and
+    // steering, which must do nothing (the bike's bars may still turn); after the landing it brakes. Landings (impact, step)
+    // are recorded in "lands"; the summary measures the flight that takes off at the crest (the web's own check held the
+    // speed fixed all the way: car 90 km/h about 0.57 s / 14 m / 0.22 m, motorcycle 110 km/h 0.68 s / 21 m / 0.85 m).
+    {
+      const theta = W.data.geo.theta, crest = W.toWorld(392, -392);
+      const humpYaw = (() => {const h = Math.atan2(.707, .707), dx = Math.sin(h), ds = Math.cos(h), wx = dx * Math.cos(theta) + ds * Math.sin(theta), wz = -dx * Math.sin(theta) + ds * Math.cos(theta);return Math.atan2(-wx, -wz);})();
+      const jump = (name, kind, kmh, model, extra, nodes) => {
+        const f = {x: -Math.sin(humpYaw), z: -Math.cos(humpYaw)}, ctor = [crest.x - f.x * 30, crest.z - f.z * 30, humpYaw, model], v = new (ctorOf(kind))(...ctor);
+        const along = () => (v.x - crest.x) * f.x + (v.z - crest.z) * f.z;
+        // Height above the ground under the middle, and above the ground the wheels follow (settle(): front and back averaged).
+        const above = () => {const g = v.forward(), L = v.length * .4;return [v.y - heightAt(v.x, v.z), v.y - (heightAt(v.x + g.x * L, v.z + g.z * L) + heightAt(v.x - g.x * L, v.z - g.z * L)) / 2];};
+        const lands = [];let R = null, start = null, prevAirT = 0, maxH = 0, maxG = 0, flight = null;
+        v.onLand = impact => {lands.push([num(impact), R.sc.steps.length]);if (!flight && start && start.at > -5) flight = {t: v.airT, d: Math.hypot(v.x - start.x, v.z - start.z), at: along(), impact};};
+        R = scenario(name, kind, ctor, v, [...groundFields(v), ['air', () => [v.vy, v.airT, v.airborne, v.squash]], ...extra(v)], nodes, {lands});
+        R.rec({op: 'init'});v.enter();R.rec({op: 'enter'});
+        const target = kmh / 3.6;v.speed = target;R.rec({op: 'speed', s: target});
+        // Cruise control: the throttle whose acceleration (game-vehicles.js update) lands exactly on the target speed.
+        const cruise = () => kind === 'car' ? ((target - v.speed) / DT + v.speed * .03 + Math.sign(v.speed) * .2) / Math.max(1, 4.2 - Math.abs(v.speed) * .08)
+          : ((target - v.speed) / DT + v.speed * .02 + (v.speed > 0 ? .25 : 0)) / Math.max(1.2, 7.5 - v.speed * .12);
+        run(R, v, 360, () => v.airborne && along() > -5 ? inp({t: 1, b: .5, s: .6}) : inp({t: clamp(cruise(), 0, 1)}), () => {
+          if (v.airT > 0 && prevAirT === 0) {start = {x: v.x, z: v.z, at: along()};maxH = maxG = 0;}
+          prevAirT = v.airT;if (!flight) {const [a, b] = above();maxH = Math.max(maxH, a);maxG = Math.max(maxG, b);}
+          return !!flight;
+        });
+        run(R, v, 90, inp({b: 1}));
+        summary.push(`${name}: ${R.sc.steps.length} steps at ${kmh} km/h; ` + (flight ? `off the ground at ${start.at.toFixed(2)} m, flew ${flight.t.toFixed(3)} s and ${flight.d.toFixed(2)} m, up to ${maxH.toFixed(3)} m above the ground (${maxG.toFixed(3)} m above the wheels' ground), landed ${flight.at.toFixed(1)} m past the crest (impact ${flight.impact.toFixed(2)} m/s)` : 'did not fly') + `; ${lands.length} landings`);
+      };
+      jump('carJump', 'car', 90, 4, v => [['steerAngle', () => v.steerAngle], ['rpm', () => v.rpm], ['wheelSpin', () => v.wheelSpin]], ['root', 'body', 'wheels[0].holder', 'steeringWheel']);
+      jump('motorcycleJump', 'motorcycle', 110, 0x9e1b20, v => [['lean', () => v.lean], ['bar', () => v.bar], ['gear', () => v.gear], ['rpm', () => v.rpm], ['wheelSpin', () => v.wheelSpin]], ['root', 'body', 'front', 'bars']);
     }
 
     // ---------- FPV drone ----------

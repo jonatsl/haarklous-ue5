@@ -6,7 +6,8 @@
 
 /*
  * Port of game-vehicles.js (line by line, same constants and order of operations):
- *   FHKGroundVehicle  = class Vehicle   (terrain following, collision with the vehicle worlds, multiplayer state)
+ *   FHKGroundVehicle  = class Vehicle   (terrain following, gravity and jumps of cars and motorcycles, collision with
+ *                                        the vehicle worlds, multiplayer state)
  *   FHKMotorcycle     = class Motorcycle (2005 Honda CBF600S: lean physics, 6-gear rpm model)
  *   FHKCar            = class Car        (hatchback, bicycle-model steering, left-hand drive, two-bone arms)
  *   FHKExcavator      = class Excavator  (differential tracks, swing / boom / stick / bucket with rams, digging and dumping)
@@ -18,6 +19,8 @@
  */
 namespace HKVehicles
 {
+	// const G = 9.81: gravity (m/s²) for the vertical motion of cars and motorcycles (FHKGroundVehicle::Settle).
+	constexpr double Gravity = 9.81;
 	// performance.now() in milliseconds (only used for the drunk wobble); tests can plug in a scripted clock.
 	HAARKLOUS_API double NowMs();
 	HAARKLOUS_API void SetClock(TFunction<double()> Fn);
@@ -57,10 +60,19 @@ public:
 	FHKNode* Body = nullptr;                   // this.body
 	struct FHip { bool bValid = false; FHKNode* Obj = nullptr; FVector Pos = FVector::ZeroVector; FString Stance; };
 	FHip HipD, HipP;                           // this.hips.d / this.hips.p
+	// Vertical motion (cars and motorcycles set bFlies = true): vertical speed, time off the ground, landing dip.
+	bool bFlies = false;                       // this.flies
+	double Vy = 0, AirT = 0, Squash = 0;       // this.vy, this.airT, this.squash
+	bool bAirborne = false;                    // this.airborne
+	double GroundPrev = 0;                     // this.groundPrev ...
+	bool bHasGroundPrev = false;               // ... and whether it is defined (undefined after a network pose)
+	TFunction<void(double)> OnLand;            // this.onLand(impact): touch-down with the vertical impact (m/s)
 
 	// Two circles (front and rear) must be clear of buildings, trees and hedges.
 	bool Clear(double NX, double NZ) const;
 	void Settle(double Dt);
+	// Touch-down: a thud and a short suspension dip, harder for a faster vertical impact (m/s).
+	void Land(double Impact);
 	void Move(double Dt);
 	void Place();
 	FVector2D ExitPoint(double Side = -1) const;
