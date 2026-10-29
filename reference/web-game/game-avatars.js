@@ -8,8 +8,10 @@
   root.GameAvatars = factory();
 })(typeof window === 'undefined' ? globalThis : window, function () {
   'use strict';
-  const SLOT_COLORS = [0xc0392b, 0x2471a3, 0x1e8449, 0xd68910, 0x7d3c98];
-  const SLOT_CSS = ['#e05a4c', '#4d9de0', '#3fbf6f', '#f0a830', '#a768c9'];
+  // Twelve player slots (a lobby holds 12 players since the Unreal port, 28 Oct 2026), each with its own jacket colour.
+  const SLOT_COLORS = [0xc0392b, 0x2471a3, 0x1e8449, 0xd68910, 0x7d3c98, 0x138d75, 0xc2185b, 0x5d6d7e, 0xb7950b, 0x1b2631, 0x6e2c00, 0xd5c4a1];
+  const SLOT_CSS = ['#e05a4c', '#4d9de0', '#3fbf6f', '#f0a830', '#a768c9', '#1abc9c', '#ec407a', '#95a5a6', '#f4d03f', '#7f8fd6', '#c8875a', '#f0e6d2'];
+  const slotCss = slot => SLOT_CSS[((slot % SLOT_CSS.length) + SLOT_CSS.length) % SLOT_CSS.length];
   function create({T, lib}) {
     const skin = new T.MeshStandardMaterial({color: 0xd9a988, roughness: .7}), hair = new T.MeshStandardMaterial({color: 0x3b2a1e, roughness: .9});
     const pants = lib.fabric(0x2b3140), shoes = new T.MeshStandardMaterial({color: 0x1c1c1c, roughness: .6}), glass = new T.MeshStandardMaterial({color: 0x5a3a12, roughness: .15, metalness: .1, transparent: true, opacity: .85});
@@ -21,8 +23,8 @@
       return {s, c, ctx: c.getContext('2d'), tex};
     }
     function roundRect(ctx, x, y, w, h, r) {ctx.beginPath();ctx.moveTo(x + r, y);ctx.arcTo(x + w, y, x + w, y + h, r);ctx.arcTo(x + w, y + h, x, y + h, r);ctx.arcTo(x, y + h, x, y, r);ctx.arcTo(x, y, x + w, y, r);ctx.closePath();}
-    function avatar(slot, name) {
-      const jacket = lib.fabric(SLOT_COLORS[slot % 5]), g = new T.Group();
+    function avatar(slot, name, color) {
+      const jacket = lib.fabric(color ?? SLOT_COLORS[((slot % SLOT_COLORS.length) + SLOT_COLORS.length) % SLOT_COLORS.length]), g = new T.Group();
       const m = (parent, geo, mat, x = 0, y = 0, z = 0) => {const o = new T.Mesh(geo, mat);o.position.set(x, y, z);o.castShadow = true;parent.add(o);return o;};
       const hips = new T.Group();hips.position.y = .95;g.add(hips);
       m(hips, new T.BoxGeometry(.32, .16, .2), pants, 0, 0, 0);
@@ -52,7 +54,7 @@
       function setName(n) {
         if (n === nameNow) return;nameNow = n;const c = tag.ctx, W = tag.c.width, H = tag.c.height;c.clearRect(0, 0, W, H);
         c.font = 'bold 54px Segoe UI, Arial, sans-serif';const w = Math.min(W - 10, c.measureText(n).width + 50);
-        c.fillStyle = 'rgba(10,14,20,.62)';roundRect(c, (W - w) / 2, 8, w, H - 16, 26);c.fill();c.fillStyle = SLOT_CSS[slot % 5];c.fillRect((W - w) / 2 + 16, H / 2 - 8, 16, 16);
+        c.fillStyle = 'rgba(10,14,20,.62)';roundRect(c, (W - w) / 2, 8, w, H - 16, 26);c.fill();c.fillStyle = slotCss(slot);c.fillRect((W - w) / 2 + 16, H / 2 - 8, 16, 16);
         c.fillStyle = '#fff';c.textAlign = 'center';c.textBaseline = 'middle';c.fillText(n, W / 2 + 12, H / 2 + 2);tag.tex.needsUpdate = true;
       }
       function say(text) {
@@ -66,7 +68,7 @@
       }
       const set = (o, x = 0, y = 0, z = 0) => o.rotation.set(x, y, z);
       // stance: stand | crouch | prone | sit | drive | ride | pillion | drone ; seat poses put the hip at the group origin.
-      function pose({stance = 'stand', speed = 0, dt = 0, beer = false}) {
+      function pose({stance = 'stand', speed = 0, dt = 0, beer = false, marker = false}) {
         phase += speed * dt * 3.2;const sw = Math.sin(phase), amp = Math.min(1, speed / 3.6);
         hips.position.set(0, .95, 0);set(hips);set(torso);set(neck);set(head);
         for (const [s, side] of [[1, L], [-1, R]]) {set(side.leg.hip);set(side.leg.kn);set(side.arm.sh, 0, 0, s * .08);set(side.arm.el);}
@@ -91,6 +93,8 @@
           hips.position.y = .95 + Math.abs(Math.cos(phase)) * .03 * amp;torso.rotation.x = -.06 * amp;
           if (stance === 'drone') for (const side of [L, R]) {side.arm.sh.rotation.x = .8;side.arm.el.rotation.x = .9;}
         }
+        // Paintball: the marker shouldered, right hand on the grip, left on the front.
+        if (marker && !seated && stance !== 'prone') {set(R.arm.sh, 1.2, 0, -.2);set(R.arm.el, .55);set(L.arm.sh, 1.35, 0, .55);set(L.arm.el, .35);}
         bottle.visible = beer;if (beer && !seated) {R.arm.sh.rotation.x = .55;R.arm.el.rotation.x = 1.5;}
         if (beer && seated) {R.arm.sh.rotation.x = .5;R.arm.el.rotation.x = 1.6;}
         tag.s.position.y = seated ? 1.2 : stance === 'prone' ? .7 : stance === 'crouch' ? 1.75 : 2.08;bubble.s.position.y = tag.s.position.y + .45;
@@ -100,7 +104,7 @@
         const d = camera.position.distanceTo(g.getWorldPosition(tmp));tag.s.visible = d < 90;const k = Math.max(1, d / 14);tag.s.scale.set(1.3 * k, .26 * k, 1);bubble.s.scale.set(2.4 * Math.max(1, d / 18), .7 * Math.max(1, d / 18), 1);
       }
       setName(name);pose({});
-      return {group: g, setName, say, pose, update, dispose() {g.traverse(o => {if (o.geometry) o.geometry.dispose();});tag.tex.dispose();bubble.tex.dispose();}};
+      return {group: g, joints: {head, L: L.arm, R: R.arm}, setName, say, pose, update, dispose() {g.traverse(o => {if (o.geometry) o.geometry.dispose();});tag.tex.dispose();bubble.tex.dispose();}};
     }
     const tmp = new T.Vector3();
     function drone() {
@@ -115,5 +119,5 @@
     }
     return {avatar, drone, SLOT_COLORS, SLOT_CSS};
   }
-  return {create, SLOT_CSS};
+  return {create, SLOT_CSS, slotCss};
 });

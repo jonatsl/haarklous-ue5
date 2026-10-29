@@ -126,8 +126,21 @@
         case 'hit': burst(500, 1, .4, .002, .15, 'lowpass');break;
         case 'cheer': for (let i = 0; i < 6; i++) tone(rand(300, 700), rand(400, 900), .04, .05, .4, 'sawtooth', t + i * .05);break;
         case 'starter': tone(220, 320, .08, .02, .5, 'square');break;
+        case 'coin': tone(1320, 1320, .12, .004, .12, 'triangle');tone(1760, 1760, .12, .004, .3, 'triangle', t + .09);break;
+        case 'register': tone(2400, 2400, .08, .003, .08, 'square');tone(2400, 2400, .08, .003, .08, 'square', t + .14);burst(260, .8, .4, .004, .2, 'lowpass', t + .35);break;
+        case 'alarm': for (let i = 0; i < 6; i++) tone(i % 2 ? 1500 : 1900, i % 2 ? 1500 : 1900, .12, .004, .16, 'square', t + i * .18);break;
+        case 'pant': burst(180, .7, .5, .004, .25, 'lowpass');for (let i = 0; i < 4; i++) burst(rand(2000, 4500), 4, .1, .001, .05, 'bandpass', t + .25 + i * .07);tone(880, 880, .05, .004, .12, 'sine', t + .6);break;
+        case 'shopDoor': burst(700, .5, .08, .15, .45, 'bandpass');break;
+        case 'sniff': burst(3200, .8, .35, .18, .35);burst(5200, 1, .18, .1, .25, 'bandpass', t + .05);break;
+        case 'needle': burst(4000, 6, .1, .001, .03);for (let i = 0; i < 4; i++) {tone(62, 48, .55, .01, .16, 'sine', t + .35 + i * .55);tone(58, 44, .35, .01, .14, 'sine', t + .55 + i * .55);}break;
         case 'crash': burst(220, .7, 1, .003, 1.4, 'lowpass');burst(1600, .6, .5, .002, .7);tone(70, 30, .6, .003, .9);for (let i = 0; i < 6; i++) burst(rand(2500, 6000), 3, .15, .001, .08, 'bandpass', t + .1 + i * rand(.05, .14));break;
         case 'arm': tone(880, 880, .05, .005, .07, 'square');tone(1320, 1320, .05, .005, .1, 'square', t + .12);break;
+        // Paintball (ported from the Unreal version): the marker's shot, a ball breaking, a bounce, the referee's whistle, an empty hopper.
+        case 'pbShot': burst(1400, .9, .35, .001, .05);burst(180, 1, .3, .002, .07, 'lowpass');burst(5000, 2, .06, .01, .09);break;
+        case 'pbSplat': burst(700, .8, .3, .001, .08);burst(2200, 1.5, .1, .004, .05);break;
+        case 'pbBounce': burst(1800, 3, .15, .001, .03);break;
+        case 'whistle': tone(2900, 3000, .12, .02, .5, 'sine');tone(3150, 3100, .06, .02, .5, 'sine');break;
+        case 'pistolClick': burst(3000, 5, .15, .001, .02);break;
       }
     }
 
@@ -136,7 +149,7 @@
       if (!init()) return {set() {}, stop() {}};
       if (kind === 'heli') return heliEngine();
       if (kind === 'drone') return droneMotors();
-      const spec = {bike: {cyl: 4, idle: 1300, max: 11500, tone: 1, gain: .22}, car: {cyl: 4, idle: 800, max: 6200, tone: .6, gain: .16}, excavator: {cyl: 4, idle: 900, max: 2100, tone: .45, gain: .2}, plane: {cyl: 4, idle: 700, max: 2750, tone: .85, gain: .22}}[kind];
+      const spec = {bike: {cyl: 4, idle: 1300, max: 11500, tone: 1, gain: .22}, car: {cyl: 4, idle: 800, max: 6200, tone: .6, gain: .16}, excavator: {cyl: 4, idle: 900, max: 2100, tone: .45, gain: .2}, plane: {cyl: 4, idle: 700, max: 2750, tone: .85, gain: .22}, diesel: {cyl: 6, idle: 650, max: 2200, tone: .4, gain: .22}}[kind] || {cyl: 4, idle: 800, max: 6200, tone: .6, gain: .16};
       const t = now(), saw = ctx.createOscillator(), sq = ctx.createOscillator(), sub = ctx.createOscillator();saw.type = 'sawtooth';sq.type = 'square';sub.type = 'sine';
       const shaper = ctx.createWaveShaper(), curve = new Float32Array(1024);for (let i = 0; i < 1024; i++) {const x = i / 512 - 1;curve[i] = Math.tanh(x * 3);}shaper.curve = curve;
       const lp = ctx.createBiquadFilter();lp.type = 'lowpass';const g = ctx.createGain();g.gain.value = 0;
@@ -194,7 +207,13 @@
         stop() {const tt = now();g.gain.setTargetAtTime(0, tt, .1);wG.gain.setTargetAtTime(0, tt, .1);setTimeout(() => {motors.forEach(m => {try {m.o.stop();} catch {}});try {wash.stop();} catch {}}, 800);}
       };
     }
-    return {resume, ambience, footstep, sfx, engine, fire, get context() {return ctx;}};
+    // Bullet time: the world sounds muffled and low (a low-pass on everything except the music).
+    let muffleF = null;
+    function muffle(on) {
+      if (!init()) return;if (!muffleF) {muffleF = ctx.createBiquadFilter();muffleF.type = 'lowpass';muffleF.frequency.value = 20000;master.disconnect();master.connect(muffleF).connect(ctx.destination);}
+      muffleF.frequency.setTargetAtTime(on ? 700 : 20000, now(), .25);
+    }
+    return {resume, ambience, footstep, sfx, engine, fire, muffle, get context() {return ctx;}};
   }
   return {create};
 });

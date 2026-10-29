@@ -22,6 +22,10 @@ from shapely.ops import unary_union
 
 root = Path(__file__).resolve().parent
 osm = json.loads((root / 'assets/osm/torshov-osm.json').read_text(encoding='utf-8'))
+# Trees and street lamps out to +/-800 m (29 Oct 2026, for Muselunden; made by tools/extend-surroundings.py).
+_extra = json.loads((root / 'assets/osm/torshov-nodes-800m.json').read_text(encoding='utf-8'))['elements']
+_ids = {e['id'] for e in osm['elements'] if e['type'] == 'node'}
+osm['elements'] += [e for e in _extra if e['id'] not in _ids]
 LAT0, LON0 = 59.936404, 10.776657
 KX = 111320 * math.cos(math.radians(LAT0))
 OWN_ID, CORNER_NEXT = 1031709397, None
@@ -280,7 +284,7 @@ def height_local(x, s_):
 door_local = to_local_from_plan(.75, 11.2)
 H_DOOR = height_local(*door_local)
 rel = lambda x, s_: height_local(x, s_) - H_DOOR
-TER_HALF, TER_STEP = 600, 4
+TER_HALF, TER_STEP = 800, 4                      # +/-800 m since 29 Oct 2026 (Muselunden)
 n = int(2 * TER_HALF / TER_STEP) + 1
 grid = np.zeros((n, n), dtype=np.int16)
 for j in range(n):

@@ -75,20 +75,50 @@
     }
 
     // ---------- Base: terrain following and collision ----------
+    const G = 9.81;// gravity, m/s²
     class Vehicle {
-      constructor(x, z, yaw, radius, length) {this.group = new T.Group();this.x = x;this.z = z;this.yaw = yaw;this.speed = 0;this.radius = radius;this.length = length;this.pitch = 0;this.roll = 0;this.y = heightAt(x, z);this.active = false;}
+      constructor(x, z, yaw, radius, length) {
+        this.group = new T.Group();this.x = x;this.z = z;this.yaw = yaw;this.speed = 0;this.radius = radius;this.length = length;this.pitch = 0;this.roll = 0;this.y = heightAt(x, z);this.active = false;
+        // Vertical motion (cars and motorcycles set flies = true): vertical speed, time off the ground, landing dip.
+        this.flies = false;this.vy = 0;this.airT = 0;this.airborne = false;this.squash = 0;this.groundPrev = undefined;
+      }
       forward() {return {x: -Math.sin(this.yaw), z: -Math.cos(this.yaw)};}
       // Two circles (front and rear) must be clear of buildings, trees and hedges.
       clear(x, z) {
         const w = worldFor(this.radius), f = {x: -Math.sin(this.yaw), z: -Math.cos(this.yaw)}, h = this.length / 2 - this.radius, y = heightAt(x, z);
+        // In the air only solids at the vehicle's own height count (it can fly over a hedge); a slope face ahead stops it.
+        if (this.airborne) {
+          for (const k of h > 0 ? [-h, h] : [0]) {const p = {x: x + f.x * k, z: z + f.z * k};if (collision.hitsSolid(w, p, this.y + .25, this.y + this.height) || heightAt(p.x, p.z) > this.y + .5) return false;}
+          return true;
+        }
         for (const k of h > 0 ? [-h, h] : [0]) {const p = {x: x + f.x * k, z: z + f.z * k};if (!collision.canStand(w, p, 1.2, heightAt(p.x, p.z))) return false;}
         return Math.abs(y - this.y) < 1.5;
       }
       settle(dt) {
         const f = this.forward(), r = {x: -f.z, z: f.x}, L = this.length * .4, W = .6;
         const hf = heightAt(this.x + f.x * L, this.z + f.z * L), hb = heightAt(this.x - f.x * L, this.z - f.z * L), hl = heightAt(this.x - r.x * W, this.z - r.z * W), hr = heightAt(this.x + r.x * W, this.z + r.z * W);
-        this.y = (hf + hb) / 2;const k = Math.min(1, dt * 8);this.pitch += (Math.atan2(hf - hb, 2 * L) - this.pitch) * k;this.terrainRoll = Math.atan2(hl - hr, 2 * W);
+        const g0 = (hf + hb) / 2, k = Math.min(1, dt * 8), slope = Math.atan2(hf - hb, 2 * L);this.terrainRoll = Math.atan2(hl - hr, 2 * W);
+        if (!this.flies) {this.y = g0;this.pitch += (slope - this.pitch) * k;return;}
+        // Cars and motorcycles: the wheels follow the ground as long as gravity (9.81 m/s²) can keep them on it. Where the
+        // ground falls away faster than a free fall from the current vertical speed (a crest or bump taken fast), the
+        // vehicle leaves the ground and flies on a ballistic path until the ground comes back up to meet it.
+        this.squash *= Math.exp(-dt * 7);
+        if (dt >= .5 || this.groundPrev === undefined || Math.abs(g0 - this.groundPrev) > 2.5) {this.y = g0;this.vy = 0;this.airT = 0;this.airborne = false;this.pitch = slope;this.groundPrev = g0;return;}
+        const groundVy = Math.max(-25, Math.min(25, (g0 - this.groundPrev) / dt)), free = this.y + this.vy * dt - .5 * G * dt * dt;
+        if (free > g0) {
+          this.y = free;this.vy -= G * dt;this.airT += dt;
+          // Millimetre hops over the 4 m terrain grid don't count as flying (steering and throttle keep working).
+          if (!this.airborne && this.airT > .06 && this.y - g0 > .03) this.airborne = true;
+          if (this.airborne) {const path = Math.atan2(this.vy, Math.max(2, Math.abs(this.speed))) * (this.speed < 0 ? -1 : 1);this.pitch += (path - this.pitch) * Math.min(1, dt * 1.6);}
+          else this.pitch += (slope - this.pitch) * k;
+        } else {
+          if (this.airborne) this.land(Math.max(0, groundVy - this.vy));
+          this.y = g0;this.vy = groundVy;this.airT = 0;this.airborne = false;this.pitch += (slope - this.pitch) * k;
+        }
+        this.groundPrev = g0;
       }
+      // Touch-down: a thud and a short suspension dip, harder for a faster vertical impact (m/s).
+      land(impact) {if (impact > 1) {audio.sfx('thud', {gain: Math.min(1, impact / 7)});if (impact > 5) audio.sfx('hit', {gain: Math.min(1, (impact - 5) / 6)});}this.squash = Math.min(.2, impact * .025);if (this.onLand) this.onLand(impact);}
       move(dt) {
         const f = this.forward(), nx = this.x + f.x * this.speed * dt, nz = this.z + f.z * this.speed * dt;
         if (Math.abs(this.speed) < .001 || this.clear(nx, nz)) {this.x = nx;this.z = nz;}
@@ -97,7 +127,7 @@
       // ---- Multiplayer: the driver's client sends netGet(); everybody else poses the vehicle with netSet() + netAnimate(). ----
       netGet() {return [this.x, this.y, this.z, this.yaw, this.pitch, this.roll || 0, this.speed, ...this.netExtra()].map(v => Math.round(v * 1000) / 1000);}
       netExtra() {return [];}
-      netSet(a) {this.x = a[0];this.y = a[1];this.z = a[2];this.yaw = a[3];this.pitch = a[4];this.roll = a[5];this.speed = a[6];this.netApply(a.slice(7));this.place();}
+      netSet(a) {this.x = a[0];this.y = a[1];this.z = a[2];this.yaw = a[3];this.pitch = a[4];this.roll = a[5];this.speed = a[6];this.vy = 0;this.airT = 0;this.airborne = false;this.groundPrev = undefined;this.netApply(a.slice(7));this.place();}
       netApply() {}
       netAnimate() {}
       // Seats: where a seated player's hips go (in `obj`'s frame) and the passenger's eye point (vehicle frame).
@@ -114,7 +144,7 @@
     class Motorcycle extends Vehicle {
       constructor(x, z, yaw, color = 0x56657c) {
         super(x, z, yaw, .45, 2.1);this.width = .8;this.height = 1.3;this.kind = 'motorcycle';this.name = 'Honda CBF600S';this.lean = 0;this.bar = 0;this.gear = 1;this.rpm = 1300;this.engine = null;this.wheelSpin = 0;
-        this.hips = {d: {pos: V3(0, 1.0, .28), stance: 'ride'}, p: {pos: V3(0, 1.06, .66), stance: 'pillion'}};this.passengerEye = V3(0, 1.74, .76);
+        this.hips = {d: {pos: V3(0, 1.0, .28), stance: 'ride'}, p: {pos: V3(0, 1.06, .66), stance: 'pillion'}};this.passengerEye = V3(0, 1.74, .76);this.flies = true;
         const paint = new T.MeshPhysicalMaterial({color, metalness: .55, roughness: .32, clearcoat: 1, clearcoatRoughness: .08});
         const black = lib.paint(0x17181a, .55), matte = lib.polymer(0x1c1d1f), chrome = lib.chrome(), alu = lib.metal(0xb7bcc0, .3), engineMat = lib.metal(0x6c6f72, .45), rubber = new T.MeshStandardMaterial({color: 0x161616, roughness: .9});
         const g = this.body = new T.Group();this.group.add(g);
@@ -167,18 +197,20 @@
         for (const m of [this.front, this.rw, this.steer]) m.userData.noMerge = true;lib.mergeStatic(g);
         this.settle(1);this.place();
       }
-      seat() {const f = this.forward(), up = 1.58;return {x: this.x - f.x * .36, y: this.y + up * Math.cos(this.lean), z: this.z - f.z * .36, lateral: Math.sin(this.lean) * up, yaw: this.yaw, pitch: this.pitch, roll: this.lean};}
+      seat() {const f = this.forward(), up = 1.58;return {x: this.x - f.x * .36, y: this.y + up * Math.cos(this.lean) - this.squash, z: this.z - f.z * .36, lateral: Math.sin(this.lean) * up, yaw: this.yaw, pitch: this.pitch, roll: this.lean};}
       enter() {this.active = true;this.hands.visible = true;this.arms.visible = true;audio.sfx('starter');this.engine = audio.engine('bike');this.rpm = 1300;}
       exit() {this.active = false;this.hands.visible = false;this.arms.visible = false;if (this.engine) this.engine.stop();this.engine = null;this.speed = 0;this.lean = 0;return this.exitPoint(-1);}
       update(dt, input) {
         if (this.active) {
-          const v = this.speed, wobble = input.drunk ? Math.sin(performance.now() / 380) * .35 * input.drunk : 0;
-          const accel = input.throttle * Math.max(1.2, 7.5 - v * .12) - input.brake * 9 * Math.sign(v || 1) - v * .02 - (v > 0 ? .25 : 0);
+          const v = this.speed, wobble = input.drunk ? Math.sin(performance.now() / 380) * .35 * input.drunk : 0, air = this.airborne;
+          // In the air the wheels have no grip: only air drag slows the bike, and steering does nothing until it lands.
+          const accel = air ? -v * .02 : input.throttle * Math.max(1.2, 7.5 - v * .12) - input.brake * 9 * Math.sign(v || 1) - v * .02 - (v > 0 ? .25 : 0);
           // Holding L2 when (almost) stopped walks the bike backwards at about 1.5 m/s instead of braking against it.
-          const reversing = input.brake > .5 && v < .3 && input.throttle < .1;
+          const reversing = !air && input.brake > .5 && v < .3 && input.throttle < .1;
           this.speed = reversing ? Math.max(-1.5, Math.min(0, v) - 2.5 * dt) : Math.max(v > .3 ? 0 : -1.5, Math.min(55, v + accel * dt));
           const steer = Math.max(-1, Math.min(1, input.steer + wobble));
-          if (Math.abs(this.speed) < 4) {
+          if (air) {this.bar += (steer * .3 - this.bar) * Math.min(1, dt * 4);}
+          else if (Math.abs(this.speed) < 4) {
             // Low speed: steer the bars directly.
             this.bar += (steer * .55 - this.bar) * Math.min(1, dt * 6);this.yaw -= this.speed * Math.tan(this.bar) / 1.48 * dt;this.lean += (this.bar * this.speed * .08 - this.lean) * Math.min(1, dt * 4);
           } else {
@@ -208,7 +240,7 @@
     class Car extends Vehicle {
       constructor(x, z, yaw, model = 0) {
         super(x, z, yaw, .95, 4.2);this.width = 1.8;this.height = 1.45;this.kind = 'car';this.name = carNames[model % carColors.length] + ' hatchback';this.steerAngle = 0;this.rpm = 800;this.engine = null;this.wheelSpin = 0;
-        this.hips = {d: {pos: V3(-.37, .62, .28), stance: 'drive'}, p: {pos: V3(.37, .62, .28), stance: 'sit'}};this.passengerEye = V3(.37, 1.24, .22);
+        this.hips = {d: {pos: V3(-.37, .62, .28), stance: 'drive'}, p: {pos: V3(.37, .62, .28), stance: 'sit'}};this.passengerEye = V3(.37, 1.24, .22);this.flies = true;
         const paint = new T.MeshPhysicalMaterial({color: carColors[model % carColors.length], metalness: .6, roughness: .3, clearcoat: 1, clearcoatRoughness: .06});
         const glassM = new T.MeshPhysicalMaterial({color: 0x1d2328, transparent: true, opacity: .45, roughness: .03, metalness: .2}), trimM = lib.polymer(0x141516), rubber = new T.MeshStandardMaterial({color: 0x151515, roughness: .9}), rimM = lib.metal(0xa8adb2, .3);
         const interior = lib.fabric(0x2a2b2e), dashM = lib.polymer(0x1e1f21), chrome = lib.chrome();
@@ -266,20 +298,22 @@
         for (const w of this.wheels) w.holder.userData.noMerge = true;this.wheelPivot.userData.noMerge = true;this.arms.userData.noMerge = true;lib.mergeStatic(g);
         this.settle(1);this.place();
       }
-      seat() {const f = this.forward(), r = {x: -f.z, z: f.x};return {x: this.x + r.x * -.37 - f.x * .22, y: this.y + 1.24, z: this.z + r.z * -.37 - f.z * .22, yaw: this.yaw, pitch: this.pitch, roll: this.terrainRoll || 0};}
+      seat() {const f = this.forward(), r = {x: -f.z, z: f.x};return {x: this.x + r.x * -.37 - f.x * .22, y: this.y + 1.24 - this.squash, z: this.z + r.z * -.37 - f.z * .22, yaw: this.yaw, pitch: this.pitch, roll: this.roll || 0};}
       enter() {this.active = true;this.hands.visible = true;this.arms.visible = true;audio.sfx('carDoor');audio.sfx('starter');this.engine = audio.engine('car');}
       exit() {this.active = false;this.hands.visible = false;this.arms.visible = false;if (this.engine) this.engine.stop();this.engine = null;this.speed = 0;audio.sfx('carDoor');return this.exitPoint(-1);}
       update(dt, input) {
         if (this.active) {
           const v = this.speed, wobble = input.drunk ? Math.sin(performance.now() / 420) * .4 * input.drunk : 0, steer = Math.max(-1, Math.min(1, input.steer + wobble));
-          const forwardAcc = input.throttle * Math.max(1, 4.2 - Math.abs(v) * .08), braking = input.brake * (v > .3 ? 8 : 0), reverse = input.brake * (v <= .3 ? 2.2 : 0);
-          this.speed = Math.max(-5, Math.min(36, v + (forwardAcc - braking - reverse - v * .03 - Math.sign(v) * .2) * dt));
-          if (Math.abs(this.speed) < .05 && input.throttle < .05 && input.brake < .05) this.speed = 0;
+          // In the air the tyres have no grip: throttle, brakes and steering do nothing until the car lands.
+          const grip = this.airborne ? 0 : 1;
+          const forwardAcc = grip * input.throttle * Math.max(1, 4.2 - Math.abs(v) * .08), braking = grip * input.brake * (v > .3 ? 8 : 0), reverse = grip * input.brake * (v <= .3 ? 2.2 : 0);
+          this.speed = Math.max(-5, Math.min(36, v + (forwardAcc - braking - reverse - v * .03 - grip * Math.sign(v) * .2) * dt));
+          if (grip && Math.abs(this.speed) < .05 && input.throttle < .05 && input.brake < .05) this.speed = 0;
           this.steerAngle += (steer * .6 * Math.max(.35, 1 - Math.abs(v) / 30) - this.steerAngle) * Math.min(1, dt * 5);
-          this.yaw -= this.speed * Math.tan(this.steerAngle) / 2.63 * dt;
+          this.yaw -= grip * this.speed * Math.tan(this.steerAngle) / 2.63 * dt;
           const target = 800 + Math.abs(this.speed) * 3.6 * 38 % 3600 + input.throttle * 1500;this.rpm += (Math.min(6200, target) - this.rpm) * Math.min(1, dt * 5);if (this.engine) this.engine.set(this.rpm, input.throttle);
         } else this.speed *= Math.max(0, 1 - dt * 4);
-        this.move(dt);this.settle(dt);this.roll = this.terrainRoll || 0;
+        this.move(dt);this.settle(dt);if (!this.airborne) this.roll = this.terrainRoll || 0;
         this.wheelSpin += this.speed * dt / .31;
         for (const w of this.wheels) {w.wheel.rotation.x = -this.wheelSpin;if (w.front) w.holder.rotation.y = this.steerAngle;}
         this.steeringWheel.rotation.y = -this.steerAngle * 1.6;
@@ -406,7 +440,7 @@
       netApply(a) {[this.swing, this.boom, this.stickA, this.bucketA, this.load, this.vl, this.vr] = a;this.pose();this.dirt.visible = this.load > .15;this.dirt.scale.set(1.1 * this.load, .55 * this.load, .9 * this.load);}
       netAnimate(dt) {this.trackPhase += dt;this.tracks[0].position.z = ((this.vl * this.trackPhase) % .156);this.tracks[1].position.z = ((this.vr * this.trackPhase) % .156);}
     }
-    return {Motorcycle, Car, Excavator};
+    return {Motorcycle, Car, Excavator, Vehicle};
   }
   return {create};
 });

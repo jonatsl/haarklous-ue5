@@ -5,7 +5,7 @@
  * Surroundings.create({T, lib, data, renderer, onStatus}) -> {
  *   near, far, setImagery(on), setSun(dir), attribution,
  *   heightWorld(x, z) -> y, toLocal(x, z) -> {x, s}, toWorld(x, s) -> {x, z},
- *   terrainFloor() (walk-collision floor), obstacles() (buildings, trees, bushes, hedges, in model coordinates),
+ *   terrainFloor() (walk-collision floor), obstacles() (buildings, trees, lamp posts, bushes, hedges, in model coordinates),
  *   surfaceAt(x, z) -> 'grass'|'asphalt'|'gravel'|'sand'|'none', trafficDistance(x, z), greenery(x, z) -> 0..1 }
  * Coordinates: model (world) metres as in the apartment model; "local" = metres east (x) and south (s) of the address.
  */
@@ -13,8 +13,12 @@
   root.Surroundings = factory();
 })(typeof window === 'undefined' ? globalThis : window, function () {
   'use strict';
-  const NEAR_LIMIT = 280, PLAY_HALF = 540;
-  function create({T, lib, data, renderer, onStatus = () => {}}) {
+  // Everything you can walk to (±PLAY_HALF) is drawn in the near pass with detailed ground; the far pass (which clips
+  // anything closer than 15 m and is drawn underneath) only fills in the distance. NEAR_REACH covers the walkable area.
+  // ±760 m since 29 Oct 2026 (was ±540): the real Muselunden disc golf park, 470–815 m north-east of home, is in reach.
+  const PLAY_HALF = 760, NEAR_REACH = PLAY_HALF + 60, CELL = 270;
+  // holes: rectangles of the local frame ({x0, s0, x1, s1}) kept free of trees and bushes (the paved paintball yard, the building site).
+  function create({T, lib, data, renderer, onStatus = () => {}, holes = []}) {
     const near = new T.Group(), far = new T.Group();near.name = 'Surroundings (near)';far.name = 'Surroundings (far)';
     const ground = data.ground, theta = data.geo.theta, cT = Math.cos(theta), sT = Math.sin(theta);
     const geoFrame = parent => {const g = new T.Group();g.rotation.y = theta;g.position.set(data.geo.x, 0, data.geo.z);parent.add(g);return g;};
@@ -33,13 +37,16 @@
     }
     const yLocal = (x, s) => ground + relLocal(x, s);
     const heightWorld = (x, z) => {const l = toLocal(x, z);return yLocal(l.x, l.s);};
-    function terrainMesh(parent, extent, res, canvas, name, drop = 0) {
+    function terrainMesh(parent, extent, res, canvas, name, drop = 0, hole = 0, cut = []) {
       const count = Math.round(2 * extent / res) + 1, pos = new Float32Array(count * count * 3), uv = new Float32Array(count * count * 2), index = [];
       for (let j = 0; j < count; j++) for (let i = 0; i < count; i++) {
         const x = -extent + i * res, s = -extent + j * res, k = j * count + i;
         pos[k * 3] = x;pos[k * 3 + 1] = yLocal(x, s) - drop;pos[k * 3 + 2] = s;uv[k * 2] = (x + extent) / (2 * extent);uv[k * 2 + 1] = 1 - (s + extent) / (2 * extent);
       }
-      for (let j = 0; j < count - 1; j++) for (let i = 0; i < count - 1; i++) {const a = j * count + i, b = a + 1, c = a + count, d = c + 1;index.push(a, c, b, b, c, d);}
+      // Cells inside the square `hole` (outer ring) or wholly inside a `cut` rectangle (the construction site's soil) are left out.
+      const inHole = (i, j) => hole > 0 && -extent + i * res >= -hole - 1e-6 && -extent + (i + 1) * res <= hole + 1e-6 && -extent + j * res >= -hole - 1e-6 && -extent + (j + 1) * res <= hole + 1e-6;
+      const inCut = (i, j) => cut.some(h => -extent + i * res >= h.x0 && -extent + (i + 1) * res <= h.x1 && -extent + j * res >= h.s0 && -extent + (j + 1) * res <= h.s1);
+      for (let j = 0; j < count - 1; j++) for (let i = 0; i < count - 1; i++) {if (inHole(i, j) || inCut(i, j)) continue;const a = j * count + i, b = a + 1, c = a + count, d = c + 1;index.push(a, c, b, b, c, d);}
       const g = new T.BufferGeometry();g.setAttribute('position', new T.BufferAttribute(pos, 3));g.setAttribute('uv', new T.BufferAttribute(uv, 2));g.setIndex(index);g.computeVertexNormals();
       const tex = new T.CanvasTexture(canvas);tex.colorSpace = T.SRGBColorSpace;tex.anisotropy = 8;
       const m = new T.Mesh(g, new T.MeshStandardMaterial({map: tex, color: 0xa6a6a6, roughness: .97, metalness: 0, envMapIntensity: .35}));
@@ -69,13 +76,16 @@
       if (!classes) {const img = ctx.getImageData(0, 0, size, size), d = img.data;for (let i = 0; i < d.length; i += 4) {const n = (lib.rand() - .5) * 26;d[i] += n;d[i + 1] += n;d[i + 2] += n;}ctx.putImageData(img, 0, 0);}
       return c;
     }
-    const NEAR_EXT = 300, FAR_EXT = 600;
+    const NEAR_EXT = 300, FAR_EXT = 800;// the terrain data reaches ±800 m
     const nearPaint = paint(4096, NEAR_EXT), nearBase = document.createElement('canvas');nearBase.width = nearBase.height = 4096;nearBase.getContext('2d').drawImage(nearPaint, 0, 0);
     const farPaint = paint(2048, FAR_EXT), farBase = document.createElement('canvas');farBase.width = farBase.height = 2048;farBase.getContext('2d').drawImage(farPaint, 0, 0);
+    const outerPaint = paint(2048, PLAY_HALF), outerBase = document.createElement('canvas');outerBase.width = outerBase.height = 2048;outerBase.getContext('2d').drawImage(outerPaint, 0, 0);
     const classCanvas = paint(1024, PLAY_HALF, true), classData = classCanvas.getContext('2d').getImageData(0, 0, 1024, 1024).data;
     const surfaceNames = ['grass', 'grass', 'asphalt', 'gravel', 'sand', 'none'];
     function surfaceAt(x, z) {const l = toLocal(x, z), i = Math.floor((l.x + PLAY_HALF) / (2 * PLAY_HALF) * 1024), j = Math.floor((l.s + PLAY_HALF) / (2 * PLAY_HALF) * 1024);if (i < 0 || j < 0 || i > 1023 || j > 1023) return 'grass';return surfaceNames[classData[(j * 1024 + i) * 4]] || 'grass';}
-    const nearTerrain = terrainMesh(geoNear, NEAR_EXT, 4, nearPaint, 'Terrain (near)');
+    const nearTerrain = terrainMesh(geoNear, NEAR_EXT, 4, nearPaint, 'Terrain (near)', 0, 0, holes.filter(h => h.cutGround));
+    // Walkable ground from ±300 m out to ±PLAY_HALF: same 4 m grid as the walking surface, so what you see is what you stand on.
+    const outerTerrain = terrainMesh(geoNear, PLAY_HALF, 4, outerPaint, 'Terrain (outer)', 0, NEAR_EXT, holes.filter(h => h.cutGround));
     const farTerrain = terrainMesh(geoFar, FAR_EXT, 8, farPaint, 'Terrain (district)', .5);
     // Beyond the mapped district: a generic Oslo townscape tile (blocks of roofs, streets, gardens and parks), repeated about every
     // 1.5 km, so the land seen from the aircraft is not one flat colour. The inner Oslofjord lies about 3 km to the south.
@@ -94,7 +104,7 @@
     }
     const horizonTex = new T.CanvasTexture(horizonCanvas);horizonTex.colorSpace = T.SRGBColorSpace;horizonTex.wrapS = horizonTex.wrapT = T.RepeatWrapping;horizonTex.repeat.set(12, 12);horizonTex.anisotropy = 8;
     const horizon = new T.Mesh(new T.PlaneGeometry(18000, 18000), new T.MeshStandardMaterial({map: horizonTex, color: 0xb4b4b4, roughness: 1}));
-    horizon.rotation.x = -Math.PI / 2;horizon.position.y = ground + relLocal(600, 600) - 6;geoFar.add(horizon);
+    horizon.rotation.x = -Math.PI / 2;horizon.position.y = ground + relLocal(FAR_EXT, FAR_EXT) - 6;geoFar.add(horizon);
     const fjord = new T.Mesh(new T.PlaneGeometry(7000, 6000), new T.MeshStandardMaterial({color: 0x3e5d70, roughness: .18, metalness: .15, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2}));
     fjord.rotation.x = -Math.PI / 2;fjord.position.set(-600, horizon.position.y + 2, 6200);geoFar.add(fjord);
 
@@ -136,19 +146,24 @@
         b.index.push(base, base + 1, base + 2);if (pts.length === 4) b.index.push(base, base + 2, base + 3);
       }
     }
-    const sets = {near: {facade: builder(), plinth: builder(), plaster: builder(), roof: builder(), shed: builder()}, far: {facade: builder(), plinth: builder(), plaster: builder(), roof: builder(), shed: builder()}};
+    const makeSet = () => ({facade: builder(), plinth: builder(), plaster: builder(), roof: builder(), shed: builder()});
+    const nearCells = new Map(), farSet = makeSet(), cellKey = (x, s) => `${Math.floor((x + CELL / 2) / CELL)},${Math.floor((s + CELL / 2) / CELL)}`;
+    const nearCell = (x, s) => {const k = cellKey(x, s);if (!nearCells.has(k)) nearCells.set(k, makeSet());return nearCells.get(k);};
     const plasterColors = [0xe3dccb, 0xd8cfbd, 0xcdd2cb, 0xe6e0d4, 0xd9c7a8];
     data.buildings.forEach((b, i) => {
       const ring = pairs(b.r.o), cx = ring.reduce((s, p) => s + p[0], 0) / ring.length, cs = ring.reduce((s, p) => s + p[1], 0) / ring.length;
-      const set = Math.hypot(cx, cs) < NEAR_LIMIT ? sets.near : sets.far, g0 = ground + (b.g || 0), bottom = ground + (b.gm ?? b.g ?? 0) - .6, top = g0 + b.h;
+      const g0 = ground + (b.g || 0), bottom = ground + (b.gm ?? b.g ?? 0) - .6, top = g0 + b.h;
       b.base = g0;b.top = top;b.bottom = bottom;
-      if (b.s === 'brick') {
-        walls(set.plinth, ring, bottom, Math.min(g0 + data.plinth, top), g0);
-        if (top > g0 + data.plinth) walls(set.facade, ring, g0 + data.plinth, top, g0 + data.plinth);
-        if (b.k) hipRoof(set.roof, pairs(b.k), top);else cap(set.roof, ring, null, top);
-      } else {
-        const color = new T.Color(b.s === 'shed' ? 0x8d7f6d : b.c || plasterColors[i % plasterColors.length]);
-        walls(b.s === 'shed' ? set.shed : set.plaster, ring, bottom, top, g0, color);cap(set.roof, ring, null, top);
+      const targets = Math.hypot(cx, cs) < NEAR_REACH ? [farSet, nearCell(cx, cs)] : [farSet];
+      for (const set of targets) {
+        if (b.s === 'brick') {
+          walls(set.plinth, ring, bottom, Math.min(g0 + data.plinth, top), g0);
+          if (top > g0 + data.plinth) walls(set.facade, ring, g0 + data.plinth, top, g0 + data.plinth);
+          if (b.k) hipRoof(set.roof, pairs(b.k), top);else cap(set.roof, ring, null, top);
+        } else {
+          const color = new T.Color(b.s === 'shed' ? 0x8d7f6d : b.c || plasterColors[i % plasterColors.length]);
+          walls(b.s === 'shed' ? set.shed : set.plaster, ring, bottom, top, g0, color);cap(set.roof, ring, null, top);
+        }
       }
     });
     const own = data.own, ownSet = {facade: builder(), plinth: builder(), roof: builder()}, plinthTop = ground + data.plinth;
@@ -161,11 +176,14 @@
     plasterMat.vertexColors = shedMat.vertexColors = true;plasterMat.color.setScalar(.85);shedMat.color.set(0xffffff);
     roofMat.side = T.DoubleSide;facadeMat.color.setScalar(.78);plinthMat.color.setScalar(.75);
     const add = (parent, geometry, material, shadows = true) => {if (!geometry) return null;const m = new T.Mesh(geometry, material);m.castShadow = m.receiveShadow = shadows;parent.add(m);return m;};
-    for (const [name, set] of Object.entries(sets)) {
-      const parent = name === 'near' ? geoNear : geoFar, shadows = name === 'near';
-      add(parent, finish(set.facade), facadeMat, shadows);add(parent, finish(set.plinth), plinthMat, shadows);add(parent, finish(set.roof), roofMat, shadows);
-      add(parent, finish(set.plaster), plasterMat, shadows);add(parent, finish(set.shed), shedMat, shadows);
-    }
+    const addSet = (parent, set, shadows, tile) => {
+      for (const [geometry, material] of [[set.facade, facadeMat], [set.plinth, plinthMat], [set.roof, roofMat], [set.plaster, plasterMat], [set.shed, shedMat]]) {
+        const m = add(parent, finish(geometry), material, shadows);if (m && tile) {m.name = 'Buildings (tile)';m.userData.noMerge = true;}
+      }
+    };
+    // Near buildings stay in 270 m tiles (not merged together) so the camera and the sun's shadow pass skip tiles out of view.
+    for (const set of nearCells.values()) addSet(geoNear, set, true, true);
+    addSet(geoFar, farSet, false, false);
     const ownGroup = new T.Group();ownGroup.name = 'Haarklous plass 17 (own building)';near.add(ownGroup);
     add(ownGroup, finish(ownSet.facade), facadeMat);add(ownGroup, finish(ownSet.plinth), plinthMat);add(ownGroup, finish(ownSet.roof), roofMat);
 
@@ -219,16 +237,17 @@
     function restore(target, base) {const c = target.getContext('2d');c.drawImage(base, 0, 0);}
     async function setImagery(on) {
       const token = ++imageryToken;
-      if (!on) {restore(nearPaint, nearBase);restore(farPaint, farBase);nearTerrain.tex.needsUpdate = farTerrain.tex.needsUpdate = true;imageryState = 'off';onStatus('Map-based ground (aerial imagery off).');return;}
+      if (!on) {restore(nearPaint, nearBase);restore(outerPaint, outerBase);restore(farPaint, farBase);nearTerrain.tex.needsUpdate = outerTerrain.tex.needsUpdate = farTerrain.tex.needsUpdate = true;imageryState = 'off';onStatus('Map-based ground (aerial imagery off).');return;}
       if (typeof navigator !== 'undefined' && navigator.onLine === false) {imageryState = 'offline';onStatus('Offline: map-based ground. Aerial imagery loads when online.');return;}
       imageryState = 'loading';onStatus('Loading aerial imagery…');
-      const [nearTiles, farTiles, horizonTiles] = await Promise.all([loadTiles(18, NEAR_EXT, token), loadTiles(15, FAR_EXT, token), loadTiles(12, 9000, token)]);
+      const [nearTiles, outerTiles, farTiles, horizonTiles] = await Promise.all([loadTiles(18, NEAR_EXT, token), loadTiles(17, PLAY_HALF, token), loadTiles(15, FAR_EXT, token), loadTiles(12, 9000, token)]);
       if (token !== imageryToken) return;
       if (nearTiles.loaded <= nearTiles.failed) {imageryState = 'failed';onStatus('Aerial imagery could not load; map-based ground.');return;}
       drawInto(nearPaint, NEAR_EXT, nearTiles, true);fillShadows(nearPaint, nearBase);maskLean(nearPaint, nearBase, NEAR_EXT);
+      if (outerTiles.loaded > outerTiles.failed) {drawInto(outerPaint, PLAY_HALF, outerTiles, true);fillShadows(outerPaint, outerBase);maskLean(outerPaint, outerBase, PLAY_HALF);}
       drawInto(farPaint, FAR_EXT, farTiles, true);fillShadows(farPaint, farBase);
       drawInto(horizonCanvas, 9000, horizonTiles, true);
-      nearTerrain.tex.needsUpdate = farTerrain.tex.needsUpdate = horizonTex.needsUpdate = true;imageryState = 'on';onStatus('Aerial imagery: Esri World Imagery (loaded live, not stored).');
+      nearTerrain.tex.needsUpdate = outerTerrain.tex.needsUpdate = farTerrain.tex.needsUpdate = horizonTex.needsUpdate = true;imageryState = 'on';onStatus('Aerial imagery: Esri World Imagery (loaded live, not stored).');
     }
 
     // ---------- Trees and bushes ----------
@@ -238,11 +257,11 @@
       for (let k = 0; k < 170; k++) {const a = lib.rand() * Math.PI * 2, r = Math.sqrt(lib.rand()) * 110, px = 128 + Math.cos(a) * r, py = 120 + Math.sin(a) * r * .9;x.fillStyle = tones[Math.floor(lib.rand() * tones.length)];x.save();x.translate(px, py);x.rotate(lib.rand() * Math.PI);x.beginPath();x.ellipse(0, 0, 7 + lib.rand() * 6, 4 + lib.rand() * 3, 0, 0, Math.PI * 2);x.fill();x.restore();}
       const t = new T.CanvasTexture(c);t.colorSpace = T.SRGBColorSpace;t.anisotropy = 4;return t;
     }
-    function crownGeometry(cards, lift = .55) {
+    function crownGeometry(cards, lift = .55, cardScale = 1) {
       const pos = [], nor = [], uv = [], idx = [], q = new T.Quaternion(), e = new T.Euler();
       for (let k = 0; k < cards; k++) {
         const dir = new T.Vector3(lib.rand() * 2 - 1, lib.rand() * 1.6 - .5, lib.rand() * 2 - 1).normalize(), centre = dir.clone().multiplyScalar(.35 + lib.rand() * .55);centre.y += lift;
-        e.set(lib.rand() * Math.PI, lib.rand() * Math.PI, lib.rand() * Math.PI);q.setFromEuler(e);const size = .55 + lib.rand() * .35, base = pos.length / 3;
+        e.set(lib.rand() * Math.PI, lib.rand() * Math.PI, lib.rand() * Math.PI);q.setFromEuler(e);const size = (.55 + lib.rand() * .35) * cardScale, base = pos.length / 3;
         for (const [u, v] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {const p = new T.Vector3(u * size / 2, v * size / 2, 0).applyQuaternion(q).add(centre);pos.push(p.x, p.y, p.z);const n = p.clone().sub(new T.Vector3(0, lift, 0)).normalize();nor.push(n.x, n.y, n.z);uv.push((u + 1) / 2, (v + 1) / 2);}
         idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
       }
@@ -251,9 +270,11 @@
     const leafMat = tones => new T.MeshStandardMaterial({map: leafCardTexture(tones), alphaTest: .45, side: T.DoubleSide, roughness: .8, metalness: 0});
     const leafMats = [leafMat(['#3f5f2a', '#4f7232', '#5d8238', '#36522a', '#6a8c3e']), leafMat(['#46622c', '#557a35', '#3a5526', '#678a3b', '#4b6a2f'])], bushMat = leafMat(['#34502a', '#40602c', '#2e4724', '#4b6b31']), barkMat = lib.bark();
     const crownGeo = [crownGeometry(70), crownGeometry(70)], bushGeo = crownGeometry(40, .35), trunkGeo = new T.CylinderGeometry(.11, .17, 1, 8);trunkGeo.translate(0, .5, 0);
-    function plantTrees(parent, list, castShadow) {
+    // Far copies use a light crown (fewer, larger leaf cards): they are only seen beyond the near pass.
+    const crownGeoFar = [crownGeometry(16, .55, 1.8), crownGeometry(16, .55, 1.8)];
+    function plantTrees(parent, list, castShadow, geos = crownGeo) {
       if (!list.length) return;
-      const trunks = new T.InstancedMesh(trunkGeo, barkMat, list.length), crowns = crownGeo.map((g, i) => new T.InstancedMesh(g, leafMats[i], list.length));
+      const trunks = new T.InstancedMesh(trunkGeo, barkMat, list.length), crowns = geos.map((g, i) => new T.InstancedMesh(g, leafMats[i], list.length));
       const counts = [0, 0], m = new T.Matrix4(), q = new T.Quaternion(), s = new T.Vector3(), p = new T.Vector3();
       list.forEach((t, i) => {
         const h = t.h || 9 + ((i * 7919) % 70) / 10, crown = h * .62, trunkH = h * .42, r = h * .3, y = yLocal(t.x, t.s);
@@ -264,20 +285,25 @@
       crowns.forEach((c, k) => {c.count = counts[k];c.castShadow = castShadow;c.receiveShadow = true;c.instanceMatrix.needsUpdate = true;parent.add(c);});
       trunks.castShadow = castShadow;trunks.receiveShadow = true;trunks.instanceMatrix.needsUpdate = true;parent.add(trunks);
     }
-    const trees = {near: [], far: []}, allTrees = [];
-    for (let i = 0; i < data.trees.length; i += 3) {const t = {x: data.trees[i], s: data.trees[i + 1], h: data.trees[i + 2]};allTrees.push(t);(Math.hypot(t.x, t.s) < NEAR_LIMIT ? trees.near : trees.far).push(t);}
+    const treeCells = new Map(), allTrees = [], inHole = (x, s) => holes.some(h => x > h.x0 && x < h.x1 && s > h.s0 && s < h.s1);
+    for (let i = 0; i < data.trees.length; i += 3) {
+      const t = {x: data.trees[i], s: data.trees[i + 1], h: data.trees[i + 2]};if (inHole(t.x, t.s)) continue;allTrees.push(t);
+      if (Math.hypot(t.x, t.s) < NEAR_REACH) {const k = cellKey(t.x, t.s);if (!treeCells.has(k)) treeCells.set(k, []);treeCells.get(k).push(t);}
+    }
     const yard = data.courtyard;
-    if (yard) for (let i = 0; i < yard.trees.length; i += 3) {const t = {x: yard.trees[i], s: yard.trees[i + 1], h: yard.trees[i + 2]};allTrees.push(t);trees.near.push(t);}
-    plantTrees(geoNear, trees.near, true);plantTrees(geoFar, trees.far, false);
-    const bushes = [];for (let i = 0; i < data.bushes.length; i += 3) bushes.push({x: data.bushes[i], s: data.bushes[i + 1], r: data.bushes[i + 2]});
+    if (yard) for (let i = 0; i < yard.trees.length; i += 3) {const t = {x: yard.trees[i], s: yard.trees[i + 1], h: yard.trees[i + 2]};allTrees.push(t);const k = cellKey(t.x, t.s);if (!treeCells.has(k)) treeCells.set(k, []);treeCells.get(k).push(t);}
+    for (const list of treeCells.values()) plantTrees(geoNear, list, true);plantTrees(geoFar, allTrees, false, crownGeoFar);
+    const bushes = [];for (let i = 0; i < data.bushes.length; i += 3) if (!inHole(data.bushes[i], data.bushes[i + 1])) bushes.push({x: data.bushes[i], s: data.bushes[i + 1], r: data.bushes[i + 2]});
     {
       const inst = new T.InstancedMesh(bushGeo, bushMat, bushes.length), m = new T.Matrix4(), q = new T.Quaternion(), s = new T.Vector3(), p = new T.Vector3();
       bushes.forEach((b, i) => {q.setFromAxisAngle(new T.Vector3(0, 1, 0), i * 1.7);m.compose(p.set(b.x, yLocal(b.x, b.s) - .1, b.s), q, s.set(b.r, b.r * .8, b.r));inst.setMatrixAt(i, m);});
       inst.castShadow = true;inst.receiveShadow = true;geoNear.add(inst);
     }
-    const poleMat = lib.metal(0x3b3f42, .5);
+    const poleMat = lib.metal(0x3b3f42, .5), lamps = [];// street lamps (OSM highway=street_lamp); the poles are solid
     for (let i = 0; i < data.lamps.length; i += 2) {
-      const x = data.lamps[i], s = data.lamps[i + 1], y = yLocal(x, s), pole = new T.Mesh(new T.CylinderGeometry(.05, .07, 5, 8), poleMat);pole.position.set(x, y + 2.5, s);pole.castShadow = true;geoNear.add(pole);
+      if (inHole(data.lamps[i], data.lamps[i + 1])) continue;
+      const x = data.lamps[i], s = data.lamps[i + 1], y = yLocal(x, s);lamps.push({x, s});
+      const pole = new T.Mesh(new T.CylinderGeometry(.05, .07, 5, 8), poleMat);pole.position.set(x, y + 2.5, s);pole.castShadow = true;geoNear.add(pole);
       const head = new T.Mesh(new T.CylinderGeometry(.25, .12, .25, 10), poleMat);head.position.set(x, y + 5, s);geoNear.add(head);
     }
     const hedgeObstacles = [];
@@ -344,14 +370,16 @@
     function obstacles() {
       const list = [];
       data.buildings.forEach(b => {
-        const o = b.r.o;if (Math.hypot(o[0], o[1]) > PLAY_HALF + 40) return;
+        const o = b.r.o;if (Math.abs(o[0]) > PLAY_HALF + 40 || Math.abs(o[1]) > PLAY_HALF + 40) return;
         const rings = b.enter !== undefined ? data.enterable[b.enter].collide.map(r => r.o) : [o];
         for (const r of rings) list.push({points: ringWorld(r), minY: b.bottom - .5, maxY: b.top + 4, kind: 'building'});
       });
       const ownRings = (parts, minY, maxY) => parts.forEach(p => list.push({points: pairs(p.o).map(([x, z]) => ({x, z})), minY, maxY, kind: 'building'}));
       ownRings(own.lower, ownBottom - .5, -.16);ownRings(own.band, -.16, own.bandTop);ownRings(own.upper, own.bandTop, own.top + 4);
       const square = (x, s, r, h, kind) => {const pts = [[x - r, s - r], [x + r, s - r], [x + r, s + r], [x - r, s + r]].map(([a, b]) => toWorld(a, b)), y = yLocal(x, s);list.push({points: pts, minY: y - .5, maxY: y + h, kind});};
-      allTrees.forEach(t => {if (Math.hypot(t.x, t.s) < PLAY_HALF) square(t.x, t.s, .28, 6, 'tree');});
+      const walkable = (x, s) => Math.abs(x) < PLAY_HALF && Math.abs(s) < PLAY_HALF;
+      allTrees.forEach(t => {if (walkable(t.x, t.s)) square(t.x, t.s, .28, 6, 'tree');});
+      lamps.forEach(l => {if (walkable(l.x, l.s)) square(l.x, l.s, .1, 5.2, 'lamp');});
       bushes.forEach(b => square(b.x, b.s, .45 * b.r, 1.2, 'bush'));
       hedgeObstacles.forEach(h => {const dx = h.b[0] - h.a[0], dz = h.b[1] - h.a[1], L = Math.hypot(dx, dz), nx = -dz / L * h.w / 2, nz = dx / L * h.w / 2;const pts = [[h.a[0] + nx, h.a[1] + nz], [h.b[0] + nx, h.b[1] + nz], [h.b[0] - nx, h.b[1] - nz], [h.a[0] - nx, h.a[1] - nz]].map(([a, b]) => toWorld(a, b)), y = yLocal(h.a[0], h.a[1]);list.push({points: pts, minY: y - .5, maxY: y + 1, kind: 'hedge'});});
       return list;

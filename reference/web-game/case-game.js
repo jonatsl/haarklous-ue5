@@ -263,7 +263,7 @@
         [{action: 'resume', label: 'Options / ✕ · Resume'}, {action: 'restart', label: 'Touchpad / R · New case'}, {action: 'quit', label: '○ / Esc · Leave'}]);
     }
     function finish(result) {
-      state = result;triggerHeld = false;
+      state = result;triggerHeld = false;if (ctx.onFinish) ctx.onFinish(result);
       const hostiles = plan.actors.filter(a => a.role === 'hostile'), down = hostiles.filter(a => !actors.get(a.id).alive).length;
       const hostageActor = plan.actors.find(a => a.role === 'hostage'), hostageDown = !!hostageActor && !actors.get(hostageActor.id).alive;
       const hostage = plan.hasHostage ? (hostageDown ? '<b class="fail">Shot</b>' : 'Safe') : 'None present';
@@ -400,10 +400,12 @@
     function tick(time) {
       frame = active ? requestAnimationFrame(tick) : null;if (!active) return;
       const dt = lastTime ? Math.min((time - lastTime) / 1000, .05) : 0;lastTime = time;
+      // Bullet time (a stash boost) slows the hostiles; your own reload, aim and movement stay at full speed.
+      const wdt = dt * (ctx.timeScale ? ctx.timeScale() : 1);
       if (state === 'play') {
         elapsed += dt;
         if (reload > 0) {reload -= dt;if (reload <= 0) {const need = MAGAZINE - mag, take = Math.min(need, reserve);mag += take;reserve -= take;reload = 0;feed('Reloaded');updateHud();}}
-        hostileLooks(dt);
+        hostileLooks(wdt);
       }
       const aimWanted = state === 'play' && reload <= 0 && (padAim > .3 || mouseAim);
       aimT += ((aimWanted ? 1 : 0) - aimT) * Math.min(1, dt * 11);
@@ -414,12 +416,12 @@
       actors.forEach(a => {
         if (a.alive && a.sees) {
           const eye = camera.position, want = Math.atan2(-(eye.x - a.root.position.x), -(eye.z - a.root.position.z));
-          let d = want - a.root.rotation.y;d = Math.atan2(Math.sin(d), Math.cos(d));a.root.rotation.y += d * Math.min(1, dt * 4);
+          let d = want - a.root.rotation.y;d = Math.atan2(Math.sin(d), Math.cos(d));a.root.rotation.y += d * Math.min(1, wdt * 4);
           if (!a.engaged) {a.engaged = true;a.fireIn = between(HOSTILE_REACTION);}
-          if (state === 'play' && a.role === 'hostile' && Math.abs(d) < .3 && (a.fireIn -= dt) <= 0) {hostileFire(a);a.fireIn = between(HOSTILE_INTERVAL);}
+          if (state === 'play' && a.role === 'hostile' && Math.abs(d) < .3 && (a.fireIn -= wdt) <= 0) {hostileFire(a);a.fireIn = between(HOSTILE_INTERVAL);}
         } else a.engaged = false;
         if (a.muzzleFlash) {a.flashT = Math.max(0, a.flashT - dt);a.muzzleFlash.visible = a.flashT > 0;a.muzzleFlash.rotation.y = Math.random() * 6;}
-        if (!a.alive && a.fall < 1) {a.fall = Math.min(1, a.fall + dt * 2.6);const e = 1 - Math.pow(1 - a.fall, 3);a.body.rotation.x = e * Math.PI / 2 * .96;a.body.position.y = e * .08;}
+        if (!a.alive && a.fall < 1) {a.fall = Math.min(1, a.fall + wdt * 2.6);const e = 1 - Math.pow(1 - a.fall, 3);a.body.rotation.x = e * Math.PI / 2 * .96;a.body.position.y = e * .08;}
         if (a.hitFlash > 0) {a.hitFlash -= dt;a.body.position.z = a.hitFlash > 0 ? .04 : 0;}
       });
       const pos = camera.position, moved = lastPos ? Math.hypot(pos.x - lastPos.x, pos.z - lastPos.z) / Math.max(dt, 1e-3) : 0;lastPos = {x: pos.x, z: pos.z};

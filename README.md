@@ -3,7 +3,7 @@
 Rebuilding the look of **Haarklous online** – the open-world game around Haarklous plass 17A, Torshov, Oslo – in Unreal Engine 5 with assets made in Blender. Gameplay, controls and online features stay exactly as in the web game; only the graphics are reworked. The live online game is never touched; online features are tested on a separate test server (`haarklous-ue5-test`).
 
 ## Folders
-- `reference/web-game/` – read-only snapshot of the web game (the specification): all its code, data (`assets/osm/` OpenStreetMap + Kartverket heights), the playable offline build (`haarklous-game.html`), docs and the multiplayer server (`cloud/`, kept for a later launch). Snapshot of `main` at commit `d3d40ad` (26 Oct 2026).
+- `reference/web-game/` – read-only snapshot of the web game (the specification): all its code, data (`assets/osm/` OpenStreetMap + Kartverket heights), the playable offline build (`haarklous-game.html`), docs and the multiplayer server (`cloud/`, kept for a later launch). Snapshot of `main` at commit `d4ec404` (29 Oct 2026).
 - `blender/` – Blender files saved by the build scripts (`tools/blender/build_assets.py --blend`).
 - `unreal/Haarklous/` – the Unreal Engine 5 project (C++ in `Source/Haarklous`, game data exported from the web version in `Content/Data`).
 - `tools/` – scripts that rebuild everything: `web-export/` (Node + headless Chrome), `blender/` (Blender Python), `unreal/` (Unreal Python), build/test/run scripts, `refresh-reference.ps1`.

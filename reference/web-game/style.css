@@ -140,3 +140,38 @@ html,body{margin:0;height:100%;background:#0d1114;color:var(--ink);font:15px/1.4
 #codePad .slots{display:flex;gap:10px;justify-content:center;margin:8px 0}
 #codePad .slots span{width:40px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:2px solid #ffffff33;font:800 28px ui-monospace,Consolas,monospace}
 #codePad .slots span.sel{border-color:#ffd166;color:#ffd166}
+
+/* Stash boosts */
+#boost{position:absolute;left:22px;top:52px;padding:5px 12px;border-radius:14px;background:#0d3b4fcc;font-weight:700;pointer-events:none}
+#boostFx{position:absolute;inset:0;pointer-events:none;animation:boostPulse 1.6s ease-in-out infinite}
+#boostFx.speed{background:radial-gradient(ellipse at center,transparent 55%,#00d0ff30 100%)}
+#boostFx.jump{background:radial-gradient(ellipse at center,transparent 55%,#7dff6a2e 100%)}
+#boostFx.slowmo{background:radial-gradient(ellipse at center,transparent 45%,#1a2a5a66 100%);animation-duration:3.2s}
+@keyframes boostPulse{0%,100%{opacity:.75}50%{opacity:1}}
+
+/* Money, shopping basket and bag */
+#wallet{position:absolute;right:20px;top:18px;padding:6px 14px;border-radius:14px;background:#10241acc;font-weight:700;pointer-events:none}
+#basket{position:absolute;right:20px;top:56px;min-width:230px;padding:10px 14px;border-radius:12px;background:#0b0f14d9;border:1px solid #ffffff22;pointer-events:none;font-size:14px}
+#basket div{display:flex;justify-content:space-between;gap:16px}#basket .total{border-top:1px solid #ffffff33;margin-top:4px;padding-top:4px;font-weight:700}
+#basket small{opacity:.7}
+#bag{position:absolute;left:18px;top:50%;transform:translateY(-50%);min-width:280px;max-width:min(420px,80%);max-height:calc(100% - 140px);overflow-y:auto;scrollbar-width:none;padding:12px;border-radius:12px;background:#0b0f14e6;border:1px solid #ffffff2a;pointer-events:none;display:flex;flex-direction:column;gap:3px}
+#bag div{padding:5px 10px;border-radius:7px;display:flex;flex-direction:column}#bag div small{opacity:.75}
+#bag div.sel{background:#ffd166;color:#111;font-weight:700}#bag > small{color:#ffffffb3;margin-top:4px}
+#bag > b,#bag > small{position:sticky;background:#0b0f14;z-index:1;padding:3px 0}#bag > b{top:-12px}#bag > small{bottom:-12px}
+/* Paintball (ported from the Unreal version): scores and clock, countdown / result, lobby panel, feed, ammo, crosshair, paint on the goggles. */
+#pbHud{position:absolute;inset:0;pointer-events:none}
+#pbHud [hidden]{display:none!important}
+.pb-score{position:absolute;left:50%;top:14px;transform:translateX(-50%);display:grid;grid-template-columns:70px 1fr 70px;align-items:center;width:min(380px,92%);padding:6px 10px;border-radius:10px;background:#000a;text-align:center}
+.pb-score>b{font-size:34px;line-height:1}.pb-score span{display:flex;flex-direction:column}.pb-score big{font:700 24px/1.1 ui-monospace,Consolas,monospace}.pb-score small{opacity:.75;font-size:13px}
+.pb-score em{grid-column:span 3;font-style:normal;font-size:13px;text-align:left}.pb-score em+em{text-align:right;margin-top:-17px}
+.pb-big{position:absolute;left:50%;top:28%;transform:translateX(-50%);padding:10px 26px;border-radius:12px;background:#0008;text-align:center}
+.pb-big .n{font:800 88px/1 system-ui,sans-serif}.pb-big b{display:block;font-size:38px}.pb-big small{opacity:.8}
+.pb-lobby{position:absolute;right:20px;top:110px;width:min(400px,80%);padding:12px 16px;border-radius:10px;background:#000b}
+.pb-lobby>b{color:#ffd27a;font-size:20px}.pb-lobby ul{list-style:none;margin:8px 0;padding:0}.pb-lobby li{display:flex;justify-content:space-between;opacity:.75}.pb-lobby li.me{opacity:1;font-weight:600}.pb-lobby i{font-style:normal}.pb-lobby small{display:block;opacity:.75}
+.pb-feed{position:absolute;left:22px;top:96px;text-shadow:0 1px 3px #000}
+.pb-ammo .team{position:absolute;left:24px;bottom:56px;font:700 22px system-ui,sans-serif;text-shadow:0 1px 3px #000}
+.pb-ammo .keys,.pb-ammo .warn{position:absolute;left:24px;bottom:26px;font-size:15px;opacity:.85;text-shadow:0 1px 3px #000}.pb-ammo .warn{color:#ffb15e;opacity:1;font-weight:700}
+.pb-ammo .mag{position:absolute;right:28px;bottom:22px;text-align:right;text-shadow:0 1px 3px #000}.pb-ammo .mag b{display:block;font:800 40px/1 ui-monospace,Consolas,monospace}.pb-ammo .mag small{opacity:.8}
+.pb-cross{position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border:1.5px solid #ffffffb3;border-radius:50%}
+.pb-paint{position:absolute;inset:0;background:radial-gradient(circle at 50% 45%,#1a59f2cc 0 14%,#1a59f288 15% 22%,transparent 24%),radial-gradient(circle at 38% 36%,#1a59f2aa 0 5%,transparent 6%),radial-gradient(circle at 63% 55%,#1a59f2aa 0 6%,transparent 7%),radial-gradient(circle at 56% 30%,#1a59f299 0 4%,transparent 5%)}
+.pb-paint[data-team="1"]{background:radial-gradient(circle at 50% 45%,#f24d0dcc 0 14%,#f24d0d88 15% 22%,transparent 24%),radial-gradient(circle at 38% 36%,#f24d0daa 0 5%,transparent 6%),radial-gradient(circle at 63% 55%,#f24d0daa 0 6%,transparent 7%),radial-gradient(circle at 56% 30%,#f24d0d99 0 4%,transparent 5%)}

@@ -31,7 +31,13 @@
   const audio = window.GameAudio.create();
   // Soundtrack: a calm 2.5-minute open-world loop, and its own loop for disc golf, petanque and the hostage rescue.
   const music = window.GameMusic.create();
-  const world = window.Surroundings.create({T, lib, data: D, renderer, onStatus: t => {const el = $('imageryStatus');if (el) el.textContent = t;}});
+  // Joker and Kiwi are cut into the ground floors of their real buildings (this has to happen before the buildings are built).
+  window.GameShops.applyNotches(D);
+  // The construction site and the paintball yard (ported from the Unreal version): no trees or bushes grow in them.
+  const SITE_DATA = window.SITE, PB_DATA = window.PAINTBALL;
+  const holes = [SITE_DATA && {x0: SITE_DATA.rect.x0, s0: SITE_DATA.rect.s0, x1: SITE_DATA.rect.x0 + SITE_DATA.rect.w, s1: SITE_DATA.rect.s0 + SITE_DATA.rect.d, cutGround: true},
+    PB_DATA && {x0: PB_DATA.rect.x0 - 1, s0: PB_DATA.rect.s0 - 1, x1: PB_DATA.rect.x0 + PB_DATA.rect.w + 1, s1: PB_DATA.rect.s0 + PB_DATA.rect.d + 1}].filter(Boolean);
+  const world = window.Surroundings.create({T, lib, data: D, renderer, holes, onStatus: t => {const el = $('imageryStatus');if (el) el.textContent = t;}});
   scene.add(world.near);farScene.add(world.far);world.setSun(sunDir);
   const apt = window.GameApartment.build({T, lib, data: window.APARTMENT});scene.add(apt.group);
   // Stair towers: ours (model coordinates) and one in each enterable neighbouring building.
@@ -56,22 +62,52 @@
   const towerObstacles = t => t.stair.obstacles().map(o => ({points: o.points.map(p => xf(t.matrix, p.x, p.z)), minY: o.minY + t.matrix.elements[13], maxY: o.maxY + t.matrix.elements[13], kind: 'tower'}));
   // Firepit with five benches in the park in front of the building (the fire level is shared in multiplayer).
   const FIRE_POS = {x: -2.7, z: 34.7}, fire = window.GameFire.create({T, lib, heightAt: world.heightWorld, x: FIRE_POS.x, z: FIRE_POS.z});scene.add(fire.group);
-  const staticObstacles = [...apt.obstacles, ...towers.flatMap(towerObstacles), ...world.obstacles(), ...fire.obstacles];
-  const walkFloors = [...apt.floors, ...towers.flatMap(towerFloors), world.terrainFloor()];
+  // Three hidden stashes (issue #2): the top landing of a neighbour's stairwell, the courtyard behind the building and the
+  // bushes in the park north of the block. Each crate has lines to snort and a syringe: a random 30-second boost.
+  const stash = (() => {
+    const t = towers.filter(x => !x.own)[4], top = new T.Vector3(.1, 0, 5.38).applyMatrix4(t.matrix), e = t.matrix.elements;
+    const at = (name, x, z, yaw) => ({name, x, z, y: world.heightWorld(x, z), yaw});
+    return window.GameStash.create({T, lib, places: [{name: 'stairwell', x: top.x, y: top.y, z: top.z, yaw: Math.atan2(e[8], e[0])}, at('courtyard', -2.8, -41.7, .4), at('park', 104.5, 162.2, 1.2)]});
+  })();scene.add(stash.group);
+  const shops = window.GameShops.create({T, lib, world, audio});scene.add(shops.group);
+  // HODET N.N., Marianne Heske's 7 m bronze doll's head at the north end of Torshovdalen (OSM node 2965223021, real place
+  // local (9.1, 275.5)), facing south, with its stone steps on the east side.
+  const SCULPTURE_AT = {x: 9.1, s: 275.5};
+  const sculpture = window.GameSculpture.create({T, lib, world, at: SCULPTURE_AT});scene.add(sculpture.group);
+  // Ground: the building site's soil (it changes as the machines dig), the paved paintball yard, the terrain elsewhere.
+  const siteField = SITE_DATA && window.GameSite ? window.GameSite.fieldFor(SITE_DATA, world) : null;
+  const pbCtx = {};// filled in below, once the player, camera and lobby exist
+  const pbRules = PB_DATA && window.GamePaintball ? new window.GamePaintball.Rules(PB_DATA, pbCtx) : null;
+  function groundAt(x, z) {
+    if (siteField) {const y = siteField.surface(x, z);if (y !== null) return y;}
+    if (pbRules) {const y = pbRules.ground(x, z);if (y !== null) return y;}
+    return world.heightWorld(x, z);
+  }
+  const groundFloor = {...world.terrainFloor(), height: p => groundAt(p.x, p.z)};
+  const extraObstacles = [...(siteField ? window.GameSite.fenceObstacles(siteField, groundAt) : []), ...(pbRules ? pbRules.obstacles : [])];
+  const staticObstacles = [...apt.obstacles, ...towers.flatMap(towerObstacles), ...world.obstacles(), ...fire.obstacles, ...stash.obstacles, ...shops.obstacles, ...sculpture.obstacles, ...extraObstacles];
+  const walkFloors = [...apt.floors, ...towers.flatMap(towerFloors), ...shops.floors, ...sculpture.floors, groundFloor];
   const walkWorld = collision.createWorld({floors: walkFloors, obstacles: staticObstacles, radius: .18, clearance: .08});
   const vehicleWorlds = new Map();
+  let vehicleBlockers = null;// the other vehicles' footprints from the last updateDynamic()
   function worldFor(r) {
     const key = r.toFixed(2);
-    if (!vehicleWorlds.has(key)) vehicleWorlds.set(key, collision.createWorld({floors: [world.terrainFloor()], obstacles: [...world.obstacles(), ...towers.flatMap(towerObstacles), ...fire.obstacles], radius: r, clearance: .08}));
+    if (!vehicleWorlds.has(key)) {
+      const w = collision.createWorld({floors: [groundFloor], obstacles: [...world.obstacles(), ...towers.flatMap(towerObstacles), ...fire.obstacles, ...shops.obstacles, ...sculpture.obstacles, ...extraObstacles], radius: r, clearance: .08});
+      // A world made during play (e.g. the bike's on its first ride) gets the other vehicles at once, not one update later.
+      if (vehicleBlockers) collision.setDynamic(w, vehicleBlockers);
+      vehicleWorlds.set(key, w);
+    }
     return vehicleWorlds.get(key);
   }
   const doors = [...apt.doors, ...towers.flatMap(t => t.stair.doors)];
   const shootTargets = [];[apt.group, ownStair.group].forEach(g => g.traverse(o => {if (o.isMesh && !(o.material.transparent) && o.visible) shootTargets.push(o);}));
   const interactables = [];[apt.group, ...towers.map(t => t.stair.group)].forEach(g => g.traverse(o => {if (o.isMesh && (o.userData.doorId || o.userData.lockedDoor)) interactables.push(o);}));
   apt.drinks.forEach(d => d.object.traverse(o => {if (o.isMesh) {o.userData.drink = d;interactables.push(o);}}));
+  interactables.push(...stash.hitboxes, ...shops.hitboxes);
 
   // ---------- Vehicles ----------
-  const toWorld = world.toWorld, heightAt = world.heightWorld;
+  const toWorld = world.toWorld, heightAt = groundAt;
   const localHeadingToYaw = h => {const dx = Math.sin(h), ds = Math.cos(h), wx = dx * Math.cos(theta) + ds * Math.sin(theta), wz = -dx * Math.sin(theta) + ds * Math.cos(theta);return Math.atan2(-wx, -wz);};
   const VH = window.GameVehicles.create({T, lib, audio, heightAt, collision, worldFor});
   const vehicles = [];
@@ -112,17 +148,23 @@
       }
     }
   }
+  const dirtPiles = [];
+  const pile = (x, z, r) => {const m = new T.Mesh(new T.ConeGeometry(r, r * .7, 14), lib.concrete(0x6b5541));m.position.set(x, heightAt(x, z) + r * .3, z);m.castShadow = m.receiveShadow = true;scene.add(m);dirtPiles.push(m);};
+  // The construction site's machines come after the street vehicles, so the older vehicle numbers stay the same online.
+  // Soil a machine puts down outside the site makes a heap like the street excavator's (a cone of that volume).
+  let spilled = 0;
+  const site = siteField && window.SiteModels ? window.GameSite.create({T, lib, audio, VH, models: window.SiteModels.create({T, lib}), data: SITE_DATA, world, field: siteField, groundAt, surfaceAt: world.surfaceAt,
+    onSpill: (x, z, vol) => {spilled += vol;if (spilled < .4) return;pile(x, z, Math.max(.4, Math.min(2.2, Math.cbrt(spilled * 3 / (Math.PI * .7)))));spilled = 0;}}) : null;
+  if (site) {scene.add(site.group);vehicles.push(...site.machines);}
   vehicles.forEach(v => {v.spawn = v.netGet();});
   vehicles.forEach(v => scene.add(v.group));
-  const dirtPiles = [];
   vehicles.filter(v => v.kind === 'excavator').forEach(ex => {
-    const pile = (x, z, r) => {const m = new T.Mesh(new T.ConeGeometry(r, r * .7, 14), lib.concrete(0x6b5541));m.position.set(x, heightAt(x, z) + r * .3, z);m.castShadow = m.receiveShadow = true;scene.add(m);dirtPiles.push(m);};
     const f = ex.forward();pile(ex.x + f.x * 6, ex.z + f.z * 6, 1.4);ex.onDump = (x, z) => pile(x, z, .55);
   });
 
   // ---------- HUD ----------
   const hud = {
-    discgolf(s) {const el = $('discHud');if (!s) {el.hidden = true;return;}el.hidden = false;el.innerHTML = `<b>Disc golf · Hull ${s.hole}/${s.holes} · Par ${s.par}</b><span>Throws: ${s.strokes.map((n, i) => `H${i + 1} ${n}`).join(' · ')}</span><span>${s.distance} m to the basket</span><i class="meter"><u style="width:${Math.round(s.charge * 100)}%"></u></i><small>${s.message}</small><small>Hold R2 / left mouse, release to throw · left stick ←/→ hyzer · ○ quit</small>`;},
+    discgolf(s) {const el = $('discHud');if (!s) {el.hidden = true;return;}el.hidden = false;el.innerHTML = `<b>${s.course} · Hull ${s.hole}/${s.holes} · Par ${s.par}</b><span>Throws: ${s.strokes.map((n, i) => `H${i + 1} ${n}`).join(' · ')}</span><span>${s.distance} m to the basket</span><i class="meter"><u style="width:${Math.round(s.charge * 100)}%"></u></i><small>${s.message}</small><small>Hold R2 / left mouse, release to throw · left stick ←/→ hyzer · ○ quit</small>`;},
     petanque(s) {
       const el = $('petanqueHud'), marks = $('markers');if (!s) {el.hidden = true;marks.replaceChildren();return;}el.hidden = false;
       el.innerHTML = `<b>Petanque · You ${s.score.you} – ${s.score.npc} ${s.npcName}</b><span>Mène ${s.mene} · Boules left: you ${s.you}, ${s.npcName} ${s.npc}</span><span>${s.hold ? (s.hold === 'you' ? `You hold the point by ${s.margin.toFixed(2)} m` : `${s.npcName} holds the point by ${s.margin.toFixed(2)} m`) : 'Nobody holds the point'}</span><span>${s.turn === 'you' ? `Your turn: ${s.aim === 'jack' ? 'throw the jack (6–10 m)' : (s.shoot ? 'shoot (L2 held)' : 'point (hold L2 to shoot)')}` : s.turn === 'npc' ? `${s.npcName} is throwing…` : ''}</span><i class="meter"><u style="width:${Math.round(s.charge * 100)}%"></u></i><small>${s.message}</small><small>Hold R2 / left mouse for power, release to throw · ○ quit</small>`;
@@ -135,6 +177,7 @@
   // ---------- Player ----------
   const player = {x: 0, z: 0, feet: D.ground, yaw: 0, pitch: 0, stance: 'stand', eye: 1.65, eyeNow: 1.65, jumpY: 0, jumpV: 0, run: false, stride: 0, mode: 'foot', vehicle: null, minigame: null};
   const stanceEye = s => s === 'prone' ? .32 : s === 'crouch' ? 1.05 : player.eye;
+  const WALK_SPEED = 3.5;
   const stanceSpeed = () => player.stance === 'prone' ? .28 : player.stance === 'crouch' ? .55 : 1;
   function place(x, z, yaw, y) {
     const sp = collision.findSafeSpawn(walkWorld, {x, z}, stanceEye('stand'), {y: y ?? heightAt(x, z), maxDistance: 6});
@@ -187,7 +230,7 @@
     collision.setDynamic(walkWorld, list);
     // Other vehicles block the one being driven; it must never collide with its own (parked) footprint.
     const vlist = vehicles.filter(v => v !== player.vehicle).flatMap(v => [].concat(v.footprint()));
-    vehicleWorlds.forEach(w => collision.setDynamic(w, vlist));
+    vehicleBlockers = vlist;vehicleWorlds.forEach(w => collision.setDynamic(w, vlist));
   }
   updateDynamic();
 
@@ -203,13 +246,16 @@
       sensitivity: {min: .25, max: 3, get: () => ({...sensitivity}), set: setSens, step: (k, d) => setSens(k, sensitivity[k] + d * .1)},
       spawnAreas: () => apt.spawnAreas, stairSpawns, missionStart,
       entrance: () => {const d = apt.doors.find(d => d.name === 'Entrance door');return d ? d.leaf.getWorldPosition(new T.Vector3()) : {x: 1.66, z: 5.83};},
+      timeScale: () => worldScale(),
+      onFinish: result => {if (result === 'success') earn(400, 'Reward for rescuing the hostage');},
       setPose: (x, z, yaw, tilt, y) => place(x, z, yaw, y), enterWalk: () => {}, enterImmersive: () => {},
       leave: () => {const yaw = player.yaw;place(player.x, player.z, yaw, player.feet);updateDynamic();notice(inApartment() ? 'Mission over – you are home. Make yourself comfortable.' : 'Mission over.', 4);}});
   }
 
   // ---------- Minigames, photo camera, map ----------
-  const mini = window.GameMinigames.create({T, lib, audio, heightAt, toWorld, data: D, hud, trees: world.trees});
-  scene.add(mini.discgolf.group, mini.petanque.group);
+  const mini = window.GameMinigames.create({T, lib, audio, heightAt, toWorld, data: D, hud, trees: world.trees, reward: (v, why) => earn(v, why), muselunden: window.MUSELUNDEN});
+  const discCourses = [mini.discgolf, mini.muselunden].filter(Boolean);
+  scene.add(...discCourses.map(g => g.group), mini.petanque.group);
   const photo = window.GameCamera.create({T, lib, audio, root: view});
   const overlayScene = new T.Scene(), overlayCamera = new T.PerspectiveCamera(55, 1, .01, 5);overlayScene.add(new T.HemisphereLight(0xf1f5ff, 0x4a4540, 2.2));
   const ovSun = new T.DirectionalLight(0xffffff, 1.8);ovSun.position.set(.6, 1, .5);overlayScene.add(ovSun);overlayScene.environment = lib.environment();
@@ -220,19 +266,34 @@
     {...world.toLocal(4.8, 14.2), color: '#b71c1c', label: 'Hostage rescue', glyph: '◎'},
     ...(D.discgolf || []).map((h, i) => ({x: h.tee[0], s: h.tee[1], color: '#6a1b9a', label: `Disc golf ${i + 1}`, glyph: '◉'})),
     ...(D.discgolf || []).map(h => ({x: h.basket[0], s: h.basket[1], color: '#9c4dcc', label: '', glyph: '⛳'})),
+    ...(window.MUSELUNDEN ? window.MUSELUNDEN.holes.map(h => ({x: h.tee[0], s: h.tee[1], color: '#6a1b9a', label: h.n === 1 ? 'Muselunden disc golf 1' : `${h.n}`, glyph: '◉'})) : []),
+    ...(window.MUSELUNDEN ? window.MUSELUNDEN.holes.map(h => ({x: h.basket[0], s: h.basket[1], color: '#9c4dcc', label: '', glyph: '⛳'})) : []),
     ...(D.petanque ? [{x: D.petanque.x, s: D.petanque.s, color: '#00838f', label: 'Petanque', glyph: '●'}] : []),
     {...world.toLocal(AIR.heli.x, AIR.heli.z), color: '#1565c0', label: 'Helipad', glyph: 'H'},
     {...world.toLocal(AIR.plane.x, AIR.plane.z), color: '#1565c0', label: 'Airstrip', glyph: '✈'},
     {...world.toLocal(FIRE_POS.x, FIRE_POS.z), color: '#e65100', label: 'Firepit', glyph: '🔥'},
-    ...(mp ? [...mp.remotes.values()].filter(r => r.seen).map(r => ({...world.toLocal(r.pos.x, r.pos.z), color: window.GameAvatars.SLOT_CSS[r.slot % 5], label: r.name, glyph: '●'})) : [])]});
+    ...shops.shops.map(s => {const L = s.local;return {x: L.P0[0] + L.u[0] * L.W / 2 + L.n[0] * L.depth / 2, s: L.P0[1] + L.u[1] * L.W / 2 + L.n[1] * L.depth / 2, color: s.id === 'kiwi' ? '#2e9a3f' : '#d0021b', label: s.name, glyph: '🛒'};}),
+    ...(SITE_DATA ? [{x: SITE_DATA.rect.x0 + SITE_DATA.rect.w / 2, s: SITE_DATA.rect.s0 + SITE_DATA.rect.d / 2, color: '#f9a825', label: 'Construction site', glyph: '⛏'}] : []),
+    ...(PB_DATA ? [{x: PB_DATA.centre.x, s: PB_DATA.centre.s, color: '#2e7d32', label: 'Paintball', glyph: '✚'}] : []),
+    {x: SCULPTURE_AT.x, s: SCULPTURE_AT.s, color: '#7a5c3e', label: 'HODET N.N.', glyph: '◉'},
+    ...(mp ? [...mp.remotes.values()].filter(r => r.seen).map(r => ({...world.toLocal(r.pos.x, r.pos.z), color: window.GameAvatars.slotCss(r.slot), label: r.name, glyph: '●'})) : [])]});
   // Wristwatch (D-pad ↑) shares the first-person overlay with the photo camera.
   const watch = window.GameWatch.create({T, lib});overlayScene.add(watch.model);
+  // Paintball course, lobby and games (the rules' view of the game; online the others' states come from the lobby).
+  Object.assign(pbCtx, {
+    serverNow: () => mp && mp.net.online ? mp.net.serverNow() : Date.now(), you: () => mp && mp.net.online ? mp.net.you : 0, yourName: () => mp ? mp.net.name : 'You', yourSlot: () => mp ? mp.net.slot : 0,
+    others: () => mp ? [...mp.remotes.values()].filter(r => r.st && r.st.pb && r.seen).map(r => window.GamePaintball.memberFromJson(r.st.pb, {id: r.id, name: r.name, slot: r.slot, local: false, feet: {x: r.pos.x, y: r.pos.y, z: r.pos.z}, yaw: r.yaw, stance: r.st.st || 'stand'})).filter(Boolean) : [],
+    feet: () => ({x: player.x, y: player.feet, z: player.z}), yaw: () => player.yaw, stance: () => player.stance,
+    teleport: (x, z, yaw) => {if (player.mode === 'foot') place(x, z, yaw);}, cameraPos: () => camera.position.clone(), cameraFwd: () => camera.getWorldDirection(new T.Vector3()),
+    ground: groundAt, notice: (t, sec) => notice(t, sec), sound: (n, g) => audio.sfx(n, {gain: g}), random: Math.random});
+  const paintball = pbRules && window.PaintballModels ? window.GamePaintball.create({T, scene, overlay: overlayScene, models: window.PaintballModels.create({T, lib, data: PB_DATA}), data: PB_DATA, view, groundAt, ctx: pbCtx, rules: pbRules}) : null;
+  const pbBusy = () => !!paintball && paintball.busy, pbArmed = () => !!paintball && paintball.armed;
 
   // ---------- Drinking ----------
   let drunk = 0;// seconds of drunkenness remaining
   const drunkLevel = () => Math.min(1, drunk / 90);
   function drink(d) {
-    if (d.kind === 'beer') {d.object.visible = false;d.used = true;audio.sfx('bottleOpen');audio.sfx('gulp');drunk += 30;notice('You drink a beer. (+30 s drunk)');}
+    if (d.kind === 'beer') {d.object.visible = false;d.used = true;audio.sfx('bottleOpen');audio.sfx('gulp');drunk += 30;wallet.addPant(1);notice('You drink a beer. (+30 s drunk, +1 bottle for the deposit)');}
     else {if (d.sips <= 0) {notice('The bottle is empty.');return;}d.sips--;audio.sfx('gulp');drunk += 30;notice(`A sip of ${d.name}. (+30 s drunk) · ${d.sips} sips left`);const l = d.object.userData.liquid;if (l) l.scale.y = Math.max(.05, d.sips / 12);}
   }
 
@@ -258,15 +319,17 @@
     // Doors first (the street door of 17A opens normally), then the mission marker beside the entrance.
     {const o = lookTarget();if (o?.userData.doorId) {const d = doors.find(d => d.id === o.userData.doorId);if (d) return {text: `□ ${d.open ? 'Close' : 'Open'} ${d.name.toLowerCase()}`, act: () => toggleDoor(d)};}}
     if (Math.hypot(player.x - MISSION_MARK.x, player.z - MISSION_MARK.z) < 1.6 && Math.abs(player.feet - world.heightWorld(MISSION_MARK.x, MISSION_MARK.z)) < 2) return {text: '□ Start mission: rescue the hostage (4th floor)', act: () => startMission()};
+    const shp = shopPrompt();if (shp) return shp;
     const fp = firePrompt();if (fp) return fp;
+    const sp = stashPrompt();if (sp) return sp;
     const v = nearestVehicle();
     if (v) {
       const i = vehicles.indexOf(v), drv = mp.occupant(i, 'd'), pas = mp.occupant(i, 'p'), canRide = !!v.hipAnchor('p');
-      if (!drv) return {text: `□ ${v.kind === 'motorcycle' ? 'Ride the' : v.kind === 'excavator' ? 'Climb into the' : v.aircraft ? 'Fly the' : 'Drive the'} ${v.name}`, act: () => tryDrive(v)};
+      if (!drv) return {text: `□ ${v.verb ? v.verb : v.kind === 'motorcycle' ? 'Ride the' : v.kind === 'excavator' ? 'Climb into the' : v.aircraft ? 'Fly the' : 'Drive the'} ${v.name}`, act: () => tryDrive(v)};
       if (canRide && !pas) return {text: `□ Ride along with ${mp.nameOf(drv)} (${v.kind === 'motorcycle' ? 'pillion' : 'passenger'})`, act: () => tryRide(v)};
       return {text: `${mp.nameOf(drv)} is ${v.aircraft ? 'flying' : 'driving'} the ${v.name}`, act: () => {}};
     }
-    for (const g of [mini.discgolf, mini.petanque]) {const t = g.near({x: player.x, z: player.z, y: player.feet});if (t) return {text: t, act: () => startMinigame(g)};}
+    for (const g of [...discCourses, mini.petanque]) {const t = g.near({x: player.x, z: player.z, y: player.feet});if (t) return {text: t, act: () => startMinigame(g)};}
     const o = lookTarget();
     if (o?.userData.drink && !o.userData.drink.used) {const d = o.userData.drink;return {text: d.kind === 'beer' ? '□ Drink a beer' : `□ Take a sip of ${d.name}`, act: () => drink(d)};}
     if (o?.userData.doorId) {const d = doors.find(d => d.id === o.userData.doorId);if (d) return {text: `□ ${d.open ? 'Close' : 'Open'} ${d.name.toLowerCase()}`, act: () => toggleDoor(d)};}
@@ -280,7 +343,7 @@
     helicopter: 'Helicopter (Mode 2) · left stick ↑↓ collective (centre = hover), ←→ pedals · right stick pitch/roll · R3 / V chase camera · the rotor needs a few seconds to spool up',
     plane: 'Plane (Mode 2) · left stick ↑ to add throttle (it stays), ←→ rudder/nose wheel · right stick pitch/roll · pull back at about 85 km/h · L2 brakes · R3 / V view'};
   function setClip(near, far) {if (camera.near !== near || camera.far !== far) {camera.near = near;camera.far = far;camera.updateProjectionMatrix();}}
-  function enterVehicle(v) {watch.hide();player.mode = 'vehicle';player.vehicle = v;player.lookYaw = 0;player.lookPitch = 0;player.chase = false;player.chaseCam = null;v.enter();updateDynamic();if (v.aircraft) setClip(.12, 1600);notice(v.aircraft ? AIR_HELP[v.kind] : v.kind === 'excavator' ? 'Tracks: L1/L2 left, R1/R2 right · Left stick: swing / stick · Right stick: boom / bucket · □ get out' : 'R2 throttle · L2 brake / reverse · Left stick steer · Right stick look · □ get off', v.aircraft ? 9 : 6);}
+  function enterVehicle(v) {watch.hide();player.mode = 'vehicle';player.vehicle = v;player.siteView = 0;player.lookYaw = 0;player.lookPitch = 0;player.chase = false;player.chaseCam = null;v.enter();updateDynamic();if (v.aircraft) setClip(.12, 1600);notice(v.help ? v.help : v.aircraft ? AIR_HELP[v.kind] : v.kind === 'excavator' ? 'Tracks: L1/L2 left, R1/R2 right · Left stick: swing / stick · Right stick: boom / bucket · □ get out' : 'R2 throttle · L2 brake / reverse · Left stick steer · Right stick look · □ get off', v.aircraft || v.help ? 9 : 6);}
   function tryDrive(v) {
     const i = vehicles.indexOf(v);
     mp.claim(i, 'd').then(r => {if (player.mode !== 'foot') {if (r.ok) mp.release(i, 'd');return;}if (r.ok) enterVehicle(v);else notice(r.timeout ? 'No answer from the lobby – try again.' : `${mp.nameOf(r.by)} just took it.`, 3);});
@@ -303,6 +366,88 @@
   }
   // Firepit: throw logs, take a beer, sit on the benches.
   let beerT = 0;
+  // ---------- Stash boosts (30 s, random): 3× running speed, 3× jump height or bullet time ----------
+  const BOOSTS = {speed: '⚡ 3× running speed', jump: '🦘 3× jump height', slowmo: '⏳ Bullet time – the world slows down'};
+  let boost = null;
+  const boostIs = k => !!boost && boost.kind === k;
+  const worldScale = () => boostIs('slowmo') ? .35 : 1;
+  function stashPrompt() {
+    if (player.mode !== 'foot') return null;
+    const o = lookTarget(), it = o?.userData.stashItem || stash.nearest(player, player.feet);if (!it) return null;
+    if (!it.ready) return {text: 'Nothing left here – come back later', act: () => {}};
+    return {text: it.kind === 'line' ? '□ Snort a line' : '□ Use the needle', act: () => takeBoost(it)};
+  }
+  function takeBoost(it) {
+    stash.use(it);const kinds = Object.keys(BOOSTS), kind = kinds[Math.floor(Math.random() * kinds.length)];
+    boost = {kind, t: 30};audio.sfx(it.kind === 'line' ? 'sniff' : 'needle');audio.muffle(kind === 'slowmo');
+    notice(`${BOOSTS[kind]} for 30 seconds!`, 4);
+  }
+  // ---------- Shops (Joker and Kiwi) and money in kroner ----------
+  const wallet = shops.wallet, KR = shops.kr, GREET = ['Hei! Velkommen inn.', 'Hei hei!', 'God dag!', 'Hei, si fra om du trenger hjelp.'];
+  let basket = [], walletT = 0, lastShop = null, bag = null;
+  function earn(amount, why) {if (!(amount > 0)) return;wallet.earn(amount);walletT = 6;audio.sfx('coin');notice(`+${KR(amount)} · ${why}`, 4);}
+  function shopPrompt() {
+    if (player.mode !== 'foot') return null;
+    const s = shops.shopAt(player, player.feet), o = lookTarget(), u = (o && o.userData) || {};
+    if (u.shopItem) {const {shop, product} = u.shopItem, price = shops.priceOf(shop, product);return {text: `□ Take ${product.name} – ${KR(price)}`, act: () => takeProduct(shop, product, price)};}
+    if (u.shopPant) {const n = wallet.pant;return n ? {text: `□ Return ${n} empty bottle${n > 1 ? 's' : ''} – ${KR(n * shops.PANT)}`, act: () => returnPant()} : {text: 'Bottle return – no empty bottles yet', act: () => {}};}
+    if (s && (u.shopTill || shops.atTill(s, player))) {
+      const mine = basket.filter(b => b.shop === s), total = mine.reduce((t, b) => t + b.price, 0);
+      return mine.length ? {text: `□ Pay ${KR(total)} (${mine.length} item${mine.length > 1 ? 's' : ''})`, act: () => payAt(s)} : {text: '□ Talk to the cashier', act: () => s.say(GREET[Math.floor(Math.random() * GREET.length)])};
+    }
+    return null;
+  }
+  function takeProduct(shop, product, price = shops.priceOf(shop, product)) {basket.push({shop, product, price});audio.sfx('click');walletT = 8;notice(`${product.name} in the basket – pay at the till`, 2);}
+  function returnPant() {const n = wallet.cashPant();audio.sfx('pant');walletT = 6;notice(`The machine takes ${n} bottle${n > 1 ? 's' : ''}: +${KR(n * shops.PANT)}`, 3);}
+  function payAt(s) {
+    const mine = basket.filter(b => b.shop === s), beerOk = shops.beerAllowed(new Date());
+    const refused = beerOk ? [] : mine.filter(b => b.product.beer), buy = mine.filter(b => !refused.includes(b)), total = Math.round(buy.reduce((t, b) => t + b.price, 0) * 100) / 100;
+    if (!buy.length) {basket = basket.filter(b => b.shop !== s);s.say('Beklager, jeg kan ikke selge øl nå. Ølsalget er man–fre 08–20 og lør 08–18.');notice('No beer sales now (Norwegian law: Mon–Fri 08–20, Sat 08–18, never on Sunday). The beer goes back.', 5);return;}
+    if (!wallet.pay(total)) {s.say(`Kortet ble avvist – du mangler ${KR(total - wallet.money)}.`);audio.sfx('locked');notice(`Card declined: you have ${KR(wallet.money)}, the total is ${KR(total)}.`, 4);return;}
+    buy.forEach(b => wallet.add(b.product.id));basket = basket.filter(b => b.shop !== s);
+    s.say(refused.length ? `Det blir ${KR(total)}. Ølet må jeg ta tilbake – ølsalget er stengt nå.` : `Det blir ${KR(total)}. Takk for handelen!`);
+    audio.sfx('register');walletT = 8;notice(`Paid ${KR(total)}${refused.length ? ' (no beer at this hour)' : ''} · D-pad ↓ or the ↓ key opens your bag`, 4);
+  }
+  function shopsTick(dt) {
+    shops.update(dt, player, camera);walletT = Math.max(0, walletT - dt);
+    const s = player.mode === 'foot' ? shops.shopAt(player, player.feet) : null;
+    if (s && s !== lastShop) s.say(GREET[Math.floor(Math.random() * 2)]);
+    // Walking out with unpaid items sets off the alarm, and the items go back on the shelves.
+    if (lastShop && s !== lastShop && basket.some(b => b.shop === lastShop)) {audio.sfx('alarm');basket = basket.filter(b => b.shop !== lastShop);notice('BEEP BEEP – the alarm at the door goes off. You put the unpaid items back.', 4);}
+    lastShop = s;if (bag && player.mode !== 'foot') {bag = null;renderBag();}
+    const show = s || basket.length || bag || walletT > 0, w = $('wallet');w.hidden = !show;if (show) w.textContent = `💰 ${KR(wallet.money)} · 🍾 ${wallet.pant}`;
+    const bk = $('basket');bk.hidden = !basket.length;
+    if (basket.length) {const total = basket.reduce((t, b) => t + b.price, 0);bk.innerHTML = '<b>Basket</b>' + basket.map(b => `<div>${b.product.name}<span>${KR(b.price)}</span></div>`).join('') + `<div class="total">Total<span>${KR(total)}</span></div><small>Pay at the till</small>`;}
+  }
+  // The bag: what you have bought (D-pad ↓ / ↓ key on foot).
+  const USE = {beer: 'drink: +30 s drunk, a bottle for the deposit', soda: 'drink: a bottle for the deposit', energy: 'drink: 15 s of 3× speed', food: 'eat: sobers you up', wood: 'empty onto the firepit (+3)'};
+  const bagItems = () => Object.entries(wallet.bag).map(([id, n]) => ({p: shops.products.find(x => x.id === id), n})).filter(e => e.p);
+  function openBag() {bag = {sel: 0, stick: false};watch.hide();renderBag();}
+  function renderBag() {
+    const el = $('bag');el.hidden = !bag;if (!bag) return;const items = bagItems();bag.sel = Math.max(0, Math.min(bag.sel, items.length - 1));
+    el.innerHTML = `<b>Bag · ${KR(wallet.money)} · ${wallet.pant} empty bottle${wallet.pant === 1 ? '' : 's'}</b>` + (items.length ? items.map((e, i) => `<div class="${i === bag.sel ? 'sel' : ''}">${e.n} × ${e.p.name}<small>${USE[e.p.use]}</small></div>`).join('') : '<div>Empty – buy something at Joker or Kiwi</div>') + '<small>↑↓ choose · ✕ / Space use · ○ / C close</small>';
+    // A long bag scrolls so the chosen item stays in view.
+    const sel = el.querySelector('.sel');if (sel) {const t = sel.offsetTop - 34, b = sel.offsetTop + sel.offsetHeight + 30;if (t < el.scrollTop) el.scrollTop = t;else if (b > el.scrollTop + el.clientHeight) el.scrollTop = b - el.clientHeight;}
+  }
+  function bagInput(input) {
+    const y = input.move.y, items = bagItems();
+    if (input.pressed.has('up') || (y < -.5 && !bag.stick)) bag.sel = Math.max(0, bag.sel - 1);
+    if (input.pressed.has('down') || (y > .5 && !bag.stick)) bag.sel = Math.min(Math.max(0, items.length - 1), bag.sel + 1);
+    bag.stick = Math.abs(y) > .5;
+    if (input.pressed.has('cross') && items[bag.sel]) useItem(items[bag.sel].p);
+    if (input.pressed.has('circle')) bag = null;
+    renderBag();input.move.x = input.move.y = 0;['cross', 'circle', 'up', 'down', 'square', 'triangle'].forEach(b => input.pressed.delete(b));
+  }
+  function useItem(p) {
+    if (p.use === 'wood') {
+      if (Math.hypot(player.x - FIRE_POS.x, player.z - FIRE_POS.z) > 8) {notice('Take the firewood to the firepit in the park first.', 3);return;}
+      for (let i = 0; i < 3; i++) setTimeout(() => {fire.throwLog({x: player.x, y: player.feet + 1.3, z: player.z});mp.addWood();}, i * 350);notice('You empty the sack of firewood onto the fire.', 3);
+    } else if (p.use === 'beer') {audio.sfx('bottleOpen');audio.sfx('gulp');drunk += 30;beerT = 20;wallet.addPant(1);notice(`You drink a ${p.name}. (+30 s drunk, +1 bottle for the deposit)`, 3);}
+    else if (p.use === 'soda') {audio.sfx('bottleOpen');audio.sfx('gulp');drunk = Math.max(0, drunk - 10);wallet.addPant(1);notice(`${p.name} – refreshing. (+1 bottle for the deposit)`, 3);}
+    else if (p.use === 'energy') {audio.sfx('bottleOpen');audio.sfx('gulp');boost = {kind: 'speed', t: 15};wallet.addPant(1);notice(`${p.name}: 15 s of 3× speed! (+1 can for the deposit)`, 3);}
+    else {drunk = Math.max(0, drunk - (p.sober || 10));audio.sfx('gulp');notice(`You eat ${p.name}.${p.sober ? ` (−${p.sober} s drunk)` : ''}`, 3);}
+    wallet.take(p.id);walletT = 4;
+  }
   function firePrompt() {
     const near = (p, r) => Math.hypot(player.x - p.x, player.z - p.z) < r && Math.abs(player.feet - fire.center.y) < 1.5;
     if (near(fire.woodpile, 1.9)) return {text: `□ Throw a log on the fire (fire ${Math.round(mp.fireLevel() / fire.MAX * 100)} %)`, act: () => addLog()};
@@ -312,7 +457,7 @@
     return null;
   }
   function addLog() {fire.throwLog({x: player.x, y: player.feet + 1.3, z: player.z});audio.sfx('throw');setTimeout(() => {audio.sfx('thud', {gain: .4});}, 600);mp.addWood();notice('You throw a log on the fire.', 2);}
-  function drinkBeer() {audio.sfx('bottleOpen');audio.sfx('gulp');drunk += 30;beerT = 20;notice('Skål! A beer from the crate. (+30 s drunk)', 3);}
+  function drinkBeer() {audio.sfx('bottleOpen');audio.sfx('gulp');drunk += 30;beerT = 20;wallet.addPant(1);notice('Skål! A beer from the crate. (+30 s drunk, +1 bottle for the deposit)', 3);}
   function sitDown(spot) {watch.hide();if (photo.active) photo.toggle();player.mode = 'sit';player.sitSpot = spot;player.lookYaw = 0;player.lookPitch = -.32;notice('Sitting by the fire · R2 / left mouse: have a beer · □ stand up', 4);}
   function standUp() {const sp = player.sitSpot;player.mode = 'foot';player.sitSpot = null;const dx = fire.center.x - sp.x, dz = fire.center.z - sp.z, l = Math.hypot(dx, dz) || 1;place(sp.x + dx / l * .7, sp.z + dz / l * .7, sp.yaw);}
   function exitVehicle() {
@@ -370,13 +515,14 @@
   function setPaused(p) {paused = p;$('pause').hidden = !p;if (p && document.pointerLockElement === canvas) document.exitPointerLock();if (!p) lockPointer();renderSettings();}
   $('resume').onclick = () => setPaused(false);
   function renderSettings() {
+    $('walletLine').textContent = `Money: ${shops.kr(wallet.money)} · empty bottles: ${wallet.pant} (${shops.kr(wallet.pant * shops.PANT)} at the bottle return)`;
     $('sensPad').value = sensitivity.pad;$('sensMouse').value = sensitivity.mouse;$('sensPadOut').textContent = sensitivity.pad.toFixed(2) + '×';$('sensMouseOut').textContent = sensitivity.mouse.toFixed(2) + '×';
     $('imagery').checked = imageryWanted();$('quality').value = String(quality);
     $('musicVol').value = music.volume;$('musicOut').textContent = music.volume ? Math.round(music.volume * 100) + ' %' : 'off';
     const np = music.position();$('nowPlaying').textContent = np ? `${np.title} (${Math.floor(np.length / 60)}:${String(Math.round(np.length % 60)).padStart(2, '0')} loop)` : '–';
   }
   $('musicVol').oninput = e => {music.setVolume(+e.target.value);renderSettings();};
-  function musicTrack() {if (caseGame?.active) return 'mission';if (player.mode === 'minigame') return player.minigame === mini.discgolf ? 'discgolf' : 'petanque';return 'main';}
+  function musicTrack() {if (caseGame?.active) return 'mission';if (player.mode === 'minigame') return discCourses.includes(player.minigame) ? 'discgolf' : 'petanque';return 'main';}
   $('sensPad').oninput = e => {setSens('pad', +e.target.value);renderSettings();};$('sensMouse').oninput = e => {setSens('mouse', +e.target.value);renderSettings();};
   $('imagery').onchange = e => {try {localStorage.setItem('haarklous-aerial-imagery-v1', e.target.checked ? 'on' : 'off');} catch {}world.setImagery(e.target.checked);};
   let quality = 1;try {quality = +(localStorage.getItem('haarklous-quality') ?? 1);} catch {}
@@ -405,6 +551,7 @@
     // Chat: the controller's Share button opens quick chat; keyboard Enter / T opens the text box.
     if (input.pressed.has('share') && !map.open) {quick = quick ? null : {sel: 0, stick: false};renderQuick();}
     if (quick) quickInput(input);
+    if (bag) bagInput(input);
     if (caseGame?.active) {
       // The mission owns ✕ (begin), ○ (leave on panels), Options (pause), □ (door or reload), triggers.
       for (const name of input.pressed) {if (name === 'reload') caseGame.key({key: 'r', code: 'KeyR', repeat: false});else if (name === 'options' || caseGame.state !== 'play') caseGame.padButton(name === 'mouseLeft' ? '' : name);else if (['square', 'touchpad'].includes(name)) caseGame.padButton(name);}
@@ -419,7 +566,7 @@
       map.draw({x: player.x, z: player.z, headingLocal: -(player.yaw - theta) + Math.PI});renderFrame(dt, t);return;
     }
     // △: a tap takes out the photo camera (or puts it away); holding it opens the gear menu: camera or FPV drone.
-    if (player.mode === 'foot' && !caseGame?.active) {
+    if (player.mode === 'foot' && !caseGame?.active && !pbBusy()) {// the paintball lobby and game use △ and the D-pad
       if (input.pressed.has('triangle')) {if (photo.active) photo.toggle();else gear = {t0: performance.now(), open: false, sel: gearLast, stick: false};}
       if (gear) {
         if (input.held.triangle) {
@@ -432,6 +579,7 @@
         } else {const g = gear;gear = null;showGear(null);if (g.open) {gearLast = g.sel;if (g.sel === 1) startDrone();else photo.toggle();} else photo.toggle();}
       }
       if (input.pressed.has('up') && !photo.active && !gear) watch.toggle();
+      if (input.pressed.has('down') && !photo.active && !gear && !bag) {openBag();input.pressed.delete('down');}
     } else if (gear) {gear = null;showGear(null);}
     if (photo.active || player.mode !== 'foot') watch.hide();
     if (photo.active) {
@@ -444,6 +592,8 @@
     }
     // Drunk effect: decays in real time.
     drunk = Math.max(0, drunk - dt);const dl = drunkLevel();
+    if (boost && (boost.t -= dt) <= 0) {boost = null;audio.muffle(false);notice('The boost wears off.', 2);}
+    const wdt = dt * worldScale();stash.update(dt);shopsTick(dt);
     if (player.mode === 'vehicle') updateVehicle(dt, input, dl);
     else if (player.mode === 'passenger') updatePassenger(dt, input, dl);
     else if (player.mode === 'sit') updateSit(dt, input, dl);
@@ -451,15 +601,21 @@
     else if (player.mode === 'minigame') updateMinigame(dt, input, dl);
     else updateFoot(dt, input, dl);
     // Other vehicles: parked ones idle (far ones are hidden and skipped), ones driven by other players are posed by the lobby.
-    cullT -= dt;if (cullT <= 0) {cullT = .4;for (const v of vehicles) {const near = Math.hypot(v.x - camera.position.x, v.z - camera.position.z) < 170;v.group.visible = near || v === player.vehicle;}if (vehicles.some((v, i) => mp.remoteDriven(i))) updateDynamic();}
-    vehicles.forEach((v, i) => {if (v === player.vehicle && player.mode === 'vehicle') return;if (mp.remoteDriven(i)) return;if (!v.group.visible && Math.abs(v.speed || 0) < .01 && !v.aircraft) return;v.update(dt, {});});
+    cullT -= dt;if (cullT <= 0) {cullT = .4;for (const v of vehicles) {const near = Math.hypot(v.x - camera.position.x, v.z - camera.position.z) < (v.cullDistance || 170);v.group.visible = near || v === player.vehicle;}if (vehicles.some((v, i) => mp.remoteDriven(i))) updateDynamic();}
+    vehicles.forEach((v, i) => {if (v === player.vehicle && player.mode === 'vehicle') return;if (mp.remoteDriven(i)) return;if (!v.group.visible && Math.abs(v.speed || 0) < .01 && !v.aircraft) return;v.update(wdt, {});});
     beerT = Math.max(0, beerT - dt);mp.update(dt);
-    {const fl = mp.fireLevel();fire.update(dt, fl, camera);fireSoundT -= dt;if (fireSoundT <= 0) {fireSoundT = .25;const d = Math.hypot(player.x - FIRE_POS.x, player.z - FIRE_POS.z);audio.fire(fl, Math.max(0, 1 - d / 28));}}
+    if (site) site.update(wdt);
+    if (paintball) {
+      const foot = player.mode === 'foot', p = foot ? input.pressed : new Set(), h = foot ? input.held : {};
+      paintball.update(dt, {r2: foot ? input.r2 : 0, l2: foot ? input.l2 : 0, reload: p.has('square') || p.has('reload'), up: p.has('up'), down: p.has('down'), left: p.has('left'), right: p.has('right'),
+        triangle: p.has('triangle'), cross: p.has('cross'), crossHeld: !!h.cross, triangleHeld: !!h.triangle}, {remotes: [...mp.remotes.values()], onFoot: foot, camera});
+    }
+    {const fl = mp.fireLevel();fire.update(wdt, fl, camera);fireSoundT -= dt;if (fireSoundT <= 0) {fireSoundT = .25;const d = Math.hypot(player.x - FIRE_POS.x, player.z - FIRE_POS.z);audio.fire(fl, Math.max(0, 1 - d / 28));}}
     // Door animations.
     let doorsChanged = false;
     for (const d of doors) if (d.anim) {d.anim.t = Math.min(1, d.anim.t + dt * 2.2);const e = d.anim.t < .5 ? 2 * d.anim.t * d.anim.t : 1 - Math.pow(-2 * d.anim.t + 2, 2) / 2;setDoor(d, d.anim.from + (d.anim.to - d.anim.from) * e);if (d.anim.t >= 1) {d.open = d.anim.to === 1;d.anim = null;doorsChanged = true;}}
     if (doorsChanged || caseGame?.active) updateDynamic();
-    promptTimer -= dt;if (promptTimer <= 0) {promptTimer = .15;promptAction = player.mode === 'minigame' || player.mode === 'drone' || gear?.open || quick || photo.active || (caseGame?.active && caseGame.state !== 'play') ? null : findPrompt();prompt(promptAction?.text);}
+    promptTimer -= dt;if (promptTimer <= 0) {promptTimer = .15;promptAction = player.mode === 'minigame' || player.mode === 'drone' || gear?.open || quick || bag || photo.active || (caseGame?.active && caseGame.state !== 'play') ? null : findPrompt();prompt(promptAction?.text);}
     ambienceTimer -= dt;if (ambienceTimer <= 0) {ambienceTimer = .25;updateAmbience();if (audio.context) music.attach(audio.context);music.play(musicTrack());}
     // Adaptive resolution keeps the frame rate in the 20–30+ fps range on slower PCs.
     if (fpsAvg < 22) {if (++lowFrames > 90 && pixelRatio > .6) {pixelRatio = Math.max(.6, pixelRatio - .1);renderer.setPixelRatio(pixelRatio);resize();lowFrames = 0;}} else lowFrames = 0;
@@ -474,25 +630,27 @@
     player.pitch = Math.max(-1.5, Math.min(1.5, player.pitch - input.mouse.dy * mouseScale - curve(input.look.y) * 1.9 * padScale * dt));
     // Buttons: ✕ jump, ○ tap crouch / hold prone, □ interact, L3 run toggle.
     if (!caseGame?.active || caseGame.state === 'play') {
-      if (input.pressed.has('cross')) {if (player.stance !== 'stand') setStance('stand');else if (!player.jumpY && !player.jumpV) {player.jumpV = 3.1;audio.footstep('grass', false, .4);}}
+      if (input.pressed.has('cross')) {if (player.stance !== 'stand') setStance('stand');else if (!player.jumpY && !player.jumpV) {player.jumpV = 3.1 * (boostIs('jump') ? Math.sqrt(3) : 1);audio.footstep('grass', false, .4);}}
       if (input.pressed.has('circle')) {player.circleAt = performance.now();player.circleHeld = false;}
       if (player.circleAt) {if (!input.held.circle) {if (!player.circleHeld) setStance(player.stance === 'crouch' ? 'stand' : 'crouch');player.circleAt = null;} else if (!player.circleHeld && performance.now() - player.circleAt > 320) {player.circleHeld = true;setStance(player.stance === 'prone' ? 'stand' : 'prone');}}
       if (input.pressed.has('prone')) setStance(player.stance === 'prone' ? 'stand' : 'prone');
       if (input.pressed.has('l3')) player.run = !player.run;
-      if (input.pressed.has('square') && !photo.active && !caseGame?.active) interact();
+      if (input.pressed.has('square') && !photo.active && !caseGame?.active && !pbArmed()) interact();// paintball: □ reloads
     }
     // Move.
-    const canMove = !caseGame?.active || caseGame.canMove();
+    const canMove = (!caseGame?.active || caseGame.canMove()) && !(paintball && paintball.frozen);
     let mx = input.move.x, my = input.move.y;
     if (dl > 0) {mx += Math.sin(performance.now() / 700) * .55 * dl;my += Math.sin(performance.now() / 1100) * .15 * dl;}
     const mag = Math.min(1, Math.hypot(mx, my));
     if (canMove && mag > .05) {
-      const running = player.stance === 'stand' && (player.run || (!caseGame?.active && !photo.active && input.r2 > .3) || input.held.l3);
-      const speed = (running ? 3.6 : 1.45) * stanceSpeed() * (caseGame?.active ? caseGame.moveScale() : 1) * (1 - dl * .25), fwd = -my, right = mx;
+      const running = player.stance === 'stand' && (player.run || (!caseGame?.active && !photo.active && !pbArmed() && input.r2 > .3) || input.held.l3);
+      // Standing: 3.5 m/s (the user's wish for the Unreal version, 28 Oct 2026); crouching and prone keep 1.45 x .55 and x .28.
+      const base = player.stance === 'stand' ? WALK_SPEED : 1.45 * stanceSpeed();
+      const speed = (running ? 3.6 : base) * (caseGame?.active ? caseGame.moveScale() : 1) * (1 - dl * .25) * (boostIs('speed') ? 3 : 1), fwd = -my, right = mx;
       const dx = (-Math.sin(player.yaw) * fwd + Math.cos(player.yaw) * right) * speed * dt, dz = (-Math.cos(player.yaw) * fwd - Math.sin(player.yaw) * right) * speed * dt;
       const bx = player.x, bz = player.z;move(dx, dz);
       player.stride += Math.hypot(player.x - bx, player.z - bz);
-      if (player.stride > (running ? 1.05 : .72) * (player.stance === 'stand' ? 1 : .8)) {player.stride = 0;footstep(running ? 1.2 : player.stance === 'stand' ? .8 : .45);}
+      if (player.stride > (running || speed > 2.5 ? 1.05 : .72) * (player.stance === 'stand' ? 1 : .8)) {player.stride = 0;footstep(running ? 1.2 : player.stance === 'stand' ? .8 : .45);}
     } else if (!mag) player.run = false;
     // Jump and stance easing.
     player.eyeNow += (stanceEye(player.stance) - player.eyeNow) * Math.min(1, dt * 9);
@@ -501,11 +659,12 @@
     const sway = dl ? {r: Math.sin(performance.now() / 1300) * .09 * dl, y: Math.sin(performance.now() / 1700) * .05 * dl, p: Math.sin(performance.now() / 900) * .03 * dl} : {r: 0, y: 0, p: 0};
     camera.position.set(player.x, player.feet + player.eyeNow + player.jumpY, player.z);
     camera.rotation.set(0, 0, 0, 'YXZ');camera.rotation.order = 'YXZ';camera.rotation.y = player.yaw + sway.y;camera.rotation.x = player.pitch + sway.p;camera.rotation.z = sway.r;
-    const fov = photo.active && photo.raised > .5 ? 70 / photo.zoom : caseGame?.active ? camera.fov : 70;if (Math.abs(camera.fov - fov) > .01 && !caseGame?.active) {camera.fov = fov;camera.updateProjectionMatrix();}
+    const fov = photo.active && photo.raised > .5 ? 70 / photo.zoom : caseGame?.active ? camera.fov : pbArmed() ? 70 / (1 + .45 * paintball.aim) : boostIs('speed') ? 82 : 70;if (Math.abs(camera.fov - fov) > .01 && !caseGame?.active) {camera.fov = fov;camera.updateProjectionMatrix();}
   }
   function footstep(soft = 1) {
     let surface = 'grass', stair = false;
-    if (inApartment()) {const r = roomAt();surface = r === 'bath' ? 'tile' : r ? 'wood' : 'metal';}
+    if (shops.shopAt(player, player.feet)) surface = 'tile';
+    else if (inApartment()) {const r = roomAt();surface = r === 'bath' ? 'tile' : r ? 'wood' : 'metal';}
     else if (towerAt(player.x, player.z, player.feet)) {surface = 'stone';stair = true;}
     else {const s = world.surfaceAt(player.x, player.z);surface = s === 'asphalt' ? 'asphalt' : s === 'gravel' ? 'gravel' : s === 'sand' ? 'sand' : 'grass';}
     audio.footstep(surface, stair, soft);
@@ -515,17 +674,40 @@
     if (v.aircraft) {updateAircraft(dt, input, dl);return;}
     if (input.pressed.has('square') && Math.abs(v.speed) < 3) {exitVehicle();return;}
     const steer = Math.abs(input.move.x) > .08 ? input.move.x : 0;
-    v.update(dt, {throttle: input.r2, brake: input.l2, steer, drunk: dl, l1: input.held.l1, l2: input.l2, r1: input.held.r1, r2: input.r2, sticks: {lx: input.move.x, ly: input.move.y, rx: input.look.x, ry: input.look.y}});
-    // Look around from the seat (right stick / mouse); excavator uses the right stick for the boom, so mouse only there.
-    const lookX = v.kind === 'excavator' ? 0 : input.look.x, lookY = v.kind === 'excavator' ? 0 : input.look.y;
+    // Construction machines: the arrow keys work as the right stick on a keyboard.
+    const kb = (a, b) => (input.held[a] ? 1 : 0) - (input.held[b] ? 1 : 0), rx = Math.max(-1, Math.min(1, input.look.x + (v.site ? kb('right', 'left') : 0))), ry = Math.max(-1, Math.min(1, input.look.y + (v.site ? kb('down', 'up') : 0)));
+    v.update(dt, {throttle: input.r2, brake: input.l2, steer, drunk: dl, l1: input.held.l1, l2: input.l2, r1: input.held.r1, r2: input.r2, cross: input.pressed.has('cross'), lx: input.move.x, ly: input.move.y, rx, ry, sticks: {lx: input.move.x, ly: input.move.y, rx: input.look.x, ry: input.look.y}});
+    // Look around from the seat (right stick / mouse); the excavators use the right stick for the boom, so mouse only there.
+    const tool = v.kind === 'excavator' || v.rightStickTool, lookX = tool ? 0 : input.look.x, lookY = tool ? 0 : input.look.y;
     player.lookYaw = (player.lookYaw || 0) - input.mouse.dx * .0024 * sensitivity.mouse - lookX * 2.2 * dt;player.lookPitch = Math.max(-1.2, Math.min(1, (player.lookPitch || 0) - input.mouse.dy * .0024 * sensitivity.mouse - lookY * 1.6 * dt));
     if (!input.mouse.dx && !lookX) player.lookYaw *= Math.max(0, 1 - dt * 1.2);
     const seat = v.seat(), sway = dl ? Math.sin(performance.now() / 1300) * .08 * dl : 0;
     camera.position.set(seat.x + (seat.lateral || 0) * Math.cos(v.yaw), seat.y, seat.z - (seat.lateral || 0) * Math.sin(v.yaw));
-    camera.rotation.order = 'YXZ';camera.rotation.y = seat.yaw + player.lookYaw - (v.kind === 'excavator' ? .22 : 0);camera.rotation.x = seat.pitch + player.lookPitch - (v.kind === 'motorcycle' ? .12 : v.kind === 'excavator' ? .38 : .05);camera.rotation.z = -(seat.roll || 0) + sway;
+    camera.rotation.order = 'YXZ';camera.rotation.y = seat.yaw + player.lookYaw - (v.kind === 'excavator' ? .22 : 0) + (v.camYaw || 0);camera.rotation.x = seat.pitch + player.lookPitch - (v.kind === 'motorcycle' ? .12 : v.kind === 'excavator' ? .38 : .05) + (v.camPitch || 0);camera.rotation.z = -(seat.roll || 0) + sway;
     if (camera.fov !== 70) {camera.fov = 70;camera.updateProjectionMatrix();}
+    if (v.site) siteMachineView(v, seat, input);
     player.x = v.x;player.z = v.z;player.feet = v.y;player.yaw = v.yaw;
-    $('speedo').hidden = false;$('speedo').textContent = v.kind === 'excavator' ? `${(Math.abs(v.speed) * 3.6).toFixed(1)} km/h · bucket ${Math.round(v.load * 100)} %` : `${Math.round(Math.abs(v.speed) * 3.6)} km/h${v.kind === 'motorcycle' ? ` · gear ${v.gear} · ${Math.round(v.rpm / 100) * 100} rpm` : ''}`;
+    $('speedo').hidden = false;$('speedo').textContent = v.hud ? v.hud() : v.kind === 'excavator' ? `${(Math.abs(v.speed) * 3.6).toFixed(1)} km/h · bucket ${Math.round(v.load * 100)} %` : `${Math.round(Math.abs(v.speed) * 3.6)} km/h${v.kind === 'motorcycle' ? ` · gear ${v.gear} · ${Math.round(v.rpm / 100) * 100} rpm` : ''}`;
+  }
+  // Construction-site machines (ported from the Unreal version, where the cabs were hard to see from): R3 / V cycles the
+  // view from the cab, from outside (behind and above along the operator's heading; the mouse turns it round the machine)
+  // and, for the two cranes, straight down from above the hook (the jib's direction up the screen).
+  function siteMachineView(v, seat, input) {
+    const tower = v.kind === 'tower', crane = tower || v.kind === 'crane';
+    if (input.pressed.has('r3') || input.pressed.has('view')) {
+      const modes = tower ? [0, 2] : crane ? [0, 2, 1] : [0, 1];player.siteView = modes[(modes.indexOf(player.siteView || 0) + 1) % modes.length];player.lookYaw = 0;player.lookPitch = 0;
+      notice(player.siteView === 0 ? 'View: from the cab' : player.siteView === 1 ? 'View: from outside' : 'View: from above the hook', 1.5);
+    }
+    if (player.siteView === 2 && v.hook) {
+      const top = (tower ? v.trolleyNode : v.tipNode).getWorldPosition(new T.Vector3()), up = Math.max(3, Math.min(16, top.y - v.hook.p.y - 1));
+      camera.position.copy(v.hook.p).add(new T.Vector3(0, up, 0));camera.rotation.set(-Math.PI / 2 + .001, seat.yaw, 0);
+      if (camera.fov !== 75) {camera.fov = 75;camera.updateProjectionMatrix();}
+    } else if (player.siteView === 1) {
+      const H = seat.yaw + (player.lookYaw || 0), dist = Math.max(10, v.length * .5 + 8), up = v.height + (crane ? 6 : 3.5), fx = -Math.sin(H), fz = -Math.cos(H);
+      const look = new T.Vector3(v.x + fx * v.length * .4, v.y + 1.2, v.z + fz * v.length * .4), cam = new T.Vector3(v.x - fx * dist, v.y + up, v.z - fz * dist);
+      cam.y = Math.max(cam.y, heightAt(cam.x, cam.z) + 1.5);camera.position.copy(cam);
+      camera.rotation.set(Math.atan2(look.y - cam.y, Math.hypot(look.x - cam.x, look.z - cam.z)) + (player.lookPitch || 0) * .5, H, 0);
+    }
   }
   // Mode 2 sticks for the aircraft and the drone; the keyboard uses W/S, A/D and the arrow keys.
   function flightSticks(input, dl) {
@@ -609,6 +791,7 @@
     if ((player.mode === 'vehicle' || player.mode === 'passenger') && player.vehicle) {s.v = vehicles.indexOf(player.vehicle);s.s = player.mode === 'vehicle' ? 'd' : 'p';}
     if (player.mode === 'sit' && player.sitSpot) {const sp = player.sitSpot;s.sit = sp.id + 1;s.p = [r(sp.x), r(sp.y), r(sp.z)];s.y = r(sp.yaw);}
     if (player.mode === 'drone') {s.st = 'drone';s.dr = [...drone.pos.toArray().map(r), ...drone.q.toArray().map(q)];}
+    const pb = paintball && paintball.rules.localState();if (pb) s.pb = pb;
     return s;
   }
   // ---------- Chat ----------
@@ -616,7 +799,7 @@
   let quick = null;
   function chatLine(m, mine, old) {
     const row = document.createElement('div');row.className = 'line' + (m.sys ? ' sys' : '');
-    const who = document.createElement('b');who.textContent = (m.name || 'Player') + (m.sys ? ' ' : ': ');who.style.color = window.GameAvatars.SLOT_CSS[(m.slot || 0) % 5];
+    const who = document.createElement('b');who.textContent = (m.name || 'Player') + (m.sys ? ' ' : ': ');who.style.color = window.GameAvatars.slotCss(m.slot || 0);
     const txt = document.createElement('span');txt.textContent = m.text;row.append(who, txt);chatLog.append(row);while (chatLog.children.length > 30) chatLog.firstChild.remove();
     row.dataset.t = old ? 0 : performance.now();chatLog.classList.add('recent');clearTimeout(chatLine.t);chatLine.t = setTimeout(() => chatLog.classList.remove('recent'), 12000);
     if (!mine && !old && !m.sys) audio.sfx('beep', {gain: .4});
@@ -643,11 +826,11 @@
   let codePad = null;
   function renderMp() {
     const n = mp.net, el = $('mpStatus');if (!el) return;
-    el.textContent = n.online ? `Online · lobby ${n.code} · ${n.players.size}/5 players` : n.status === 'connecting' ? `Connecting to lobby ${n.code || ''}…` : n.status === 'full' ? 'That lobby is full (5 players).' : 'Offline – single player (no connection to the lobby server).';
+    el.textContent = n.online ? `Online · lobby ${n.code} · ${n.players.size}/${n.max} players` : n.status === 'connecting' ? `Connecting to lobby ${n.code || ''}…` : n.status === 'full' ? `That lobby is full (${n.max} players).` : 'Offline – single player (no connection to the lobby server).';
     $('mpOwnCode').textContent = n.ownCode;$('mpHome').hidden = !n.code || n.code === n.ownCode;
     $('mpWhere').textContent = n.code && n.code !== n.ownCode ? `You are in lobby ${n.code}.` : 'You are in your own lobby – friends join with your code.';
     $('mpLink').textContent = `${location.protocol === 'https:' ? location.origin : 'https://' + n.base.replace(/^wss?:\/\//, '')}/?lobby=${n.code || n.ownCode}`;
-    $('mpPlayers').innerHTML = [...n.players.values()].sort((a, b) => a.slot - b.slot).map(p => `<li><i style="background:${window.GameAvatars.SLOT_CSS[p.slot % 5]}"></i>${p.name.replace(/[<>&]/g, '')}${p.id === n.you ? ' (you)' : ''}${p.mic ? ' 🎙' : ''}</li>`).join('');
+    $('mpPlayers').innerHTML = [...n.players.values()].sort((a, b) => a.slot - b.slot).map(p => `<li><i style="background:${window.GameAvatars.slotCss(p.slot)}"></i>${p.name.replace(/[<>&]/g, '')}${p.id === n.you ? ' (you)' : ''}${p.mic ? ' 🎙' : ''}</li>`).join('');
     if (document.activeElement !== $('mpName')) $('mpName').value = n.name;$('mpMic').checked = mp.voice.mic;
     const pad = $('codePad');pad.hidden = !codePad;if (codePad) pad.innerHTML = '<b>Join lobby</b><div class="slots">' + codePad.chars.map((c, i) => `<span class="${i === codePad.pos ? 'sel' : ''}">${c}</span>`).join('') + '</div><small>←→ move · ↑↓ change · ✕ join · ○ cancel</small>';
   }
@@ -674,7 +857,7 @@
   mp = window.GameMultiplayer.create({T, lib, scene, camera, vehicles, fireDecayS: fire.DECAY_S, fireMax: fire.MAX, localState, notice,
     drivingIndex: () => player.mode === 'vehicle' && player.vehicle ? vehicles.indexOf(player.vehicle) : -1,
     listener: () => ({x: player.x, y: player.feet + 1.5, z: player.z}), applyDoor, onChat: chatLine, onStatus: () => {renderMp();onLobbyChange();},
-    onRemoteWood: r => fire.throwLog({x: r.pos.x, y: r.pos.y + 1.3, z: r.pos.z})});
+    onRemoteWood: r => fire.throwLog({x: r.pos.x, y: r.pos.y + 1.3, z: r.pos.z}), holdsMarker: id => !!paintball && paintball.rules.memberPlaying(id)});
   // A new lobby: vehicles go back to where everybody else has them (the lobby then sends the ones that were moved).
   let lastLobby = null;
   function onLobbyChange() {
@@ -686,7 +869,7 @@
     player.yaw -= input.mouse.dx * mouseScale + curve(input.look.x) * 2 * sensitivity.pad * dt;player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch - input.mouse.dy * mouseScale - curve(input.look.y) * 1.4 * sensitivity.pad * dt));
     const holding = input.r2 > .5;if (holding) g.charge = Math.min(1, (g.charge || 0) + dt / 1.2);
     const release = !holding && (g.charge || 0) > 0, power = g.charge || 0;if (release) g.charge = 0;
-    const r = g.update(dt, {aimYaw: player.yaw + (dl ? Math.sin(performance.now() / 600) * .05 * dl : 0), aimPitch: player.pitch, charge: g.charge || 0, power, release, alt: input.l2 > .5, hyzer: input.move.x, cancel: input.pressed.has('circle'), drunk: dl}, camera) || {};
+    const r = g.update(dt * worldScale(), {aimYaw: player.yaw + (dl ? Math.sin(performance.now() / 600) * .05 * dl : 0), aimPitch: player.pitch, charge: g.charge || 0, power, release, alt: input.l2 > .5, hyzer: input.move.x, cancel: input.pressed.has('circle'), drunk: dl}, camera) || {};
     if (r.teleport) place(r.teleport.x, r.teleport.z, r.teleport.yaw);
     if (r.stand) {player.x = r.stand.x;player.z = r.stand.z;player.feet = r.stand.y ?? heightAt(player.x, player.z);}
     if (r.face !== undefined) {player.yaw = r.face;player.pitch = -.12;}
@@ -695,7 +878,7 @@
     else {camera.position.set(player.x, player.feet + player.eye, player.z);camera.rotation.order = 'YXZ';camera.rotation.set(player.pitch, player.yaw, 0);}
   }
   function updateAmbience() {
-    const inApt = inFlat(), tw = towerAt(player.x, player.z, player.feet), indoor = inApt || tw ? 1 : player.vehicle && player.vehicle.kind === 'car' ? .7 : player.vehicle && player.vehicle.aircraft ? .4 : 0;
+    const inApt = inFlat(), tw = towerAt(player.x, player.z, player.feet), indoor = inApt || tw || shops.shopAt(player, player.feet) ? 1 : player.vehicle && player.vehicle.kind === 'car' ? .7 : player.vehicle && player.vehicle.aircraft ? .4 : 0;
     audio.ambience({indoor, green: world.greenery(player.x, player.z), traffic: world.trafficDistance(player.x, player.z), height: Math.max(0, player.feet - heightAt(player.x, player.z)) + (inApt ? 10 : 0), stair: Boolean(tw), kitchen: inApt && roomAt() === 'kitchen'});
     // Stair-tower light follows the player into whichever stairwell they are in.
     if (tw) {const l = tw.t.stair.lampAt({x: tw.l.x, z: tw.l.z}, player.feet - tw.t.matrix.elements[13]);if (l) {const p = new T.Vector3(l.x, l.y, l.z).applyMatrix4(tw.t.matrix);towerLamp.position.copy(p);towerLamp.intensity = 5.5;}} else towerLamp.intensity = 0;
@@ -715,18 +898,21 @@
     renderer.autoClear = false;renderer.clear();renderer.render(farScene, farCamera);renderer.clearDepth();renderer.render(scene, camera);
     if (!forPhoto) {
       if (caseGame?.active) caseGame.renderOverlay(camera);
-      else {const showWatch = watch.update(dt), showPhoto = photo.active && !photo.gallery;photo.model.visible = showPhoto;if (showPhoto || showWatch) {renderer.clearDepth();renderer.render(overlayScene, overlayCamera);}}
+      else {const showWatch = watch.update(dt), showPhoto = photo.active && !photo.gallery;photo.model.visible = showPhoto;if (showPhoto || showWatch || paintball?.marker.visible) {renderer.clearDepth();renderer.render(overlayScene, overlayCamera);}}
     }
     renderer.autoClear = true;
     // Drunk: blur and a drifting double image.
     const dl = drunkLevel();
-    canvas.style.filter = dl ? `blur(${(dl * 2.2).toFixed(2)}px) saturate(${1 + dl * .3})` : '';
+    const boostFilter = !boost ? '' : boost.kind === 'speed' ? ' saturate(1.35) contrast(1.06)' : boost.kind === 'jump' ? ' hue-rotate(-14deg) saturate(1.25)' : ' saturate(.35) contrast(1.15) brightness(.96)';
+    canvas.style.filter = ((dl ? `blur(${(dl * 2.2).toFixed(2)}px) saturate(${1 + dl * .3})` : '') + boostFilter).trim();
+    const fx = $('boostFx');fx.hidden = !boost;if (boost) fx.className = boost.kind;
+    const bh = $('boost');bh.hidden = !boost;if (boost) bh.textContent = `${BOOSTS[boost.kind]} · ${Math.ceil(boost.t)} s`;
     ghost.hidden = !dl;
     if (dl) {ghost.width = canvas.width / 2;ghost.height = canvas.height / 2;gctx.globalAlpha = .35 * dl;const off = Math.sin(performance.now() / 650) * 12 * dl;gctx.drawImage(canvas, off, Math.cos(performance.now() / 900) * 4 * dl, ghost.width, ghost.height);}
   }
 
   // ---------- Test / inspection handle ----------
-  window.haarklousGame = {player, vehicles, heli, plane, drone, watch, fire, get mp() {return mp;}, sitDown, standUp, tryDrive, tryRide, openChat, startDrone, stopDrone, floorBelow, doors, mini, music, photo, map, world, apt, towers, walkWorld, get caseGame() {return caseGame;}, place, toggleDoor, enterVehicle, exitVehicle, startMinigame, startMission, drink, interact, findPrompt, renderFrame, begin, get fps() {return fpsAvg;}, kick: () => requestAnimationFrame(frame), get drunk() {return drunk;}, set drunk(v) {drunk = v;}, setStance, camera, scene};
+  window.haarklousGame = {player, vehicles, site, paintball, groundAt, heli, plane, drone, watch, fire, stash, shops, sculpture, wallet, get basket() {return basket;}, payAt, takeProduct, useItem, earn, openBag, takeBoost, get boost() {return boost;}, set boost(b) {boost = b;}, get mp() {return mp;}, sitDown, standUp, tryDrive, tryRide, openChat, startDrone, stopDrone, floorBelow, doors, mini, music, photo, map, world, apt, towers, walkWorld, get caseGame() {return caseGame;}, place, toggleDoor, enterVehicle, exitVehicle, startMinigame, startMission, drink, interact, findPrompt, renderFrame, begin, get fps() {return fpsAvg;}, kick: () => requestAnimationFrame(frame), get drunk() {return drunk;}, set drunk(v) {drunk = v;}, setStance, camera, scene};
   loading.remove();$('start').hidden = false;
   requestAnimationFrame(frame);
 })();

@@ -16,6 +16,11 @@
     <div id="notice" role="status" aria-live="polite" hidden></div>
     <div id="speedo" hidden></div>
     <div id="drunk" hidden></div>
+    <div id="boost" hidden></div>
+    <div id="boostFx" hidden></div>
+    <div id="wallet" hidden></div>
+    <div id="basket" hidden></div>
+    <div id="bag" hidden></div>
     <div id="discHud" class="game-card" hidden></div>
     <div id="petanqueHud" class="game-card" hidden></div>
     <div id="gearMenu" hidden><div class="gm-item" data-i="0"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M6 15h9l4-6h10l4 6h9v24H6z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><circle cx="24" cy="27" r="8" fill="none" stroke="currentColor" stroke-width="3"/></svg><b>Camera</b><small>Take photos · gallery</small></div><div class="gm-item" data-i="1"><svg viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3"><circle cx="11" cy="11" r="7"/><circle cx="37" cy="11" r="7"/><circle cx="11" cy="37" r="7"/><circle cx="37" cy="37" r="7"/><path d="M16 16l16 16M32 16L16 32"/></g><rect x="19" y="19" width="10" height="10" rx="2" fill="currentColor"/></svg><b>FPV drone</b><small>Fly it in first person</small></div><p>Keep holding △ · ←/→ (or ↑/↓) to choose · release to take it out</p></div>
@@ -26,7 +31,7 @@
       <div class="panel">
         <span class="eyebrow">HAARKLOUS PLASS 17A · TORSHOV · OSLO</span>
         <h1>Haarklous online</h1>
-        <p>Walk the neighbourhood, go home to your 4th-floor apartment (street door of 17A, up the stairs), go into the stairwells, ride the Honda CBF600, drive the parked cars or the excavator, play disc golf in Torshovdalen and petanque in the park, take photos, and start the hostage-rescue mission at the red marker beside the entrance of number 17A. Play together: up to five players per lobby – your lobby code is in the pause menu.</p>
+        <p>Walk the neighbourhood, go home to your 4th-floor apartment (street door of 17A, up the stairs), go into the stairwells, ride the Honda CBF600, drive the parked cars or the excavator, work the machines on the construction site, play paintball, disc golf in Torshovdalen and petanque in the park, take photos, and start the hostage-rescue mission at the red marker beside the entrance of number 17A. Play together: up to twelve players per lobby – your lobby code is in the pause menu.</p>
         <dl class="controls">
           <dt>Move / look</dt><dd>Left stick / WASD · Right stick / mouse</dd>
           <dt>✕ / Space</dt><dd>Jump</dd>
@@ -47,10 +52,11 @@
         <span class="eyebrow">PAUSED</span><h2>Settings</h2>
         <label>Controller look sensitivity <output id="sensPadOut"></output><input id="sensPad" type="range" min="0.25" max="3" step="0.05"></label>
         <label>Mouse look sensitivity <output id="sensMouseOut"></output><input id="sensMouse" type="range" min="0.25" max="3" step="0.05"></label>
+        <p id="walletLine" class="small"></p>
         <label>Music volume <output id="musicOut"></output><input id="musicVol" type="range" min="0" max="1" step="0.05"></label>
         <p class="small">Controller: D-pad ←/→ changes the music volume. Now playing: <span id="nowPlaying">–</span></p>
         <section class="mp">
-          <h3>Multiplayer <small>(up to 5 players)</small></h3>
+          <h3>Multiplayer <small>(up to 12 players)</small></h3>
           <p id="mpStatus" class="small">Offline</p>
           <div class="mp-own">Your lobby code <b id="mpOwnCode">----</b></div>
           <p id="mpWhere" class="small"></p>
@@ -69,11 +75,15 @@
           <dt>Motorcycle / car</dt><dd>□ get on/in · R2 throttle · L2 brake/reverse · left stick steer · right stick look</dd>
           <dt>Excavator</dt><dd>L1/L2 left track forward/back · R1/R2 right track · left stick: swing and stick · right stick: boom and bucket</dd>
           <dt>Disc golf / petanque</dt><dd>Aim with the camera · hold R2, release to throw · ○ quit</dd>
+          <dt>Construction site</dt><dd>North in Torshovdalen, through the gate: dozer, 30 t excavator, wheel loader, hauler, tipper truck, mobile crane and tower crane · □ climb in · R2 / L2 drive (excavator: L1/L2 R1/R2 tracks) · right stick (or the arrow keys) works the blade, bucket, body or boom · mobile crane: L1 outriggers · cranes: ✕ hook or set down a load · R3 / V view: cab, outside, above the hook</dd>
+          <dt>Paintball</dt><dd>Walk into the lobby outside the course gate (the first one there is the admin) · ↑↓ team · admin: ←→ game, △ paint / reball, hold ✕ start · in a game: R2 / left mouse fire, L2 / right mouse aim, □ / R reload, hold △ leave</dd>
           <dt>Helicopter</dt><dd>Mode 2: left stick ↑↓ collective (centre = hover), ←→ pedals · right stick pitch and roll · R3 / V chase camera · □ get out after landing</dd>
           <dt>Plane</dt><dd>Mode 2: left stick ↑↓ throttle (stays where you leave it), ←→ rudder and nose wheel · right stick pitch and roll (pull back to lift off at about 95 km/h) · L2 brakes · R3 / V view</dd>
           <dt>FPV drone</dt><dd>Hold △, pick the drone · left stick ↑↓ thrust, ←→ yaw · right stick tilt (angle) or rates (acro) · L1 / Q angle ↔ acro · ✕ reset after a crash · ○ pack away</dd>
-          <dt>Multiplayer</dt><dd>Up to five players per lobby (code above) · □ next to a vehicle someone is driving: ride along as passenger (motorcycle, cars, helicopter, plane) · Share / Enter: chat</dd>
+          <dt>Multiplayer</dt><dd>Up to twelve players per lobby (code above) · □ next to a vehicle someone is driving: ride along as passenger (motorcycle, cars, helicopter, plane) · Share / Enter: chat</dd>
           <dt>Firepit</dt><dd>In the park in front of the building: □ sit on a bench, R2 have a beer, □ at the woodpile throws a log on the fire</dd>
+          <dt>Shops</dt><dd>Joker and Kiwi at their real places: □ takes an item, pay at the till, □ at the machine returns empty bottles (2 kr each) · D-pad ↓ / ↓ opens your bag · money: missions, disc golf, petanque, bottle deposit</dd>
+          <dt>Stashes</dt><dd>Three hidden crates around the neighbourhood: □ snort a line or use the needle for a random 30-second boost – 3× running speed, 3× jump height or bullet time</dd>
           <dt>Drinks</dt><dd>Beer and aquavit in the apartment: each beer or sip = 30 s drunk</dd>
         </dl>
         <p class="small">Map data © OpenStreetMap contributors (ODbL) · Height data © Kartverket (CC BY 4.0) · Aerial imagery, when online: Esri World Imagery.</p>
@@ -81,6 +91,12 @@
       </div>
     </section>
   </main>
-  <script src="vendor/three.min.js"></script><script src="apartment-data.js"></script><script src="walk-collision.js"></script><script src="gamepad-controls.js"></script><script src="materials.js"></script><script src="furnishings.js"></script><script src="stairwell.js"></script><script src="surroundings-data.js"></script><script src="surroundings.js"></script><script src="viewmodel.js"></script><script src="game-apartment.js"></script><script src="game-audio.js"></script><script src="game-music.js"></script><script src="game-vehicles.js"></script><script src="game-net.js"></script><script src="game-voice.js"></script><script src="game-avatars.js"></script><script src="game-multiplayer.js"></script><script src="game-fire.js"></script><script src="game-aircraft.js"></script><script src="game-watch.js"></script><script src="game-minigames.js"></script><script src="game-camera.js"></script><script src="game-map.js"></script><script src="case-game.js"></script><script src="game-main.js"></script>
+  <script src="vendor/three.min.js"></script><script src="apartment-data.js"></script><script src="walk-collision.js"></script><script src="gamepad-controls.js"></script><script src="materials.js"></script><script src="furnishings.js"></script><script src="stairwell.js"></script><script src="surroundings-data.js"></script><script src="surroundings.js"></script><script src="viewmodel.js"></script><script src="game-apartment.js"></script><script src="game-audio.js"></script><script src="game-music.js"></script><script src="game-vehicles.js"></script><script src="game-net.js"></script><script src="game-voice.js"></script><script src="game-avatars.js"></script><script src="game-multiplayer.js"></script><script src="game-fire.js"></script><script src="game-stash.js"></script><script src="game-shops.js"></script><script src="game-sculpture.js"></script><script src="game-aircraft.js"></script><script src="game-watch.js"></script><script src="muselunden-data.js"></script><script src="game-minigames.js"></script>
+<script src="site-data.js"></script>
+<script src="site-models.js"></script>
+<script src="game-site.js"></script>
+<script src="paintball-data.js"></script>
+<script src="paintball-models.js"></script>
+<script src="game-paintball.js"></script><script src="game-camera.js"></script><script src="game-map.js"></script><script src="case-game.js"></script><script src="game-main.js"></script>
 </body>
 </html>

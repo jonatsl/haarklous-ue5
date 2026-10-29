@@ -53,7 +53,7 @@
         case 'door': ctx.applyDoor(m.id, m.open, false);break;
         case 'fire': fire = m.fire;if (m.by && m.by !== net.you) {const r = remotes.get(m.by);if (r && ctx.onRemoteWood) ctx.onRemoteWood(r);}break;
         case 'rtc': voice.onSignal(m.from, m.d);break;
-        case 'full': ctx.notice(`Lobby ${m.code || ''} is full (5 players). Back in your own lobby.`, 5);break;
+        case 'full': ctx.notice(`Lobby ${m.code || ''} is full (${net.max} players). Back in your own lobby.`, 5);break;
         case 'reset': for (const id of [...remotes.keys()]) drop(id);occ = {};vehTargets.clear();for (const [, res] of pending) res({ok: true, offline: true});pending.clear();break;
       }
     }
@@ -112,7 +112,7 @@
           g.position.copy(r.pos);g.quaternion.setFromEuler(new T.Euler(0, r.yaw, 0));
           if (st.sit) stance = 'sit';
         }
-        r.seen = true;r.av.pose({stance, speed: stance === 'stand' || stance === 'crouch' || stance === 'prone' ? r.speed : 0, dt, beer: !!st.b});r.av.update(dt, cam);
+        r.seen = true;r.av.pose({stance, speed: stance === 'stand' || stance === 'crouch' || stance === 'prone' ? r.speed : 0, dt, beer: !!st.b, marker: ctx.holdsMarker ? ctx.holdsMarker(r.id) : false});r.av.update(dt, cam);
         // Their drone.
         if (st.dr) {if (!r.drone) {r.drone = avatars.drone();scene.add(r.drone);}r.drone.visible = true;r.drone.position.set(st.dr[0], st.dr[1], st.dr[2]);r.drone.quaternion.set(st.dr[3], st.dr[4], st.dr[5], st.dr[6]);}
         else if (r.drone) r.drone.visible = false;
