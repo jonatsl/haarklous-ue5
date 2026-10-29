@@ -522,4 +522,51 @@ bool FHKVehFormatTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+/*
+ * Flying by mouse (web PR #19, not in the recording yet): with hold the drone's angle mode moves the tilt by
+ * stick × 1.6 rad/s up to ±0.75 rad and keeps it, and the helicopter levels itself with gain 0.15 instead of 1.2.
+ */
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHKVehMouseHoldTest, "Haarklous.Vehicles.MouseHold", EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+bool FHKVehMouseHoldTest::RunTest(const FString& Parameters)
+{
+	if (!TestTrue(TEXT("data loaded"), FHKData::Get().bLoaded)) return false;
+	const double Dt = 1.0 / 60;
+	FHKVehicleInput In;
+	In.bEmpty = false;
+	// Drone, high above everything (no floor, nothing solid).
+	FHKDrone D;
+	D.Launch(0, 300, 0, 0);
+	FHKDroneEnv Env;
+	In.bHold = true; In.RY = -1;
+	for (int32 i = 0; i < 15; i++) D.Update(Dt, In, Env);
+	TestTrue(FString::Printf(TEXT("drone: 0.25 s of full stick with hold tilts it -0.4 rad (%.4f)"), D.PitchA), FMath::Abs(D.PitchA + .4) < 1e-9);
+	for (int32 i = 0; i < 30; i++) D.Update(Dt, In, Env);
+	TestTrue(FString::Printf(TEXT("drone: the tilt stops at -0.75 rad (%.4f)"), D.PitchA), FMath::Abs(D.PitchA + .75) < 1e-9);
+	In.RY = 0; In.RX = .5;
+	for (int32 i = 0; i < 45; i++) D.Update(Dt, In, Env);
+	TestTrue(FString::Printf(TEXT("drone: with hold and the stick centred the pitch stays (%.4f), roll 0.5 × 1.6 rad/s × 0.75 s = 0.6 (%.4f)"), D.PitchA, D.RollA), FMath::Abs(D.PitchA + .75) < 1e-9 && FMath::Abs(D.RollA - .6) < 1e-9);
+	In.bHold = false; In.RX = 0;
+	for (int32 i = 0; i < 60; i++) D.Update(Dt, In, Env);
+	TestTrue(FString::Printf(TEXT("drone: without hold it levels again (%.4f, %.4f)"), D.PitchA, D.RollA), FMath::Abs(D.PitchA) < .01 && FMath::Abs(D.RollA) < .01);
+	// Helicopter 80 m up, rotor at speed, nose 0.3 rad down, sticks centred for 1 s.
+	auto Heli = [&](bool bHold)
+	{
+		FHKHelicopter H(0, 0, 0);
+		H.bActive = true; H.Rpm = 1; H.bGrounded = false;
+		H.Pos.Y = FHKData::Get().GroundWorld(0, 0) + 80;
+		H.Q = HKV::Euler(-.3, 0, 0, TEXT("YXZ"));
+		FHKVehicleInput Hi;
+		Hi.bEmpty = false; Hi.bHold = bHold;
+		for (int32 i = 0; i < 60; i++) H.Update(Dt, Hi);
+		double P, B;
+		H.Attitude(P, B);
+		return P;
+	};
+	const double PHold = Heli(true), PFree = Heli(false);
+	AddInfo(FString::Printf(TEXT("helicopter pitch after 1 s from -0.3 rad: %.3f with hold, %.3f without"), PHold, PFree));
+	TestTrue(TEXT("helicopter: with hold the tilt stays (still below -0.2 rad after 1 s)"), PHold < -.2);
+	TestTrue(TEXT("helicopter: without hold it levels much faster"), FMath::Abs(PFree) < FMath::Abs(PHold) * .6);
+	return true;
+}
+
 #endif

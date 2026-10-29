@@ -308,7 +308,9 @@ public:
 	void StartDroneNow();
 	void StopDrone();
 	void StartMinigame(class FHKMinigame* G);
-	FHKVehicleInput FlightSticks(double Dl) const;
+	// Mode 2 sticks for the aircraft and the drone, with the mouse as the right stick (web flightSticks(input, dl, dt, mouseScale)).
+	FHKVehicleInput FlightSticks(double Dl, double Dt = 1.0 / 60, double MouseScale = 1);
+	struct FMouseFly { double X = 0, Y = 0; bool bHold = false; } MouseFly;   // the web's mouseFly (low-passed mouse stick)
 	void SetClip(double NearM);
 	TUniquePtr<FHKMission> Mission;
 	bool ShootQuery(const FVector& Origin, const FVector& Dir, double MaxDist, FHKShotHit& Hit) const;
@@ -387,6 +389,7 @@ private:
 	void SetupModules();
 	void UpdateVehicle(double Dt, double Dl);
 	void UpdateAircraft(double Dt, double Dl);
+	void FlightLook(double Dt);   // free look while flying (Shift / right mouse button), applied after the camera pose
 	void UpdatePassenger(double Dt, double Dl);
 	void UpdateDrone(double Dt, double Dl);
 	void UpdateMinigame(double Dt, double Dl);

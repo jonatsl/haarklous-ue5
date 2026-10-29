@@ -376,7 +376,7 @@ FString FHKInputProcessor::PadDescription() const
 	return XPadLastInput > 0 ? TEXT("XInput controller") : TEXT("none");
 }
 
-FHKInputFrame FHKInputProcessor::ReadFrame(bool bInVehicle)
+FHKInputFrame FHKInputProcessor::ReadFrame(bool bInVehicle, bool bFlying)
 {
 	// "window.addEventListener('blur', () => keys.clear())": keys held while the window loses focus never get their
 	// key-up, so they would stay down.
@@ -412,8 +412,10 @@ FHKInputFrame FHKInputProcessor::ReadFrame(bool bInVehicle)
 		if (KE(M.Key)) In.Pressed.Add(FName(M.Value));
 		if (K(M.Key)) In.Held.Add(FName(M.Value));
 	}
+	// "Flying (helicopter, plane, drone): hold Shift or the right mouse button to look around (Battlefield's free look, issue #16)."
+	In.bFreeLook = bFlying && (K(TEXT("ShiftLeft")) || K(TEXT("ShiftRight")) || Mouse.bRight);
 	if (Mouse.bLeft) In.R2 = FMath::Max(In.R2, 1.0);
-	if (Mouse.bRight) In.L2 = FMath::Max(In.L2, 1.0);
+	if (Mouse.bRight && !bFlying) In.L2 = FMath::Max(In.L2, 1.0);
 	if (Mouse.bLeftUp) In.Released.Add(FName("mouseLeft"));
 	if (Mouse.bLeftEdge) In.Pressed.Add(FName("mouseLeft"));
 	if (K(TEXT("KeyW")) && bInVehicle) In.R2 = 1;
