@@ -488,10 +488,28 @@ namespace
 					T.Wait(.6);
 					T.Expect(Kind + TEXT(": back on foot"), [&T]() { return T.Game()->Player.Mode == TEXT("foot"); });
 				};
-				// Motorcycle: full throttle for 6 s through the gears, a lean in a turn, brake to a stop.
+				// Motorcycle: full throttle for 6 s through the gears, a lean in a turn, brake to a stop. Its parking spot
+				// faces a tree about 22 m ahead (the web's data), so the ride starts on the straight of Sandakerveien that the
+				// web reference recording uses (world 483.6, -210.7, yaw -2.946).
+				TSharedPtr<FVector2D> BikeStart = MakeShared<FVector2D>();
+				T.Do([&T, BikeStart]()
+				{
+					AHKGame* G = T.Game();
+					for (FHKVehicle* V : G->VehicleList)
+						if (V->Kind == TEXT("motorcycle"))
+						{
+							V->X = 483.6; V->Z = -210.7; V->Yaw = -2.946; V->Speed = 0;
+							V->Y = FHKData::Get().GroundWorld(V->X, V->Z);
+							V->NetSet(V->NetGet());
+							*BikeStart = FVector2D(V->X, V->Z);
+							break;
+						}
+					G->UpdateDynamic();
+				});
 				Approach(TEXT("motorcycle"));
 				T.Hold(7, 1); T.Wait(3); Speedo(TEXT("bike after 3 s")); T.Shot(TEXT("01-motorcycle"));
 				T.Wait(3); Speedo(TEXT("bike after 6 s"));
+				T.Expect(TEXT("motorcycle: full throttle rides on (more than 40 m in 6 s)"), [&T, BikeStart]() { const FHKVehicle* V = T.Game()->Player.Vehicle; return V && FVector2D(V->X - BikeStart->X, V->Z - BikeStart->Y).Size() > 40; });
 				T.Do([]() { if (auto In = FHKInputProcessor::Get()) In->SimulatedPad.Axes[0] = .8f; });
 				T.Wait(1.2); T.Log([&T]() { const FHKMotorcycle* M = static_cast<FHKMotorcycle*>(T.Game()->Player.Vehicle); return FString::Printf(TEXT("bike lean in the turn %.3f rad at %.1f km/h"), M->Lean, FMath::Abs(M->Speed) * 3.6); });
 				T.Shot(TEXT("02-motorcycle-lean"));
