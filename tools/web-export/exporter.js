@@ -135,7 +135,9 @@
     exportRig(i === 0 ? 'stair_own' : 'stair_b' + (i - 1), t.stair.group, keys, {tower: i, own: !!t.own});
   });
   exportRig('fire', G.fire.group, keysOf(G.fire, G.fire.group));
-  G.vehicles.forEach((v, i) => exportRig('vehicle_' + i, v.group, keysOf(v, v.group), {kind: v.kind, vname: v.name}));
+  // The web game's vehicle list ends with its copy of our construction-site machines (game-site.js): those are ours already.
+  const siteMachines = new Set(G.site ? G.site.machines : []);
+  G.vehicles.forEach((v, i) => {if (!siteMachines.has(v)) exportRig('vehicle_' + i, v.group, keysOf(v, v.group), {kind: v.kind, vname: v.name});});
   exportRig('drone', G.drone.group || G.drone.model || new T.Group(), G.drone.group ? keysOf(G.drone, G.drone.group) : new Map());
   exportRig('discgolf', G.mini.discgolf.group, keysOf(G.mini.discgolf, G.mini.discgolf.group));
   exportRig('petanque', G.mini.petanque.group, keysOf(G.mini.petanque, G.mini.petanque.group));
@@ -143,7 +145,10 @@
   exportRig('watch', G.watch.model, keysOf(G.watch, G.watch.model));
   // Everything else directly in the scene that no export above covers (mission marker, dirt piles ...).
   {
-    const covered = new Set([W.near, apt.group, G.fire.group, G.mini.discgolf.group, G.mini.petanque.group, ...G.vehicles.map(v => v.group), ...G.towers.map(t => t.stair.group)]);
+    // Also left out: the web game's copies of our construction site and paintball course (game-site.js, game-paintball.js),
+    // and the places with their own exports (exporter-places.js).
+    const covered = new Set([W.near, apt.group, G.fire.group, G.mini.discgolf.group, G.mini.petanque.group, ...G.vehicles.map(v => v.group), ...G.towers.map(t => t.stair.group),
+      G.site && G.site.group, G.paintball && G.paintball.group, G.stash.group, G.shops.group, G.sculpture.group, G.mini.muselunden && G.mini.muselunden.group].filter(Boolean));
     const misc = new T.Group(), list = [];
     for (const o of G.scene.children) {let c = false;o.traverse(x => {if (covered.has(x)) c = true;});if (!c && !o.isLight && !o.isCamera) list.push(o);}
     const keys = new Map();list.forEach((o, i) => keys.set(o, 'misc:' + i + ':' + (o.name || o.type)));

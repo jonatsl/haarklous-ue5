@@ -134,6 +134,31 @@ def cyl(m, a, b, r, mat, seg=12, caps=True, r2=None):
     return m
 
 
+def cap_tris(p):
+    """Triangles filling a simple polygon (convex or not) by ear clipping: index triples in the polygon's own turning
+    order (the web game's capTris, paintball-models.js). A convex polygon gives the same triangles as a fan from 0."""
+    area = sum(p[i][0] * p[(i + 1) % len(p)][1] - p[(i + 1) % len(p)][0] * p[i][1] for i in range(len(p)))
+    sg = 1 if area > 0 else -1
+    cr = lambda a, b, c: sg * ((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]))
+    idx, out = list(range(len(p))), []
+    while len(idx) > 3:
+        cut = -1
+        for i in range(len(idx)):
+            a, b, c = idx[(i + len(idx) - 1) % len(idx)], idx[i], idx[(i + 1) % len(idx)]
+            if cr(p[a], p[b], p[c]) <= 1e-12:
+                continue                                    # a concave (or straight) corner is not an ear
+            if not any(j not in (a, b, c) and cr(p[a], p[b], p[j]) >= 0 and cr(p[b], p[c], p[j]) >= 0 and cr(p[c], p[a], p[j]) >= 0 for j in idx):
+                out.append((a, b, c))
+                cut = i
+                break
+        if cut < 0:
+            break
+        idx.pop(cut)
+    if len(idx) == 3:
+        out.append(tuple(idx))
+    return out
+
+
 def prism(m, profile, x0, x1, mat, side_mat=None):
     """A profile in the (z, y) plane (counter-clockwise seen from +x) extruded from x = x0 to x1."""
     side_mat = side_mat or mat
@@ -141,10 +166,10 @@ def prism(m, profile, x0, x1, mat, side_mat=None):
     n = len(pts)
     L = [np.array([x0, p[1], p[0]]) for p in pts]
     R = [np.array([x1, p[1], p[0]]) for p in pts]
-    # side caps (convex profiles only: fan; concave ones should be split by the caller)
-    for k in range(1, n - 1):
-        m.tri(R[0], R[k], R[k + 1], side_mat)
-        m.tri(L[0], L[k + 1], L[k], side_mat)
+    # side caps: ear clipping, so concave profiles (the jersey barrier) have no gaps or slivers (issue #1)
+    for a, b, c in cap_tris(pts):
+        m.tri(R[a], R[b], R[c], side_mat)
+        m.tri(L[a], L[c], L[b], side_mat)
     for k in range(n):
         k1 = (k + 1) % n
         m.quad(L[k], L[k1], R[k1], R[k], mat)

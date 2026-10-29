@@ -1,4 +1,6 @@
 #include "HKMath.h"
+#include "Dom/JsonObject.h"
+#include "HKData.h"
 
 FTransform HK::TransformToUE(const FVector& Pos, const FQuat& Quat, const FVector& Scale)
 {
@@ -238,4 +240,31 @@ FVector FHKMat::TransformPoint(const FVector& V) const
 FVector FHKMat::TransformDir(const FVector& V) const
 {
 	return FVector(E[0] * V.X + E[4] * V.Y + E[8] * V.Z, E[1] * V.X + E[5] * V.Y + E[9] * V.Z, E[2] * V.X + E[6] * V.Y + E[10] * V.Z);
+}
+
+bool FHKHitBox::Ray(const FVector& From, const FVector& Dir, double Far, double& OutT) const
+{
+	// The ray in the box's own frame (affine, so the same t), then the slab test against the centred box.
+	const FHKMat Inv = World.Inverse();
+	const FVector O = Inv.TransformPoint(From), D = Inv.TransformDir(Dir), H = Size / 2;
+	double T0 = 0, T1 = Far;
+	for (int32 k = 0; k < 3; k++)
+	{
+		if (FMath::Abs(D[k]) < 1e-12) { if (O[k] < -H[k] || O[k] > H[k]) return false; continue; }
+		double A = (-H[k] - O[k]) / D[k], B = (H[k] - O[k]) / D[k];
+		if (A > B) Swap(A, B);
+		T0 = FMath::Max(T0, A); T1 = FMath::Min(T1, B);
+		if (T0 > T1) return false;
+	}
+	OutT = T0;
+	return true;
+}
+
+FHKHitBox FHKHitBox::FromJson(const TSharedPtr<FJsonObject>& O)
+{
+	FHKHitBox B;
+	B.World = FHKMat::FromArray(HKJson::Nums(O, TEXT("world")));
+	const TArray<double> S = HKJson::Nums(O, TEXT("size"));
+	if (S.Num() == 3) B.Size = FVector(S[0], S[1], S[2]);
+	return B;
 }

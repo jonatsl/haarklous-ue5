@@ -316,7 +316,8 @@ FString FHKGameAudio::CanonicalSfx(const FString& InName, double* OutDistance)
 		TMap<FString, FString> M;
 		for (const TCHAR* N : {TEXT("doorOpen"), TEXT("doorClose"), TEXT("locked"), TEXT("carDoor"), TEXT("bottleOpen"), TEXT("gulp"), TEXT("shutter"),
 			TEXT("beep"), TEXT("throw"), TEXT("chains"), TEXT("thud"), TEXT("boule"), TEXT("gravel"), TEXT("click"), TEXT("scrape"), TEXT("dump"),
-			TEXT("hit"), TEXT("cheer"), TEXT("starter"), TEXT("crash"), TEXT("arm"), TEXT("pistolShot"), TEXT("pistolClick"), TEXT("hostileShot")})
+			TEXT("hit"), TEXT("cheer"), TEXT("starter"), TEXT("crash"), TEXT("arm"), TEXT("pistolShot"), TEXT("pistolClick"), TEXT("hostileShot"),
+			TEXT("coin"), TEXT("register"), TEXT("alarm"), TEXT("pant"), TEXT("shopDoor"), TEXT("sniff"), TEXT("needle")})
 			M.Add(FString(N).ToLower(), N);
 		for (const TCHAR* N : {TEXT("shot"), TEXT("caseShot"), TEXT("gunshot"), TEXT("pistol")}) M.Add(FString(N).ToLower(), TEXT("pistolShot"));
 		for (const TCHAR* N : {TEXT("reload"), TEXT("empty"), TEXT("dryFire"), TEXT("caseClick"), TEXT("emptyClick"), TEXT("reloadClick")}) M.Add(FString(N).ToLower(), TEXT("pistolClick"));
@@ -334,6 +335,23 @@ FString FHKGameAudio::CanonicalSfx(const FString& InName, double* OutDistance)
 	}
 	const FString* C = Names.Find(Name.TrimStartAndEnd().ToLower());
 	return C ? *C : FString();
+}
+
+// muffle(on): the first time, a low-pass goes between the master bus and the output; it glides to 700 Hz (on) or
+// 20 kHz (off) with a 0.25 s time constant.
+void FHKGameAudio::Muffle(bool bOn)
+{
+	if (!Ctx) return;
+	if (!MuffleF)
+	{
+		MuffleF = Ctx->CreateBiquadFilter();
+		MuffleF->Type = EHKBiquadType::Lowpass;
+		MuffleF->Frequency.SetValue(20000);
+		MuffleF->bPersistent = true;
+		Master->Disconnect(Ctx->Destination);
+		Master->Connect(MuffleF)->Connect(Ctx->Destination);
+	}
+	MuffleF->Frequency.SetTargetAtTime(bOn ? 700 : 20000, Now(), .25);
 }
 
 void FHKGameAudio::Sfx(const FString& InName, const FHKSfxOpts& Opts)
@@ -384,6 +402,14 @@ void FHKGameAudio::Sfx(const FString& InName, const FHKSfxOpts& Opts)
 	else if (Name == TEXT("thud")) { Burst(260, 1, .25, .003, .12, B::Lowpass); }
 	// Paintball (new feature, 28 Oct 2026): the marker's pneumatic pop, a ball breaking, a ball bouncing off, the
 	// referee's whistle.
+	// Shops and stashes (web PRs #4 and #6).
+	else if (Name == TEXT("coin")) { Tone(1320, 1320, .12, .004, .12, O::Triangle); Tone(1760, 1760, .12, .004, .3, O::Triangle, T + .09); }
+	else if (Name == TEXT("register")) { Tone(2400, 2400, .08, .003, .08, O::Square); Tone(2400, 2400, .08, .003, .08, O::Square, T + .14); Burst(260, .8, .4, .004, .2, B::Lowpass, T + .35); }
+	else if (Name == TEXT("alarm")) { for (int32 i = 0; i < 6; i++) Tone(i % 2 ? 1500 : 1900, i % 2 ? 1500 : 1900, .12, .004, .16, O::Square, T + i * .18); }
+	else if (Name == TEXT("pant")) { Burst(180, .7, .5, .004, .25, B::Lowpass); for (int32 i = 0; i < 4; i++) Burst(Rand(2000, 4500), 4, .1, .001, .05, B::Bandpass, T + .25 + i * .07); Tone(880, 880, .05, .004, .12, O::Sine, T + .6); }
+	else if (Name == TEXT("shopDoor")) { Burst(700, .5, .08, .15, .45, B::Bandpass); }
+	else if (Name == TEXT("sniff")) { Burst(3200, .8, .35, .18, .35); Burst(5200, 1, .18, .1, .25, B::Bandpass, T + .05); }
+	else if (Name == TEXT("needle")) { Burst(4000, 6, .1, .001, .03); for (int32 i = 0; i < 4; i++) { Tone(62, 48, .55, .01, .16, O::Sine, T + .35 + i * .55); Tone(58, 44, .35, .01, .14, O::Sine, T + .55 + i * .55); } }
 	else if (Name == TEXT("pbShot")) { Burst(1400, .9, .35, .001, .05); Burst(180, 1, .3, .002, .07, B::Lowpass); Burst(5000, 2, .06, .01, .09); }
 	else if (Name == TEXT("pbSplat")) { Burst(700, .8, .3, .001, .08); Burst(2200, 1.5, .1, .004, .05); }
 	else if (Name == TEXT("pbBounce")) { Burst(1800, 3, .15, .001, .03); }
@@ -768,6 +794,7 @@ void FHKAudioImpl::Resume() { EngineRef->Enqueue([](FHKAudioEngine& E) { E.Audio
 void FHKAudioImpl::Ambience(const FHKAmbience& State) { EngineRef->Enqueue([State](FHKAudioEngine& E) { E.Audio.Ambience(State); }); }
 void FHKAudioImpl::Footstep(const FString& Surface, bool bStair, double Soft) { EngineRef->Enqueue([Surface, bStair, Soft](FHKAudioEngine& E) { E.Audio.Footstep(Surface, bStair, Soft); }); }
 void FHKAudioImpl::Sfx(const FString& Name, const FHKSfxOpts& Opts) { EngineRef->Enqueue([Name, Opts](FHKAudioEngine& E) { E.Audio.Sfx(Name, Opts); }); }
+void FHKAudioImpl::Muffle(bool bOn) { EngineRef->Enqueue([bOn](FHKAudioEngine& E) { E.Audio.Muffle(bOn); }); }
 void FHKAudioImpl::Fire(double Level, double Near) { EngineRef->Enqueue([Level, Near](FHKAudioEngine& E) { E.Audio.Fire(Level, Near); }); }
 TSharedPtr<IHKEngineSound> FHKAudioImpl::Engine(const FString& Kind) { return MakeShared<FHKEngineSoundImpl>(EngineRef, Kind); }
 

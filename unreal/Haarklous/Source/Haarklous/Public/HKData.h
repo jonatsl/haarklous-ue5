@@ -73,6 +73,10 @@ public:
 	FHKWalkWorld& VehicleWorld(double Radius);
 	// The vehicle worlds made so far (game-main.js updateDynamic sets the dynamic obstacles of the existing ones only).
 	void ForEachVehicleWorld(TFunctionRef<void(FHKWalkWorld&)> Fn) { for (TPair<FString, TUniquePtr<FHKWalkWorld>>& P : VehicleWorlds) Fn(*P.Value); }
+	// The vehicle worlds' dynamic list from the last AHKGame::UpdateDynamic() (game-main.js vehicleBlockers): a world
+	// made during play gets it at once. Unset before the first update, so the start-up placement does not change.
+	TArray<FHKObstacle> LastVehicleDynamic;
+	bool bHasVehicleDynamic = false;
 	FHKFloor TerrainFloor() const;
 	static TArray<FHKFloor> FloorsFromJson(const TArray<TSharedPtr<FJsonValue>>& A);
 	static TArray<FHKObstacle> ObstaclesFromJson(const TArray<TSharedPtr<FJsonValue>>& A);

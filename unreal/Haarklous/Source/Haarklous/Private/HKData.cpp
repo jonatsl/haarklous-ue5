@@ -233,10 +233,13 @@ bool FHKData::Load()
 		NWorld -= Gone;
 		UE_LOG(LogHaarklous, Log, TEXT("%d obstacles of the surroundings left out on cleared ground (site, paintball yard)"), Gone);
 	}
-	// Vehicles: [surroundings, towers, firepit] (worldFor in game-main.js), no furniture.
-	for (int32 i = NApt + NTow; i < NApt + NTow + NWorld && i < Obstacles.Num(); i++) VehicleObstacles.Add(Obstacles[i]);
+	// Vehicles: [surroundings, towers, firepit, shops, sculpture] (worldFor in game-main.js): no furniture, no stash crates.
+	// game.json obstacles = [apartment, towers, surroundings, firepit, stashes, shops, sculpture].
+	const int32 NFire = (int32)HKJson::Num(Counts, TEXT("fireObstacles")), NStash = (int32)HKJson::Num(Counts, TEXT("stashObstacles")), Rest = NApt + NTow + NWorld;
+	for (int32 i = NApt + NTow; i < Rest && i < Obstacles.Num(); i++) VehicleObstacles.Add(Obstacles[i]);
 	for (int32 i = NApt; i < NApt + NTow && i < Obstacles.Num(); i++) VehicleObstacles.Add(Obstacles[i]);
-	for (int32 i = NApt + NTow + NWorld; i < Obstacles.Num(); i++) VehicleObstacles.Add(Obstacles[i]);
+	for (int32 i = Rest; i < Rest + NFire && i < Obstacles.Num(); i++) VehicleObstacles.Add(Obstacles[i]);
+	for (int32 i = Rest + NFire + NStash; i < Obstacles.Num(); i++) VehicleObstacles.Add(Obstacles[i]);
 	WalkWorld.Create(MoveTemp(Floors), MoveTemp(Obstacles), HKJson::Num(Meta, TEXT("radius"), .18), HKJson::Num(Meta, TEXT("clearance"), .08));
 	return true;
 }
@@ -261,6 +264,7 @@ FHKWalkWorld& FHKData::VehicleWorld(double Radius)
 	if (TUniquePtr<FHKWalkWorld>* Found = VehicleWorlds.Find(Key)) return **Found;
 	TUniquePtr<FHKWalkWorld> W = MakeUnique<FHKWalkWorld>();
 	W->Create({TerrainFloor()}, VehicleObstacles, Radius, .08);
+	if (bHasVehicleDynamic) W->SetDynamic(LastVehicleDynamic);
 	FHKWalkWorld& Ref = *W;
 	VehicleWorlds.Add(Key, MoveTemp(W));
 	return Ref;

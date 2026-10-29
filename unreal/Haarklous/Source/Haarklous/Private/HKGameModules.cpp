@@ -101,14 +101,20 @@ void AHKGame::SetupModules()
 	// ---- Minigames ----
 	FHKMinigamesContext MC = FHKMinigamesContext::FromGame();
 	MC.NowMs = [this]() { return Time * 1000; };
+	MC.Reward = [this](double V, const FString& Why) { Earn(V, Why); };   // par 50 / birdie 100 / eagle 200 kr, petanque win 150 kr
 	Mini = MakeUnique<FHKMinigames>(MC);
 	DiscActor = GetWorld()->SpawnActor<AHKRigActor>(AHKRigActor::StaticClass(), FTransform::Identity, SP);
 	DiscActor->Init(&Mini->DiscGolf.Rig, TEXT("discgolf"));
+	if (Mini->Muselunden)
+	{
+		MuselundenActor = GetWorld()->SpawnActor<AHKRigActor>(AHKRigActor::StaticClass(), FTransform::Identity, SP);
+		MuselundenActor->Init(&Mini->Muselunden->Rig, TEXT("muselunden"));
+	}
 	PetanqueActor = GetWorld()->SpawnActor<AHKRigActor>(AHKRigActor::StaticClass(), FTransform::Identity, SP);
 	PetanqueActor->Init(&Mini->Petanque.Rig, TEXT("petanque"));
 	MinigamePrompt = [this](FHKPrompt& Out)
 	{
-		for (FHKMinigame* G : {(FHKMinigame*)&Mini->DiscGolf, (FHKMinigame*)&Mini->Petanque})
+		for (FHKMinigame* G : Mini->All())
 		{
 			const TOptional<FString> T = G->Near(FVector(Player.X, Player.Feet, Player.Z));
 			if (T.IsSet()) { Out = {T.GetValue(), [this, G]() { StartMinigame(G); }}; return true; }
@@ -498,7 +504,7 @@ void AHKGame::UpdateMinigame(double Dt, double Dl)
 	In.bCancel = Frame.WasPressed("circle");
 	In.Drunk = Dl;
 	G->TakeCharge(Dt, Frame.R2 > .5, In);
-	const FHKMiniResult R = G->Update(Dt, In);
+	const FHKMiniResult R = G->Update(Dt * WorldScale(), In);   // bullet time slows the whole minigame
 	if (R.bTeleport) Place(R.Teleport.X, R.Teleport.Z, R.Teleport.Yaw);
 	if (R.bStand) { Player.X = R.Stand.X; Player.Z = R.Stand.Z; Player.Feet = R.Stand.Y; }
 	if (R.bFace) { Player.Yaw = R.Face; Player.Pitch = -.12; }
@@ -533,12 +539,12 @@ void AHKGame::UpdateOthers(double Dt)
 		if (V == Player.Vehicle && Player.Mode == TEXT("vehicle")) continue;
 		if (RemoteDriven && RemoteDriven(i)) continue;
 		if (!V->bVisible && FMath::Abs(V->Speed) < .01 && !V->bAircraft) continue;
-		V->Update(Dt, FHKVehicleInput());
+		V->Update(Dt * WorldScale(), FHKVehicleInput());   // bullet time: vehicles nobody is driving slow down
 	}
 	// Firepit: flames, embers, smoke, light, thrown logs.
 	if (FirePit)
 	{
-		FirePit->Update(Dt, FireLevel(), CamPos);
+		FirePit->Update(Dt * WorldScale(), FireLevel(), CamPos);
 		if (FireFx) FireFx->Sync(*FirePit, CamPos);
 	}
 	SyncModuleVisuals();
@@ -564,6 +570,7 @@ void AHKGame::DrawModuleHud(UCanvas* C)
 	if (Mini)
 	{
 		Mini->DiscGolf.DrawHud(C);
+		if (Mini->Muselunden) Mini->Muselunden->DrawHud(C);
 		Mini->Petanque.DrawHud(C);
 	}
 	// FPV drone on-screen display (#osd).
@@ -654,6 +661,8 @@ void AHKGame::SetupMission()
 	C.SetSensitivity = [this](const FString& K, double V) { SetSens(K, V); };
 	C.StepSensitivity = [this](const FString& K, int32 D) { SetSens(K, (K == TEXT("pad") ? Sensitivity.Pad : Sensitivity.Mouse) + D * .1); };
 	C.Shoot = [this](const FVector& O, const FVector& D, double Max, FHKShotHit& H) { return ShootQuery(O, D, Max, H); };
+	C.TimeScale = [this]() { return WorldScale(); };
+	C.OnFinish = [this](const FString& Result) { if (Result == TEXT("success")) Earn(400, TEXT("Reward for rescuing the hostage")); };
 	Mission = MakeUnique<FHKMission>(C);
 	MissionActive = [this]() { return Mission->IsActive(); };
 	MissionPlaying = [this]() { return Mission->GetState() == TEXT("play"); };

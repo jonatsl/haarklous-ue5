@@ -13,6 +13,7 @@ Frames: web (x, y, z) -> Blender (x, -z, y) (metres, z up) -> Unreal (x, z, y) *
 Texture repeat/offset of each material is baked into the UVs, so Unreal materials sample UV0 directly.
 """
 import bpy
+import base64
 import json
 import math
 import os
@@ -66,53 +67,74 @@ def glows(mid):
     return lum * (m.get('emissiveIntensity') or 0) >= 0.5
 
 
-def horizon_with_hole(pos, nor, uv, exp, bin_data):
-    """The web's 18 km horizon plane was drawn in a separate pass behind the district; in one Unreal scene it would cut
-    through the mapped area, so it gets a hole over the district terrain (+-600 m in the map frame). The hole's rim
-    follows the terrain's edge heights (-42..29 m) and slopes out to the web's plane height, so there is no gap or
-    overhang between them to look through (Unreal's sky is dark below the horizon; the web drew sky behind the gap)."""
+def horizon_and_apron(pos, nor, uv, exp, bin_data):
+    """The web's 18 km horizon plane (beyond the terrain data) and, around the district terrain, the apron that joins
+    them: the web fix for land that floated 40-60 m above the low ground south-west of home (web PR #18, issue #14;
+    surroundings.js BASE_Y and "Terrain (apron)"). The plane lies at BASE_Y - 0.5 = the lowest terrain value - 2.5 m,
+    below every bit of real ground, so in one Unreal scene it no longer cuts through the district (it used to need a
+    hole). The apron is a ring from the district terrain's +-800 m edge (8 m ticks, the same as the terrain, so the seam
+    is exact) out to +3 km (rings at +40 ... 3000 m): the terrain's height at the nearest edge point (-0.5 m, as the
+    district is drawn), eased (smoothstep) to BASE_Y by 3 km out, with the plane's uv mapping and material."""
     data = json.load(open(os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data', 'surroundings.json'), encoding='utf-8'))
-    th, gx, gz = data['geo']['theta'], data['geo']['x'], data['geo']['z']
+    th, gx, gz, ground = data['geo']['theta'], data['geo']['x'], data['geo']['z'], data['ground']
+    cT, sT = math.cos(th), math.sin(th)
+    ter = data['terrain']
+    n, half, step = ter['n'], ter['half'], ter['step']
+    grid = np.frombuffer(base64.b64decode(ter['dm']), dtype='<i2', count=n * n).astype(np.float64).reshape(n, n) / 10.0
+    FAR_EXT, APRON = half, 3000.0
+    BASE_Y = ground + float(grid.min()) - 2
+
+    def y_local(x, z):         # ground + FHKData::RelLocal (bilinear)
+        fi = min(n - 1.001, max(0.0, (x + half) / step)); fj = min(n - 1.001, max(0.0, (z + half) / step))
+        i, j = int(fi), int(fj); u, v = fi - i, fj - j
+        return ground + grid[j, i] * (1 - u) * (1 - v) + grid[j, i + 1] * u * (1 - v) + grid[j + 1, i] * (1 - u) * v + grid[j + 1, i + 1] * u * v
+
     o, a, b = pos[0], pos[1] - pos[0], pos[2] - pos[0]          # corners of the plane: o, o+a, o+b (+ o+a+b)
-    y = float(pos[:, 1].mean())
+
     def uv_at(x, z):
         # Solve x,z = o + u*a + v*b on the xz plane, then interpolate the corner uvs.
         M = np.array([[a[0], b[0]], [a[2], b[2]]])
         u, v = np.linalg.solve(M, np.array([x - o[0], z - o[2]]))
         return uv[0] + (uv[1] - uv[0]) * u + (uv[2] - uv[0]) * v
-    outer = [pos[0], pos[1], pos[3], pos[2]] if len(pos) >= 4 else list(pos)
-    cx, cz = np.mean([p[0] for p in outer]), np.mean([p[2] for p in outer])
-    outer = sorted(outer, key=lambda p: math.atan2(p[2] - cz, p[0] - cx))
-    # The rim: the district terrain's outermost vertices, in order around the district, 0.3 m below the edge.
-    terrain = next(m for m in exp['meshes'] if m.get('name') == 'Terrain (district)')
-    tp = array(bin_data, terrain['geo']['pos'], np.float32).reshape(-1, 3).astype(np.float64)
-    dx, dz = tp[:, 0] - gx, tp[:, 2] - gz
-    lx, lz = dx * math.cos(th) - dz * math.sin(th), dx * math.sin(th) + dz * math.cos(th)
-    r = np.maximum(np.abs(lx), np.abs(lz))
-    rim = np.where(r > r.max() - 0.5)[0]
-    rim = rim[np.argsort(np.arctan2(tp[rim, 2] - cz, tp[rim, 0] - cx))]
-    P = [np.array([p[0], y, p[2]]) for p in outer] + [tp[k] - [0, 0.3, 0] for k in rim]
-    U = [uv_at(p[0], p[2]) for p in P]
-    # Each rim vertex joins the outer corner nearest to it by angle; where that changes, a triangle fills the corner.
-    oang = np.array([math.atan2(p[2] - cz, p[0] - cx) for p in outer])
-    def corner(p):
-        d = np.abs((math.atan2(p[2] - cz, p[0] - cx) - oang + math.pi) % (2 * math.pi) - math.pi)
-        return int(np.argmin(d))
-    n = len(rim)
-    cs = [corner(P[4 + k]) for k in range(n)]
+    plane_p = pos[:4].copy()
+    plane_p[:, 1] = BASE_Y - 0.5
+    plane_t = np.array([[0, 2, 1], [1, 2, 3]], dtype=np.int64)
+    ticks = list(np.arange(-FAR_EXT, FAR_EXT + 1e-6, 8.0))
+    for d in (40, 100, 200, 400, 700, 1100, 1600, 2200, APRON):
+        ticks.append(FAR_EXT + d)
+        ticks.insert(0, -FAR_EXT - d)
+    m = len(ticks)
+    P = np.zeros((m * m, 3))
+    for jj, z in enumerate(ticks):
+        for ii, x in enumerate(ticks):
+            out = max(abs(x), abs(z)) - FAR_EXT
+            edge = y_local(min(FAR_EXT, max(-FAR_EXT, x)), min(FAR_EXT, max(-FAR_EXT, z))) - 0.5
+            t = min(1.0, max(0.0, out) / APRON)
+            y = edge if out <= 1e-6 else edge + (BASE_Y - edge) * t * t * (3 - 2 * t)
+            P[jj * m + ii] = (x * cT + z * sT + gx, y, -x * sT + z * cT + gz)
+    inside = lambda k: ticks[k] >= -FAR_EXT - 1e-6 and ticks[k + 1] <= FAR_EXT + 1e-6
     tris = []
-    for k in range(n):
-        k1 = (k + 1) % n
-        c0, c1 = cs[k], cs[k1]
-        tris.append([4 + k, 4 + k1, c1])
-        if c0 != c1:
-            tris.append([4 + k, c1, c0])
-    tris = np.array(tris, dtype=np.int64)
-    P, U = np.array(P), np.array(U)
-    # Keep every triangle facing up (+y).
-    up = np.cross(P[tris[:, 1]] - P[tris[:, 0]], P[tris[:, 2]] - P[tris[:, 0]])[:, 1] < 0
-    tris[up] = tris[up][:, [0, 2, 1]]
-    return P, np.tile([0.0, 1.0, 0.0], (len(P), 1)), U, None, tris
+    for jj in range(m - 1):
+        for ii in range(m - 1):
+            if inside(ii) and inside(jj):
+                continue                                    # inside the terrain data
+            q = jj * m + ii
+            tris += [[q, q + m, q + 1], [q + 1, q + m, q + m + 1]]
+    T = np.array(tris, dtype=np.int64) + 4
+    allP = np.concatenate([plane_p, P])
+    allT = np.concatenate([plane_t, T])
+    # Every triangle facing up (+y), and smooth normals on the apron.
+    up = np.cross(allP[allT[:, 1]] - allP[allT[:, 0]], allP[allT[:, 2]] - allP[allT[:, 0]])[:, 1] < 0
+    allT[up] = allT[up][:, [0, 2, 1]]
+    fn = np.cross(allP[allT[:, 1]] - allP[allT[:, 0]], allP[allT[:, 2]] - allP[allT[:, 0]])
+    N = np.zeros_like(allP)
+    for c in range(3):
+        np.add.at(N, allT[:, c], fn)
+    N /= np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-9)
+    N[:4] = (0.0, 1.0, 0.0)
+    U = np.array([uv_at(p[0], p[2]) for p in allP])
+    print(f'HK: horizon plane at {BASE_Y - 0.5:.1f} m, apron {len(T)} triangles out to +{APRON:.0f} m')
+    return allP, N, U, None, allT
 
 
 def quad_corners(c, n_axis, size, rng):
@@ -212,7 +234,7 @@ def gather(exp, bin_data, mesh_indices, slots):
         idx = array(bin_data, g['idx'], np.uint32).astype(np.int64) if 'idx' in g else np.arange(n, dtype=np.int64)
         tris = idx[: (len(idx) // 3) * 3].reshape(-1, 3)
         if m.get('type') == 'PlaneGeometry' and (m.get('params') or {}).get('width', 0) >= 10000:
-            pos, nor, uv, col, tris = horizon_with_hole(pos, nor, uv, exp, bin_data)
+            pos, nor, uv, col, tris = horizon_and_apron(pos, nor, uv, exp, bin_data)
         if g.get('flip'):
             tris = tris[:, [0, 2, 1]]
         tmat = np.zeros(len(tris), dtype=np.int64)   # index into mats
@@ -250,9 +272,9 @@ def gather(exp, bin_data, mesh_indices, slots):
 
 
 # The web car's exterior materials (body paint, glass, bumpers, lights, plate, handles): replaced by car_model.
-CAR_EXTERIOR = {'MI_Physical_111214_362', 'MI_Physical_1d2328_363', 'MI_polymer_141516', 'MI_Standard_e8eef2_365',
-                'MI_Standard_a00000_366', 'MI_chrome', 'MI_Standard_e8eef2_368', 'MI_Standard_a00000_369',
-                'MI_Standard_f2f2ee_370'}
+CAR_EXTERIOR = {'MI_Physical_111214_365', 'MI_Physical_1d2328_366', 'MI_polymer_141516', 'MI_Standard_e8eef2_368',
+                'MI_Standard_a00000_369', 'MI_chrome', 'MI_Standard_e8eef2_371', 'MI_Standard_a00000_372',
+                'MI_Standard_f2f2ee_373'}
 
 
 def corners_to_data(P, N, U, K, slot_keys):
@@ -304,7 +326,8 @@ def soften(ob):
     ob.modifiers.new('smooth by angle', 'WEIGHTED_NORMAL').keep_sharp = True
 
 
-TERRAIN_KEYS = ('MI_Standard_a6a6a6_0', 'MI_Standard_a6a6a6_18')   # the web's near and far terrain materials
+TERRAIN_KEYS = ('MI_Standard_a6a6a6_0', 'MI_Standard_a6a6a6_1', 'MI_Standard_a6a6a6_19')   # the web's near, outer and far terrain
+LAMP_KEY = 'MI_metal_3b3f42'                                        # surroundings.js poleMat: only the street lamps
 
 
 def drop_site_terrain(data, slot_keys):
@@ -361,7 +384,7 @@ def moto_parts(asset, data, slot_keys):
     if asset not in MOTO_WHEELS:
         return data
     R, W = MOTO_WHEELS[asset]
-    tyre, rim, disc = 'MI_Standard_161616_439', 'MI_paint_17181a', 'MI_metal_b7bcc0'
+    tyre, rim, disc = 'MI_Standard_161616_442', 'MI_paint_17181a', 'MI_metal_b7bcc0'
     keep = np.array([slot_keys[s] == disc for s in data['slot']], dtype=bool)
     discs = {k: v[keep] for k, v in data.items() if k in ('pos', 'nor', 'uv', 'slot', 'cast')}
     wheel = corners_to_data(*car_model.car_wheel(R, W, 6, tyre, rim, centred=True), slot_keys)
@@ -457,13 +480,20 @@ def build_rig(rig):
             data = drop_site_terrain(data, a['slotKeys'])
         if rig == 'world_near' and data is not None and 'MI_facade' in a['slotKeys']:
             data = drop_rebuilt_facades(data, a['slotKeys'])
+        if rig == 'world_near' and data is not None and LAMP_KEY in a['slotKeys']:
+            # The web's street lamps (a plain 5 m cylinder with a shade, surroundings.js poleMat): the Blender lamp
+            # SM_StreetLamp (build_details.py) stands in their places instead (issue #2).
+            keep = np.array([a['slotKeys'][k] != LAMP_KEY for k in data['slot']], dtype=bool)
+            print(f'HK: {int((~keep).sum())} triangles of the web street lamps replaced by SM_StreetLamp')
+            data = {k: v[keep] for k, v in data.items()} if keep.any() else None
         tile = TILES.get(rig) if a.get('levelStatic') else None
         if data is not None and tile:
             cx = data['pos'][:, :, 0].mean(axis=1)
             cz = data['pos'][:, :, 2].mean(axis=1)
             ti, tj = np.floor(cx / tile).astype(int), np.floor(cz / tile).astype(int)
-            # Only the mapped district is tiled; the hills, the horizon townscape and the fjord stay whole (tile 99_99).
-            out = (np.abs(cx) > 700) | (np.abs(cz) > 700)
+            # Only the mapped district is tiled (the walkable square, +-760 m in the map frame, reaches about 1080 m from
+            # the origin when turned); the hills, the horizon townscape, its apron and the fjord stay whole (tile 99_99).
+            out = (np.abs(cx) > 1200) | (np.abs(cz) > 1200)
             ti[out], tj[out] = 49, 49
             for (i, j) in sorted(set(zip(ti.tolist(), tj.tolist()))):
                 for cast in (True, False):

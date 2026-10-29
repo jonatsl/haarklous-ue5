@@ -87,6 +87,8 @@ public:
 	// node.connect(dest) -> dest (so calls chain like in JavaScript)
 	TSharedPtr<FHKSynthNode> Connect(const TSharedPtr<FHKSynthNode>& Dest);
 	void Connect(FHKSynthParam& Param);
+	// node.disconnect(dest): stop feeding Dest.
+	void Disconnect(const TSharedPtr<FHKSynthNode>& Dest);
 
 	// Rendering
 	void Render(int64 BlockIndex);

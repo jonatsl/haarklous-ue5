@@ -629,7 +629,9 @@ def details():
             ('MI_HK_DetailCornice', 'Plaster', 1 / 2.23, (1.25, 1.2, 1.12), 0.0, 1.0),   # painted render, off-white
             ('MI_HK_DetailGranite', 'Concrete', 1 / 2.71, (1.25, 1.35, 1.75), 0.0, 1.0),   # granite grey (the granite scan has tile joints)
             ('MI_HK_PaintWhite', 'Plaster', 1 / 2.23, (1.55, 1.6, 1.65), 0.0, 0.75),
-            ('MI_HK_PaintYellow', 'Plaster', 1 / 2.23, (1.75, 1.3, 0.22), 0.0, 0.75)):
+            ('MI_HK_PaintYellow', 'Plaster', 1 / 2.23, (1.75, 1.3, 0.22), 0.0, 0.75),
+            ('MI_HK_LampMetal', 'Concrete', 1 / 2.71, (0.13, 0.14, 0.15), 0.6, 0.55),   # the web's 0x3b3f42 painted metal
+            ('MI_HK_LampDiffuser', 'Plaster', 1 / 2.23, (1.7, 1.7, 1.65), 0.0, 0.45)):  # opal glass under the shade
         path = f'{MAT_DIR}/Details/{name}'
         if not EAL.does_asset_exist(path):
             AT.create_asset(name, f'{MAT_DIR}/Details', unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
@@ -655,7 +657,8 @@ def details():
              'SM_Chimney': ['MI_HK_DetailBrick', 'MI_HK_DetailConcrete'],
              'SM_Kerb': ['MI_HK_DetailGranite'],
              'SM_RoadDash': ['MI_HK_PaintYellow'],
-             'SM_ZebraStripe': ['MI_HK_PaintWhite']}
+             'SM_ZebraStripe': ['MI_HK_PaintWhite'],
+             'SM_StreetLamp': ['MI_HK_LampMetal', 'MI_HK_LampDiffuser']}
     for asset, names in slots.items():
         t = unreal.AssetImportTask()
         t.filename = os.path.join(ROOT, 'tools', 'out', 'fbx', f'details_{asset}.fbx')

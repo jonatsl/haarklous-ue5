@@ -1,4 +1,10 @@
 """The construction site (new feature, asked for by the user on 28 Oct 2026): place, ground shape, machines and props.
+29 Oct 2026: the user put the HODET N.N. sculpture at its real place (local 9.1, 275.5, on the old north fence) and moved
+the site about 100 m south. Straight south it would cross the main road along the park and buildings 531 and 539; the
+nearest clear place is 96 m south and 72 m west (DX, DS below): field x -160..-16, s 368..464, fence x -158..-18,
+s 371..461, with the gates where footway 97 crosses the fence. Everything inside keeps its place relative to the fence.
+The web game uses the same numbers (its tools/make-site.py is a port of this script). The text below describes the
+first version.
 
     python tools/make-site.py
 
@@ -31,10 +37,11 @@ import numpy as np
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DATA = os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data')
-X0, S0, W, D, CELL = -88.0, 272.0, 144.0, 96.0, 0.25    # the soil field, on the far terrain's 8 m grid (cut open there)
-FX0, FS0, FW, FD = -86.0, 275.0, 140.0, 90.0             # the fence: 140 x 90 m (the user's size)
+DX, DS = -72.0, 96.0                                     # the move of 29 Oct 2026 (multiples of 8 m: the far terrain's grid)
+X0, S0, W, D, CELL = -88.0 + DX, 272.0 + DS, 144.0, 96.0, 0.25    # the soil field, on the far terrain's 8 m grid (cut open there)
+FX0, FS0, FW, FD = -86.0 + DX, 275.0 + DS, 140.0, 90.0             # the fence: 140 x 90 m (the user's size)
 INSET = 12.0                      # the platform starts this far inside the field; the banks in between meet the terrain
-GATES = [('s0', 2.8), ('s1', -9.7)]   # where the valley path met the fence: north and south gates, 10.5 m wide
+GATES = [('s0', -120.0), ('s1', -121.8)]   # where footway 97 crosses the fence: north and south gates, 10.5 m wide
 
 
 def smooth(t):
@@ -90,7 +97,7 @@ def main():
         fx, fs, ph = rng.uniform(0.2, 0.9), rng.uniform(0.2, 0.9), rng.uniform(0, 6.28)
         noise += np.sin(LX * fx + ph) * np.sin(LS * fs + ph * 1.3) / (k + 1)
     # Foundation pit: 30 x 16 m, 3 m deep, 60 degree walls, a 1:6 ramp from its east (local +x) end.
-    pcx, pcs, pw, pd, depth = -48.0, 324.0, 30.0, 16.0, 3.0
+    pcx, pcs, pw, pd, depth = -48.0 + DX, 324.0 + DS, 30.0, 16.0, 3.0
     dx = np.abs(LX - pcx) - pw / 2
     ds = np.abs(LS - pcs) - pd / 2
     outside = np.maximum(dx, ds)
@@ -105,8 +112,8 @@ def main():
     surf += inner * 0.035 * noise
     firm = surf.copy()
     # Stockpiles of loose soil: elongated cones at the angle of repose (about 34 degrees).
-    piles = [(-72.0, 350.0, 5.5, 3.2, 1.6), (-20.0, 350.0, 4.5, 2.6, 1.2), (8.0, 332.0, 3.8, 2.2, 1.0),
-             (24.0, 300.0, 5.0, 2.9, 1.4), (32.0, 348.0, 4.2, 2.4, 1.2)]
+    piles = [(x + DX, z + DS, r, h, st) for x, z, r, h, st in [(-72.0, 350.0, 5.5, 3.2, 1.6), (-20.0, 350.0, 4.5, 2.6, 1.2), (8.0, 332.0, 3.8, 2.2, 1.0),
+             (24.0, 300.0, 5.0, 2.9, 1.4), (32.0, 348.0, 4.2, 2.4, 1.2)]]
     for (cx, cs, r, h, stretch) in piles:
         dist = np.hypot((LX - cx) / stretch, LS - cs)
         cone = np.clip(h * (1 - dist / r), 0, None) * (1 + 0.06 * noise)
@@ -134,8 +141,8 @@ def main():
         {'kind': 'excavator', 'at': (pcx - pw / 2 - 2.5, pcs + 2.0), 'face': (1, 0)},
         {'kind': 'hauler', 'at': (pcx - pw / 2 + 1.1, pcs + pd / 2 + 3.5), 'face': (1, 0)},  # body beside the excavator, free road east
         {'kind': 'tipper', 'at': (north, FS0 + 12.0), 'face': (0, -1)},                      # by the north gate, ready to drive out
-        {'kind': 'dozer', 'at': (-20.0, 338.0), 'face': (0, 1)},                             # facing a stockpile
-        {'kind': 'loader', 'at': (24.0, 300.0 + 10.5), 'face': (0, -1)},                     # facing a stockpile
+        {'kind': 'dozer', 'at': (-20.0 + DX, 338.0 + DS), 'face': (0, 1)},                             # facing a stockpile
+        {'kind': 'loader', 'at': (24.0 + DX, 300.0 + DS + 10.5), 'face': (0, -1)},                     # facing a stockpile
         {'kind': 'crane', 'at': (pcx - 18.0, pcs - pd / 2 - 9.0), 'face': (1, 0)},          # loads within reach of its boom
         {'kind': 'tower', 'at': (pcx + 2.0, pcs - pd / 2 - 4.5), 'face': (-1, 0)},          # jib over the crane loads
     ]

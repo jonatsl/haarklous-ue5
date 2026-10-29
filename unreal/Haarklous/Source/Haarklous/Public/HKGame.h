@@ -14,6 +14,9 @@
 #include "HKSite.h"
 #include "HKSiteVehicles.h"
 #include "HKPaintball.h"
+#include "HKAvatars.h"
+#include "HKShops.h"
+#include "HKStash.h"
 #include "HKGame.generated.h"
 
 class AHKRigActor;
@@ -163,7 +166,8 @@ public:
 	void SetSens(const FString& K, double V);
 
 	// Look target (raycast from the screen centre against interactable parts, like lookTarget(range)).
-	struct FLookHit { FString DoorId; bool bLocked = false; int32 Drink = -1; bool bHit = false; };
+	// Stash = a stash item's hit box (FHKStash::Items), ShopBox = a shop item / till / bottle machine (FHKShops::Boxes).
+	struct FLookHit { FString DoorId; bool bLocked = false; int32 Drink = -1; int32 Stash = -1, ShopBox = -1; bool bHit = false; };
 	FLookHit LookTarget(double Range = 2.6) const;
 
 	// Input routing.
@@ -289,6 +293,41 @@ public:
 	TFunction<AHKRigActor*(int32)> PbAvatarOf;
 	TFunction<FString()> PbName;
 	TFunction<int32()> PbSlot;
+	// Stash boosts (game-main.js "Stash boosts", Unreal issue #6): 30 s of 3x running speed, 3x jump height or bullet time.
+	TUniquePtr<FHKStash> Stash;
+	UPROPERTY() TObjectPtr<AHKRigActor> StashActor;
+	FString BoostKind;                               // '' (none), 'speed', 'jump' or 'slowmo'
+	double BoostT = 0;
+	bool BoostIs(const TCHAR* Kind) const { return !BoostKind.IsEmpty() && BoostKind == Kind; }
+	double WorldScale() const { return BoostIs(TEXT("slowmo")) ? .35 : 1; }   // bullet time: the world at 0.35x
+	FHKPrompt StashPrompt();
+	void TakeBoost(int32 Item);
+	void SetupShops();
+	void TickShops(double Dt);
+	void DrawShopsHud(UCanvas* C);
+	void BoostLook();                                // the boost's screen colours (camera post-process)
+	// Shops and money (game-main.js "Shops", Unreal issue #5).
+	TUniquePtr<FHKShops> Shops;
+	UPROPERTY() TObjectPtr<AHKRigActor> ShopsActor;
+	struct FCashier { TUniquePtr<FHKAvatar> Av; TWeakObjectPtr<AHKRigActor> Actor; bool bGreeted = false; };
+	TArray<FCashier> Cashiers;                       // one per shop
+	struct FBasketItem { int32 Shop = 0; int32 Product = 0; double Price = 0; };
+	TArray<FBasketItem> Basket;
+	double WalletT = 0;
+	int32 LastShop = -1;
+	bool bBag = false, bBagStick = false;
+	int32 BagSel = 0;
+	TFunction<FDateTime()> ShopClock;                // tests fake the clock (beer hours); default FDateTime::Now()
+	void Earn(double Amount, const FString& Why);
+	FHKPrompt ShopPrompt();
+	void TakeProduct(int32 Shop, int32 Product);
+	void ReturnPant();
+	void PayAt(int32 Shop);
+	void ShopSay(int32 Shop, const FString& Text);
+	void OpenBag();
+	void BagInput();
+	void UseItem(int32 Product);
+	TArray<TPair<int32, int32>> BagItems() const;    // (product, count) in the bag's order
 	class FHKMinigame* ActiveMinigame = nullptr;
 	TSharedPtr<class IHKEngineSound> PassengerEngine;
 	// Multiplayer (offline defaults: every seat is yours, nobody else is around).
@@ -395,6 +434,7 @@ private:
 	void DrawModuleHud(UCanvas* C);
 	UPROPERTY() TArray<TObjectPtr<AHKRigActor>> VehicleActors;
 	UPROPERTY() TObjectPtr<AHKRigActor> DiscActor;
+	UPROPERTY() TObjectPtr<AHKRigActor> MuselundenActor;
 	UPROPERTY() TObjectPtr<AHKRigActor> PetanqueActor;
 	UPROPERTY() TObjectPtr<AHKRigActor> FireActor;
 	UPROPERTY() TObjectPtr<class AHKFireEffects> FireFx;

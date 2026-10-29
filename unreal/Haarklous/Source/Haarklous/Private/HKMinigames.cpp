@@ -161,6 +161,7 @@ FHKMinigamesContext FHKMinigamesContext::FromGame()
 	C.Random = [Stream]() { return (double)Stream->GetFraction(); };
 	C.NowMs = []() { return FPlatformTime::Seconds() * 1000.0; };
 	C.Data = FHKData::Get().D;
+	C.Muselunden = HKJson::Obj(FHKData::Get().Game, TEXT("muselunden"));
 	C.Trees = FHKData::Get().AllTrees;
 	C.RigDir = FHKData::DataDir() / TEXT("rigs");
 	return C;
@@ -193,30 +194,31 @@ void FHKMinigame::LoadRig(const FString& RigName)
 
 /* ======================= DISC GOLF ======================= */
 
-FHKDiscGolf::FHKDiscGolf(const FHKMinigamesContext& InCtx) : FHKMinigame(InCtx)
+FHKDiscGolf::FHKDiscGolf(const FHKMinigamesContext& InCtx, const FString& InCourse, const TArray<TSharedPtr<FJsonValue>>& CourseHoles, const FString& RigName)
+	: FHKMinigame(InCtx), Course(InCourse)
 {
 	for (const FHKData::FTree& T : Ctx.Trees)
 	{
 		const FVector2D Wp = Ctx.ToWorld(T.X, T.S);
 		TreeWorld.Add({Wp.X, Wp.Y, T.H != 0 && !FMath::IsNaN(T.H) ? T.H : 11});
 	}
-	const TArray<TSharedPtr<FJsonValue>>* List = nullptr;
-	if (Ctx.Data && Ctx.Data->TryGetArrayField(TEXT("discgolf"), List))
-		for (int32 i = 0; i < List->Num(); i++)
+	{
+		for (int32 i = 0; i < CourseHoles.Num(); i++)
 		{
-			const TSharedPtr<FJsonObject> H = (*List)[i]->AsObject();
+			const TSharedPtr<FJsonObject> H = CourseHoles[i]->AsObject();
 			const TArray<double> TeeA = HKJson::Nums(H, TEXT("tee")), BasketA = HKJson::Nums(H, TEXT("basket"));
 			if (TeeA.Num() < 2 || BasketA.Num() < 2) continue;
 			const FVector2D Tee = Ctx.ToWorld(TeeA[0], TeeA[1]), Basket = Ctx.ToWorld(BasketA[0], BasketA[1]);
 			FHole Ho;
-			Ho.N = i + 1;
+			Ho.N = H->HasField(TEXT("n")) && HKJson::Num(H, TEXT("n")) ? (int32)HKJson::Num(H, TEXT("n")) : i + 1;
 			Ho.Par = HKJson::Num(H, TEXT("par"), 3);
 			Ho.Tee = FVector(Tee.X, Ctx.HeightAt(Tee.X, Tee.Y), Tee.Y);
 			Ho.Basket = FVector(Basket.X, Ctx.HeightAt(Basket.X, Basket.Y), Basket.Y);
 			Ho.Length = HKJs::Hypot(Ho.Basket.X - Ho.Tee.X, Ho.Basket.Z - Ho.Tee.Z);
 			Holes.Add(Ho);
 		}
-	LoadRig(TEXT("discgolf"));
+	}
+	LoadRig(RigName);
 	DiscNode = Rig.Find(TEXT("disc"));
 	if (!DiscNode) DiscNode = Rig.Create(TEXT("disc"), Rig.Root);
 	DiscNode->bVisible = false;
@@ -227,7 +229,7 @@ TOptional<FString> FHKDiscGolf::Near(const FVector& P) const
 	if (bActive) return {};
 	for (const FHole& H : Holes)
 		if (HKJs::Hypot(P.X - H.Tee.X, P.Z - H.Tee.Z) < 4 && FMath::Abs(P.Y - H.Tee.Y) < 3)
-			return TOptional<FString>(FString::Printf(TEXT("□ Play disc golf · Hull %d (par 3, %s m)"), H.N, *HKJs::Num(HK::JsRound(H.Length))));
+			return TOptional<FString>(FString::Printf(TEXT("□ Play disc golf · %s · Hull %d (par %s, %s m)"), *Course, H.N, *HKJs::Num(H.Par), *HKJs::Num(HK::JsRound(H.Length))));
 	return {};
 }
 
@@ -243,7 +245,7 @@ TOptional<FHKMiniPose> FHKDiscGolf::Start(const FVector& P)
 	Lie = H->Tee;
 	Disc.bFlying = false;
 	DiscNode->bVisible = false;
-	Message = FString::Printf(TEXT("Hull %d · Par 3 · Hold R2 (or left mouse) to throw, aim with the camera, left stick X for hyzer/anhyzer."), H->N);
+	Message = FString::Printf(TEXT("%s · Hull %d · Par %s · Hold R2 (or left mouse) to throw, aim with the camera, left stick X for hyzer/anhyzer."), *Course, H->N, *HKJs::Num(H->Par));
 	FHKMiniPose Pose;
 	Pose.X = H->Tee.X;
 	Pose.Z = H->Tee.Z;
@@ -362,6 +364,8 @@ FHKMiniResult FHKDiscGolf::Update(double Dt, const FHKMiniInput& In)
 			const FString Name = Total == 1 ? FString(TEXT("Hole in one!")) : Diff <= -2 ? FString(TEXT("Eagle!")) : Diff == -1 ? FString(TEXT("Birdie!")) : Diff == 0 ? FString(TEXT("Par")) : Diff == 1 ? FString(TEXT("Bogey")) : TEXT("+") + HKJs::Num(Diff);
 			Message = FString::Printf(TEXT("Hull %d: %d kast · %s"), H.N, Total, *Name);
 			if (Diff < 0) Sfx(TEXT("cheer"));
+			// Money: par 50 kr, birdie 100 kr, eagle or better 200 kr.
+			if (Ctx.Reward && Diff <= 0) Ctx.Reward(Diff <= -2 ? 200 : Diff == -1 ? 100 : 50, FString::Printf(TEXT("%s on %s hole %d"), *Name, *Course, H.N));
 			bHasPending = true;
 			Pending = FPending();
 			Pending.bNext = true;
@@ -402,7 +406,7 @@ FHKMiniResult FHKDiscGolf::Update(double Dt, const FHKMiniInput& In)
 					Hole++;
 					const FHole& N = Holes[Hole];
 					Lie = N.Tee;
-					Message = FString::Printf(TEXT("Hull %d · Par 3"), N.N);
+					Message = FString::Printf(TEXT("Hull %d · Par %s"), N.N, *HKJs::Num(N.Par));
 					SetHud(State());
 					R.bTeleport = true;
 					R.Teleport.X = N.Tee.X;
@@ -415,7 +419,7 @@ FHKMiniResult FHKDiscGolf::Update(double Dt, const FHKMiniInput& In)
 				for (const FHole& X : Holes) Par = Par + X.Par;
 				Stop();
 				R.bDone = true;
-				R.Done = FString::Printf(TEXT("Disc golf finished: %s throws (%s%s vs par %s)."), *HKJs::Num(Total), Total - Par >= 0 ? TEXT("+") : TEXT(""), *HKJs::Num(Total - Par), *HKJs::Num(Par));
+				R.Done = FString::Printf(TEXT("%s finished: %s throws (%s%s vs par %s)."), *Course, *HKJs::Num(Total), Total - Par >= 0 ? TEXT("+") : TEXT(""), *HKJs::Num(Total - Par), *HKJs::Num(Par));
 				return R;
 			}
 			bHasPending = false;
@@ -438,6 +442,7 @@ FHKDiscGolf::FHud FHKDiscGolf::State(double InCharge) const
 	FHud S;
 	if (!Holes.IsValidIndex(Hole)) return S;
 	const FHole& H = Holes[Hole];
+	S.Course = Course;
 	S.Hole = H.N;
 	S.Holes = Holes.Num();
 	S.Par = H.Par;
@@ -455,7 +460,7 @@ void FHKDiscGolf::DrawHud(UCanvas* C) const
 	TArray<FString> Throws;
 	for (int32 i = 0; i < S.Strokes.Num(); i++) Throws.Add(FString::Printf(TEXT("H%d %d"), i + 1, S.Strokes[i]));
 	TArray<FCardRow> Rows;
-	Rows.Add({FString::Printf(TEXT("Disc golf · Hull %d/%d · Par %s"), S.Hole, S.Holes, *HKJs::Num(S.Par)), 16, FLinearColor::White, true});
+	Rows.Add({FString::Printf(TEXT("%s · Hull %d/%d · Par %s"), *S.Course, S.Hole, S.Holes, *HKJs::Num(S.Par)), 16, FLinearColor::White, true});
 	Rows.Add({TEXT("Throws: ") + FString::Join(Throws, TEXT(" · ")), 14, Ink()});
 	Rows.Add({FString::Printf(TEXT("%s m to the basket"), *HKJs::Num(S.Distance)), 14, Ink()});
 	FCardRow Meter; Meter.bMeter = true; Meter.Fill = HK::JsRound(S.Charge * 100) / 100.f; Rows.Add(Meter);
@@ -697,18 +702,21 @@ int32 FHKPetanque::FirstFree(EHKSide Owner) const
 	return -1;
 }
 
-bool FHKPetanque::NextThrower(EHKSide& Out)
+// Petanque after the first two boules: the side that is not holding the point throws while it has boules, then the
+// holder. With no boule left in the court (all thrown out) whoever still has boules plays on. None = the mène is over.
+EHKSide FHKPetanque::PetanqueNext(EHKSide Hold, int32 LeftYou, int32 LeftNpc)
 {
-	if (Phase == EPhase::Jack) { Phase = EPhase::First; Out = Thrower; return true; }
-	if (Phase == EPhase::First) { Phase = EPhase::Play; Out = Thrower == EHKSide::You ? EHKSide::Npc : EHKSide::You; return true; }
-	const EHKSide Hold = Holding(), Other = Hold == EHKSide::You ? EHKSide::Npc : EHKSide::You;
-	if (Left(Other) > 0) { Out = Other; return true; }
-	// Nobody holds (every boule left the court) and you have none left: the web code calls left(null) here, which throws
-	// a TypeError, so its update() stops at this point every frame until the player quits. Same here.
-	if (Hold == EHKSide::None) return false;
-	if (Left(Hold) > 0) { Out = Hold; return true; }
-	Out = EHKSide::None;
-	return true;
+	if (Hold == EHKSide::None) return LeftYou > 0 ? EHKSide::You : LeftNpc > 0 ? EHKSide::Npc : EHKSide::None;
+	const EHKSide Other = Hold == EHKSide::You ? EHKSide::Npc : EHKSide::You;
+	auto LeftOf = [LeftYou, LeftNpc](EHKSide S) { return S == EHKSide::You ? LeftYou : LeftNpc; };
+	return LeftOf(Other) > 0 ? Other : LeftOf(Hold) > 0 ? Hold : EHKSide::None;
+}
+
+EHKSide FHKPetanque::NextThrower()
+{
+	if (Phase == EPhase::Jack) { Phase = EPhase::First; return Thrower; }
+	if (Phase == EPhase::First) { Phase = EPhase::Play; return Thrower == EHKSide::You ? EHKSide::Npc : EHKSide::You; }
+	return PetanqueNext(Holding(), Left(EHKSide::You), Left(EHKSide::Npc));
 }
 
 EHKSide FHKPetanque::EndMene()
@@ -761,7 +769,8 @@ FHKMiniResult FHKPetanque::Update(double Dt, const FHKMiniInput& In)
 	if (!bMoving)
 	{
 		if (Waiting > 0) Waiting -= Dt;
-		else if (Current == EHKSide::None)
+		// Once someone has 13 the game is over: no more mènes (the score and the reward are counted once).
+		else if (Current == EHKSide::None && !bHasFinish)
 		{
 			FBall& J = Jack();
 			if (Phase == EPhase::Jack && J.bAlive && !J.bFlight)
@@ -772,14 +781,12 @@ FHKMiniResult FHKPetanque::Update(double Dt, const FHKMiniInput& In)
 					Message = FString::Printf(TEXT("Jack %s: thrown again (6–10 m)."), *(J.bDead ? FString(TEXT("out")) : TEXT("at ") + HKJs::ToFixed(Jd, 1) + TEXT(" m")));
 					J.bAlive = false; J.bDead = false; J.Mesh->bVisible = false; Current = Thrower; AimingFor = EAim::Jack;
 				}
-				else { EHKSide Next; NextThrower(Next); Current = Next; AimingFor = EAim::Boule; }
+				else { Current = NextThrower(); AimingFor = EAim::Boule; }
 			}
 			else if (Phase == EPhase::Jack) { Current = Thrower; AimingFor = EAim::Jack; }
 			else
 			{
-				EHKSide Next;
-				if (!NextThrower(Next)) return R;
-				Current = Next;
+				Current = NextThrower();
 				AimingFor = EAim::Boule;
 				if (Current == EHKSide::None)
 				{
@@ -788,7 +795,7 @@ FHKMiniResult FHKPetanque::Update(double Dt, const FHKMiniInput& In)
 					{
 						const bool bWon = ScoreYou >= 13;
 						Message = FString::Printf(TEXT("%s %d–%d!"), bWon ? TEXT("You win") : *(NpcName + TEXT(" wins")), ScoreYou, ScoreNpc);
-						if (bWon) Sfx(TEXT("cheer"));
+						if (bWon) { Sfx(TEXT("cheer")); if (Ctx.Reward) Ctx.Reward(150, FString::Printf(TEXT("Petanque win against %s"), *NpcName)); }
 						bHasFinish = true;
 						Finish = 4;
 					}
@@ -936,4 +943,19 @@ void FHKPetanque::DrawHud(UCanvas* C) const
 	Rows.Add({S.Message, 11.5f, Small()});
 	Rows.Add({TEXT("Hold R2 / left mouse for power, release to throw · ○ quit"), 11.5f, Small()});
 	DrawCard(C, Rows);
+}
+
+FHKMinigames::FHKMinigames(const FHKMinigamesContext& Ctx)
+	: DiscGolf(Ctx, TEXT("Torshovdalen"), HKJson::Arr(Ctx.Data, TEXT("discgolf")), TEXT("discgolf")), Petanque(Ctx)
+{
+	if (HKJson::Arr(Ctx.Muselunden, TEXT("holes")).Num())
+		Muselunden = MakeUnique<FHKDiscGolf>(Ctx, HKJson::Str(Ctx.Muselunden, TEXT("name")), HKJson::Arr(Ctx.Muselunden, TEXT("holes")), TEXT("muselunden"));
+}
+
+TArray<FHKMinigame*> FHKMinigames::All()
+{
+	TArray<FHKMinigame*> Out = {&DiscGolf};
+	if (Muselunden) Out.Add(Muselunden.Get());
+	Out.Add(&Petanque);
+	return Out;
 }

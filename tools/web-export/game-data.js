@@ -21,12 +21,21 @@
   out.meta = {theta: D.geo.theta, geo: D.geo, ground: D.ground, playHalf: W.playHalf, radius: ww.radius, clearance: ww.clearance, step: window.WalkCollision.STEP,
     sunDir: (() => {const b = 225 * Math.PI / 180, e = 38 * Math.PI / 180, x = Math.sin(b), z = -Math.cos(b), th = D.geo.theta;return v3(new T.Vector3((x * Math.cos(th) + z * Math.sin(th)) * Math.cos(e), Math.sin(e), (-x * Math.sin(th) + z * Math.cos(th)) * Math.cos(e)).normalize());})()};
   out.floors = ww.floors.map(floor);
-  out.obstacles = ww.obstacles.map(obstacle);
+  // walkWorld.obstacles = [apartment, stair towers, surroundings, firepit, stashes, shops, sculpture, extra]; "extra" is the
+  // web game's copy of our construction-site fence and paintball walls (game-site.js, game-paintball.js): the C++ adds
+  // its own (AHKGame::SiteObstacles, FHKPaintball::Obstacles), so they are left out here.
+  const own = apt.obstacles.length + G.towers.reduce((s, t) => s + t.stair.obstacles().length, 0) + W.obstacles().length + G.fire.obstacles.length + G.stash.obstacles.length + G.shops.obstacles.length + G.sculpture.obstacles.length;
+  const extra = ww.obstacles.slice(own);
+  // (The walk world keeps no 'kind', so check the tail against the paintball obstacles and the fence panels' 4 corners.)
+  {const pb = G.paintball ? G.paintball.obstacles : [], tail = extra.slice(extra.length - pb.length);
+    if (tail.some((o, i) => Math.abs(o.points[0].x - pb[i].points[0].x) > 1e-9) || extra.slice(0, extra.length - pb.length).some(o => o.points.length !== 4)) throw new Error(`unexpected obstacles after the sculpture: ${extra.length}, paintball ${pb.length}`);}
+  out.obstacles = ww.obstacles.slice(0, own).map(obstacle);
   out.boundary = ww.boundary.map(b => ({a: [num(b.a.x), num(b.a.z)], b: [num(b.b.x), num(b.b.z)], floor: ww.floors.indexOf(b.floor)}));
   // Vehicles and aircraft collide with buildings, trees, hedges, stair towers and the firepit, not with the flat's furniture.
   // walkWorld.obstacles = [apartment, stair towers, surroundings, firepit]; vehicle worlds use [surroundings, towers, firepit].
   out.counts = {aptFloors: apt.floors.length, aptObstacles: apt.obstacles.length, towers: G.towers.length,
-    towerObstacles: G.towers.reduce((s, t) => s + t.stair.obstacles().length, 0), fireObstacles: G.fire.obstacles.length, worldObstacles: W.obstacles().length};
+    towerObstacles: G.towers.reduce((s, t) => s + t.stair.obstacles().length, 0), fireObstacles: G.fire.obstacles.length, worldObstacles: W.obstacles().length,
+    stashObstacles: G.stash.obstacles.length, shopObstacles: G.shops.obstacles.length, sculptureObstacles: G.sculpture.obstacles.length, webSiteObstacles: extra.length};
   // Doors: hinge pose when closed (world matrix of the hinge's parent, hinge local pose), leaf box and its pose in the hinge.
   const doorInfo = d => {
     d.hinge.updateMatrixWorld(true);const p = d.leaf.geometry.parameters || {};
@@ -56,7 +65,9 @@
     obstacles: G.fire.obstacles.map(obstacle), DECAY_S: G.fire.DECAY_S, MAX: G.fire.MAX, pos: [-2.7, 34.7]};
   out.mission = {mark: [4.8, 14.2], start: D.vehicles.missionStart};
   out.air = {heli: {x: 26, z: 14, yaw: .6}, plane: {x: -116.5, z: 0, yaw: .5236}};
-  out.vehicles = G.vehicles.map((v, i) => ({i, kind: v.kind, name: v.name, x: num(v.x), z: num(v.z), y: num(v.y), yaw: num(v.yaw), length: v.length, width: v.width, height: v.height, radius: v.radius,
+  // Without the web game's copy of our site machines (appended after its own vehicles, game-site.js).
+  const siteMachines = new Set(G.site ? G.site.machines : []);
+  out.vehicles = G.vehicles.filter(v => !siteMachines.has(v)).map((v, i) => ({i, kind: v.kind, name: v.name, x: num(v.x), z: num(v.z), y: num(v.y), yaw: num(v.yaw), length: v.length, width: v.width, height: v.height, radius: v.radius,
     model: v.model ?? null, color: v.color ?? null, spawn: v.spawn, footprint: obstacle(v.footprint ? [].concat(v.footprint())[0] : {points: []})}));
   out.dynamicAtStart = (ww.dynamic || []).map(obstacle);
   // Minigame state that is plain data.
@@ -69,6 +80,29 @@
     const r = {};for (const [k, v] of Object.entries(o)) {const p = plainOf(v, depth + 1);if (p !== undefined) r[k] = p;}return r;
   };
   out.minigames = {discgolf: plainOf(G.mini.discgolf), petanque: plainOf(G.mini.petanque)};
+  // Hidden stashes (game-stash.js, game-main.js "Stash boosts"): crates, items (the holder's world position) and hit boxes.
+  const box = h => {h.updateMatrixWorld(true);const p = h.geometry.parameters;return {world: mat(h.matrixWorld), size: [p.width, p.height, p.depth]};};
+  out.stash = {cooldown: G.stash.COOLDOWN, places: [...new Set(G.stash.items.map(it => it.place))].map(p => ({name: p.name, x: num(p.x), y: num(p.y), z: num(p.z), yaw: num(p.yaw || 0)})),
+    items: G.stash.items.map(it => ({kind: it.kind, place: G.stash.items.map(x => x.place).filter((x, i, a) => a.indexOf(x) === i).indexOf(it.place), x: num(it.x), y: num(it.y), z: num(it.z), hit: box(it.hit)})),
+    obstacles: G.stash.obstacles.map(obstacle)};
+  // Shops (game-shops.js): each shop's frame (the same steps as create()), the products and the hit boxes to aim at.
+  {
+    const SH = window.GameShops, shops = G.shops.shops;
+    out.shops = {pant: SH.PANT, products: SH.PRODUCTS.map(p => ({id: p.id, name: p.name, price: p.price, beer: !!p.beer, color: p.color, where: p.where, use: p.use, sober: p.sober ?? 0})),
+      shops: shops.map(s => {
+        const L = s.local, w0 = W.toWorld(...L.P0), w1 = W.toWorld(...L.P1), wn = W.toWorld(L.P0[0] + L.n[0], L.P0[1] + L.n[1]);
+        let ux = (w1.x - w0.x) / L.W, uz = (w1.z - w0.z) / L.W, origin = w0;const nx0 = wn.x - w0.x, nz0 = wn.z - w0.z;
+        if (ux * nz0 - uz * nx0 < 0) {origin = w1;ux = -ux;uz = -uz;}
+        return {id: s.id, name: s.name, brand: s.brand, hours: s.hours, shirt: s.shirt, priceFactor: s.priceFactor, building: s.building, floorY: num(s.floorY), W: num(s.W), D: num(s.D),
+          uDoor: num(s.W - 2.0), origin: [num(origin.x), num(origin.z)], u: [num(ux), num(uz)], v: [num(-uz), num(ux)], prices: SH.PRODUCTS.map(p => G.shops.priceOf(s, p))};
+      }),
+      hitboxes: G.shops.hitboxes.map(h => {const u = h.userData;return {kind: u.shopItem ? 'item' : u.shopTill ? 'till' : 'pant', shop: shops.indexOf(u.shopItem ? u.shopItem.shop : u.shopTill || u.shopPant), product: u.shopItem ? u.shopItem.product.id : '', ...box(h)};}),
+      floors: G.shops.floors.length, obstacles: G.shops.obstacles.length};
+  }
+  // HODET N.N. (game-sculpture.js): place, facing and base height; its ring and steps are in floors / obstacles.
+  out.sculpture = {at: G.sculpture.at, yaw: num(G.sculpture.yaw), base: num(G.sculpture.base), height: window.GameSculpture.HEIGHT};
+  // The real Muselunden DiscGolfPark (muselunden-data.js): its name and the 12 holes in the local frame.
+  out.muselunden = window.MUSELUNDEN || null;
   out.trees = W.trees.map(t => [num(t.x), num(t.s), num(t.h)]);
   files.game = {json: JSON.stringify(out), bin: null};
   files.surroundings = {json: JSON.stringify(D), bin: null};

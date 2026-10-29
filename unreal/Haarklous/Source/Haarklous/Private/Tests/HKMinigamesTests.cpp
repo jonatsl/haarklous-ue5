@@ -211,7 +211,7 @@ bool FHKDiscGolfTest::RunTest(const FString& Parameters)
 	const double Dt = Ref->GetNumberField(TEXT("dt"));
 	const TSharedPtr<FJsonObject> Dg = Ref->GetObjectField(TEXT("discgolf"));
 	TSharedRef<FPlay> P = MakeShared<FPlay>();
-	FHKDiscGolf G(MakeCtx(P));
+	FHKDiscGolf G(MakeCtx(P), TEXT("Torshovdalen"), HKJson::Arr(Data.D, TEXT("discgolf")), TEXT("discgolf"));
 	{
 		FTally T(*this, TEXT("disc golf holes and prompts"));
 		const TArray<TSharedPtr<FJsonValue>>& Holes = HKJson::Arr(Dg, TEXT("holes"));
@@ -664,6 +664,20 @@ bool FHKFireEffectsTest::RunTest(const FString& Parameters)
 	}
 	GEngine->DestroyWorldContext(World);
 	World->DestroyWorld(false);
+	return true;
+}
+
+// Issue #8 (web tests/minigames.test.cjs): who throws next once the first two boules are down, also with no boule left in
+// the court (the web code used to throw an error there and petanque froze).
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHKPetanqueNextTest, "Haarklous.Minigames.PetanqueNext", EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+bool FHKPetanqueNextTest::RunTest(const FString& Parameters)
+{
+	using S = EHKSide;
+	const struct { S Hold; int32 You, Npc; S Want; } Cases[] = {
+		{S::You, 2, 1, S::Npc}, {S::You, 2, 0, S::You}, {S::Npc, 1, 2, S::You}, {S::Npc, 0, 0, S::None},
+		{S::None, 1, 2, S::You}, {S::None, 0, 2, S::Npc}, {S::None, 0, 0, S::None}};
+	for (const auto& C : Cases)
+		TestEqual(FString::Printf(TEXT("holder %s, left %d/%d"), *FHKPetanque::SideName(C.Hold), C.You, C.Npc), (int32)FHKPetanque::PetanqueNext(C.Hold, C.You, C.Npc), (int32)C.Want);
 	return true;
 }
 

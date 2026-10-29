@@ -103,6 +103,22 @@ void AHKRigActor::InitPerson()
 	Person->RegisterComponent();
 }
 
+void AHKRigActor::TintPerson(uint32 FromRgb, uint32 ToRgb)
+{
+	if (!Person) return;
+	const FLinearColor From(FColor((FromRgb >> 16) & 255, (FromRgb >> 8) & 255, FromRgb & 255)), To(FColor((ToRgb >> 16) & 255, (ToRgb >> 8) & 255, ToRgb & 255));
+	for (int32 i = 0; i < Person->GetNumMaterials(); i++)
+	{
+		UMaterialInterface* M = Person->GetMaterial(i);
+		FLinearColor T;
+		if (!M || !M->GetVectorParameterValue(FHashedMaterialParameterInfo(TEXT("Tint")), T)) continue;
+		if (FMath::Abs(T.R - From.R) + FMath::Abs(T.G - From.G) + FMath::Abs(T.B - From.B) > .03f) continue;
+		UMaterialInstanceDynamic* D = UMaterialInstanceDynamic::Create(M, this);
+		D->SetVectorParameterValue(TEXT("Tint"), To);
+		Person->SetMaterial(i, D);
+	}
+}
+
 void AHKRigActor::SyncPerson()
 {
 	const USceneComponent* RootC = Comps[RootIndex];

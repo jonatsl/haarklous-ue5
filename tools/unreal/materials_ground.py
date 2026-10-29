@@ -116,16 +116,18 @@ def main():
     for name, _ in LAYERS:
         for kind in ('D', 'N', 'R'):
             textures[f'{name}{kind}'] = import_tex(os.path.join(TEX, f'T_{name}_{kind}.png'), f'T_{name}_{kind}', kind)
-    masks = {k: import_tex(os.path.join(EXPORT, 'textures', f'ground_{k}.png'), f'T_GroundMask_{k}', 'M') for k in ('near', 'far')}
+    masks = {k: import_tex(os.path.join(EXPORT, 'textures', f'ground_{k}.png'), f'T_GroundMask_{k}', 'M') for k in ('near', 'outer', 'far')}
     m = master()
-    # The web's terrain materials: the one whose map is the 4096 px painting (near) and the 2048 px one (far).
+    # The web's terrain materials: the one whose map is the 4096 px painting (near) and the two 2048 px ones: the outer
+    # walkable ground out to +-playHalf is in world_near, the district terrain (far) in world_far.
     mats = json.load(open(os.path.join(EXPORT, 'materials.json'), encoding='utf-8'))
     tex = mats['textures']
     keys = json.load(open(os.path.join(ROOT, 'tools', 'out', 'build-plan', 'material-keys.json'), encoding='utf-8'))
+    near_keys = {s for a in json.load(open(os.path.join(ROOT, 'tools', 'out', 'build-plan', 'world_near.json'), encoding='utf-8'))['assets'] for s in a['slotKeys']}
     terrain = {}
     for k in keys:
         if k.get('map') is not None and k['type'] == 'MeshStandardMaterial' and tex[k['map']]['w'] in (4096, 2048) and k.get('color') == 0xa6a6a6:
-            terrain['near' if tex[k['map']]['w'] == 4096 else 'far'] = (k['key'], k['map'])
+            terrain['near' if tex[k['map']]['w'] == 4096 else 'outer' if k['key'] in near_keys else 'far'] = (k['key'], k['map'])
     made = {}
     for which, (key, tex_id) in terrain.items():
         path = f'{MDIR}/MI_Ground_{which}'

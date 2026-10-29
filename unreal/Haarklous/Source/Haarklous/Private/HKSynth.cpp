@@ -146,6 +146,11 @@ TSharedPtr<FHKSynthNode> FHKSynthNode::Connect(const TSharedPtr<FHKSynthNode>& D
 	return Dest;
 }
 
+void FHKSynthNode::Disconnect(const TSharedPtr<FHKSynthNode>& Dest)
+{
+	if (Dest) Dest->Inputs.RemoveAll([this](const TSharedPtr<FHKSynthNode>& N) { return N.Get() == this; });
+}
+
 void FHKSynthNode::Connect(FHKSynthParam& Param)
 {
 	Param.AddInput(AsShared());

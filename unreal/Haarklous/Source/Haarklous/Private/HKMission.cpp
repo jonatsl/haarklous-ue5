@@ -862,6 +862,7 @@ void FHKMission::Finish(const FString& InResult)
 {
 	State = InResult;
 	bTriggerHeld = false;
+	if (Ctx.OnFinish) Ctx.OnFinish(InResult);
 	ShowPanel();
 	Result = InResult;
 }
@@ -1117,6 +1118,8 @@ void FHKMission::TickFrame()
 	const double Dt = bHasLastTime ? MxMin(Clock - LastTime, .05) : 0;
 	bHasLastTime = true;
 	LastTime = Clock;
+	// Bullet time (a stash boost) slows the hostiles; your own reload, aim and movement stay at full speed.
+	const double Wdt = Dt * (Ctx.TimeScale ? Ctx.TimeScale() : 1);
 	if (State == MxPlay)
 	{
 		Elapsed += Dt;
@@ -1131,7 +1134,7 @@ void FHKMission::TickFrame()
 				UpdateHud();
 			}
 		}
-		HostileLooks(Dt);
+		HostileLooks(Wdt);
 	}
 	const bool bAimWanted = State == MxPlay && Reload <= 0 && (PadAim > .3 || bMouseAim);
 	AimT += ((bAimWanted ? 1 : 0) - AimT) * MxMin(1, Dt * 11);
@@ -1148,9 +1151,9 @@ void FHKMission::TickFrame()
 			const double Want = std::atan2(-(Eye.X - A.Root->Position.X), -(Eye.Z - A.Root->Position.Z));
 			double D = Want - A.Root->Rot().Y;
 			D = std::atan2(std::sin(D), std::cos(D));
-			A.Root->SetRotY(A.Root->Rot().Y + D * MxMin(1, Dt * 4));
+			A.Root->SetRotY(A.Root->Rot().Y + D * MxMin(1, Wdt * 4));
 			if (!A.bEngaged) { A.bEngaged = true; A.FireIn = Between(HKCase::HOSTILE_REACTION_MIN, HKCase::HOSTILE_REACTION_MAX); }
-			if (State == MxPlay && A.Role == MxHostile && std::fabs(D) < .3 && (A.FireIn -= Dt) <= 0) { HostileFire(A); A.FireIn = Between(HKCase::HOSTILE_INTERVAL_MIN, HKCase::HOSTILE_INTERVAL_MAX); }
+			if (State == MxPlay && A.Role == MxHostile && std::fabs(D) < .3 && (A.FireIn -= Wdt) <= 0) { HostileFire(A); A.FireIn = Between(HKCase::HOSTILE_INTERVAL_MIN, HKCase::HOSTILE_INTERVAL_MAX); }
 		}
 		else A.bEngaged = false;
 		if (A.MuzzleFlash)
@@ -1161,7 +1164,7 @@ void FHKMission::TickFrame()
 		}
 		if (!A.bAlive && A.Fall < 1)
 		{
-			A.Fall = MxMin(1, A.Fall + Dt * 2.6);
+			A.Fall = MxMin(1, A.Fall + Wdt * 2.6);
 			const double E = 1 - std::pow(1 - A.Fall, 3);
 			A.Body->SetRotX(E * HK::Pi / 2 * .96);
 			A.Body->Position.Y = E * .08;

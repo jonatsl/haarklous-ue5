@@ -48,6 +48,7 @@ public:
 	// kind: 'bike', 'car', 'excavator', 'heli', 'plane', 'drone'
 	virtual TSharedPtr<IHKEngineSound> Engine(const FString& Kind);
 	virtual void Fire(double Level, double Near) {}
+	virtual void Muffle(bool bOn) {}                 // bullet time: everything but the music muffled
 	// The listener (camera) in web space, for sounds that have a position.
 	virtual void SetListener(const FVector& WebPos, double WebYaw) {}
 };

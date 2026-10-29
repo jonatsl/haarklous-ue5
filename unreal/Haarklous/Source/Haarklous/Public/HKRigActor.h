@@ -41,6 +41,9 @@ public:
 	// Max draw distance for the meshes (cm, 0 = unlimited).
 	void SetCullDistance(float Cm);
 
+	// The realistic person's cloth tinted FromRgb (the slot's sweater) becomes ToRgb (the shops' cashiers wear the shop's
+	// colour, game-avatars.js avatar(slot, name, color)).
+	void TintPerson(uint32 FromRgb, uint32 ToRgb);
 private:
 	FHKRig* Rig = nullptr;
 	FString RigName;

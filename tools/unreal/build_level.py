@@ -192,9 +192,10 @@ def lights():
             rc.capture_component.set_editor_property('influence_radius', r)
         except Exception as e:
             log('reflection capture', e)
-    # Lightmass importance volume over the walkable neighbourhood (+-540 m) and the apartment block.
+    # Lightmass importance volume over the walkable neighbourhood (+-760 m in the map frame since 29 Oct 2026, about
+    # 1080 m from the origin when turned) and the apartment block; the ground there lies at -57 ... +30 m.
     lv = spawn(unreal.LightmassImportanceVolume, 'Lightmass importance', unreal.Transform(unreal.Vector(0, 0, 0), unreal.Rotator(0, 0, 0), unreal.Vector(1, 1, 1)), 'Generated/Lighting')
-    lv.set_actor_scale3d(unreal.Vector(550.0 * 2 / 2, 550.0 * 2 / 2, 60.0 / 2))
+    lv.set_actor_scale3d(unreal.Vector(1100.0 * 2 / 2, 1100.0 * 2 / 2, 140.0 / 2))
     # Apartment lamps (web: PointLight(color, intensity in candela, distance, decay)).
     for i, l in enumerate(game['apartment']['lights']):
         pl = spawn(unreal.PointLight, f'Apartment lamp {i}', unreal.Transform(ue_loc(l['pos']), unreal.Rotator(0, 0, 0), unreal.Vector(1, 1, 1)), 'Generated/Lighting')
@@ -239,6 +240,20 @@ def lights():
             c.set_editor_property('light_color', unreal.Color(255, 233, 200, 255))
             c.set_editor_property('attenuation_radius', 700.0)
             c.set_editor_property('source_radius', 11.0)
+    # Shops (game-shops.js): the web switches its shop light (PointLight 0xfff4e6, 26 cd, 18 m, decay 1.5) on near the
+    # shop; here it is a baked lamp under the ceiling, always on, plus the glowing ceiling panels of the material.
+    for sh in game.get('shops', {}).get('shops', []):
+        a, b = sh['W'] / 2, sh['D'] / 2
+        x = sh['origin'][0] + sh['u'][0] * a + sh['v'][0] * b
+        z = sh['origin'][1] + sh['u'][1] * a + sh['v'][1] * b
+        pl = spawn(unreal.PointLight, f'Shop light {sh["id"]}', unreal.Transform(ue_loc([x, sh['floorY'] + 3.3 - 0.4, z]), unreal.Rotator(0, 0, 0), unreal.Vector(1, 1, 1)), 'Generated/Lighting')
+        c = pl.point_light_component
+        c.set_mobility(unreal.ComponentMobility.STATIC)
+        c.set_editor_property('intensity_units', unreal.LightUnits.CANDELAS)
+        c.set_editor_property('intensity', 40.0)
+        c.set_editor_property('light_color', unreal.Color(255, 244, 230, 255))
+        c.set_editor_property('attenuation_radius', 1200.0)
+        c.set_editor_property('source_radius', 60.0)
     log('lighting placed')
 
 

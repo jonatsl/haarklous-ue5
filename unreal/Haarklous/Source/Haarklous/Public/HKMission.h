@@ -186,6 +186,10 @@ struct FHKMissionContext
 	TFunction<bool(const FVector& Origin, const FVector& Dir, double MaxDist, FHKShotHit& Hit)> Shoot;
 	// Math.random(); left empty: FMath::FRand.
 	TFunction<double()> Random;
+	// Bullet time (a stash boost) slows the hostiles: dt x TimeScale() for their turning, firing and falling (empty: 1).
+	TFunction<double()> TimeScale;
+	// finish(result): 'success' pays the rescue reward (game-main.js earn(400, ...)).
+	TFunction<void(const FString&)> OnFinish;
 };
 
 /* An actor of the running case: the planned data plus its figure (the web's buildActor() result). */

@@ -86,6 +86,7 @@ void AHKGame::DrawHud(UCanvas* C)
 	if (!C) return;
 	GHits.Reset();
 	DrawWorldHud(C);
+	if (bStarted) DrawShopsHud(C);
 	if (bStarted) DrawModuleHud(C);
 	if (HudExtra) HudExtra(C);
 	if (bStarted) DrawExtras(C);
@@ -181,6 +182,13 @@ void AHKGame::DrawPause(UCanvas* C)
 	const FString Now = Title.IsEmpty() ? FString(TEXT("–")) : FString::Printf(TEXT("%s (%d:%02d loop)"), *Title, (int32)(Len / 60), (int32)HK::JsRound(FMath::Fmod(Len, 60.0)));
 	for (const FString& L : FHKUi::Wrap(C, TEXT("Controller: D-pad ←/→ changes the music volume. Now playing: ") + Now, 14, Iw)) { FHKUi::Text(C, L, Ix, Y, 14, FHKUi::TextDim); Y += 19; }
 	Y += 11;
+	// #walletLine
+	if (Shops)
+	{
+		const FHKWallet& Wl = Shops->Wallet;
+		FHKUi::Text(C, FString::Printf(TEXT("Money: %s · empty bottles: %d (%s at the bottle return)"), *FHKShops::Kr(Wl.Money), Wl.Pant, *FHKShops::Kr(Wl.Pant * FHKShops::PANT)), Ix, Y, 14, FHKUi::TextDim);
+		Y += 24;
+	}
 	// Multiplayer section (drawn by the online module when it is merged).
 	if (DrawLobby) Y = DrawLobby(C, Ix, Y, Iw);
 	// Graphics quality: Fast (no shadows) / Balanced / Sharp.

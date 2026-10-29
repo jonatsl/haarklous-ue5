@@ -291,9 +291,30 @@ def import_rig(rig, mats):
     log(f'{rig}: {count} meshes imported into {dest}')
 
 
+def clear_stale_web_assets():
+    """The web material and texture assets are named by their export numbers (MI_<type>_<colour>_<id>, T_Web_<id>) and
+    reused when they exist. A new web export can number them differently (29 Oct 2026: the outer terrain added a
+    material near the start, so every later id moved), so when materials.json changed since the last import, the old
+    ones are deleted and made again."""
+    import hashlib
+    stamp = os.path.join(FBX, 'web-materials.stamp')
+    digest = hashlib.sha1(open(os.path.join(EXPORT, 'materials.json'), 'rb').read()).hexdigest()
+    old = open(stamp, encoding='utf-8').read().strip() if os.path.exists(stamp) else ''
+    if old == digest:
+        return
+    for folder in (f'{MAT_DIR}/Web', '/Game/Haarklous/Textures/Web'):
+        if EAL.does_directory_exist(folder):
+            EAL.delete_directory(folder)
+    log('web materials changed: old web material instances and textures deleted, made again')
+    open(stamp, 'w', encoding='utf-8').write(digest)
+
+
 def main():
+    clear_stale_web_assets()
     master = master_material()
-    rigs = ARGS or sorted(f[:-4] for f in os.listdir(FBX) if f.endswith('.fbx'))
+    # Only the web rigs (with a build plan); the details, facades, trees, grass, people, site and paintball FBX files
+    # are imported by their own scripts.
+    rigs = ARGS or sorted(f[:-4] for f in os.listdir(FBX) if f.endswith('.fbx') and os.path.exists(os.path.join(PLAN, f[:-4] + '.json')))
     wanted = set()
     for rig in rigs:
         plan = json.load(open(os.path.join(PLAN, rig + '.json'), encoding='utf-8'))

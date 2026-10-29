@@ -18,10 +18,10 @@ import bmesh
 import bpy
 import numpy as np
 
-PAINT, GLASS, TRIM = 'MI_Physical_111214_362', 'MI_Physical_1d2328_363', 'MI_polymer_141516'
-HEAD, TAIL, PLATE, CHROME = 'MI_Standard_e8eef2_365', 'MI_Standard_a00000_366', 'MI_Standard_f2f2ee_370', 'MI_chrome'
+PAINT, GLASS, TRIM = 'MI_Physical_111214_365', 'MI_Physical_1d2328_366', 'MI_polymer_141516'
+HEAD, TAIL, PLATE, CHROME = 'MI_Standard_e8eef2_368', 'MI_Standard_a00000_369', 'MI_Standard_f2f2ee_373', 'MI_chrome'
 LINER, DASH = 'MI_fabric_8d8a84', 'MI_polymer_1e1f21'
-TYRE, RIM = 'MI_Standard_151515_357', 'MI_metal_a8adb2'
+TYRE, RIM = 'MI_Standard_151515_360', 'MI_metal_a8adb2'
 
 WHEEL_Z, WHEEL_R, ARCH_R = 1.3, 0.31, 0.39
 

@@ -160,6 +160,7 @@ void AHKGame::BuildWorld()
 	SetupModules();
 	SetupSite();
 	SetupPaintball();
+	SetupShops();
 	SetupMission();
 	// Online play (game-net.js, game-multiplayer.js, avatars, voice); off unless enabled. Wraps some hooks, so it comes last.
 	Online = AHKOnline::Setup(this);
@@ -262,7 +263,7 @@ void AHKGame::SpawnTrees()
 			H->SetCastShadow(HKJson::Bool(O, TEXT("cast"), true));
 			// Details are small: shorter view distances, and kerb stones, road paint and railings cast no shadow.
 			const bool bDetail = FString(Rig) == TEXT("details"), bKerb = Asset == TEXT("SM_Kerb") || Asset == TEXT("SM_RoadDash") || Asset == TEXT("SM_ZebraStripe");
-			H->SetCullDistances(0, bDetail ? (Asset == TEXT("SM_Chimney") ? 60000 : bKerb ? 7000 : Asset == TEXT("SM_Downpipe") ? 9000 : Asset == TEXT("SM_Gutter") ? 20000 : Asset == TEXT("SM_Cornice") ? 40000 : 15000) : FString(Rig) == TEXT("world_far") ? 150000 : 90000);
+			H->SetCullDistances(0, bDetail ? (Asset == TEXT("SM_Chimney") ? 60000 : Asset == TEXT("SM_StreetLamp") ? 30000 : bKerb ? 7000 : Asset == TEXT("SM_Downpipe") ? 9000 : Asset == TEXT("SM_Gutter") ? 20000 : Asset == TEXT("SM_Cornice") ? 40000 : 15000) : FString(Rig) == TEXT("world_far") ? 150000 : 90000);
 			if (bKerb || Asset == TEXT("SM_BalconyRail") || Asset == TEXT("SM_Gutter") || Asset == TEXT("SM_Ledge")) H->SetCastShadow(false);
 			H->RegisterComponent();
 			TArray<FTransform> Xf;
@@ -348,7 +349,8 @@ void AHKGame::Footstep(double Soft)
 	FString Surface = TEXT("grass");
 	bool bStair = false;
 	int32 T; FVector L;
-	if (InApartment()) { const FString R = RoomAt(); Surface = R == TEXT("bath") ? TEXT("tile") : !R.IsEmpty() ? TEXT("wood") : TEXT("metal"); }
+	if (Shops && Shops->ShopAt(Player.X, Player.Z, Player.Feet) >= 0) Surface = TEXT("tile");
+	else if (InApartment()) { const FString R = RoomAt(); Surface = R == TEXT("bath") ? TEXT("tile") : !R.IsEmpty() ? TEXT("wood") : TEXT("metal"); }
 	else if (TowerAt(Player.X, Player.Z, Player.Feet, T, L)) { Surface = TEXT("stone"); bStair = true; }
 	else
 	{
@@ -447,6 +449,9 @@ void AHKGame::UpdateDynamic()
 	// "Other vehicles block the one being driven; it must never collide with its own (parked) footprint."
 	// (Only the vehicle worlds that exist already, like the web's vehicleWorlds.forEach.)
 	Data.ForEachVehicleWorld([&VList](FHKWalkWorld& W) { W.SetDynamic(VList); });
+	// A vehicle world made later (the bike's on its first ride) starts with this list, not one update later (issue #9).
+	Data.LastVehicleDynamic = MoveTemp(VList);
+	Data.bHasVehicleDynamic = true;
 }
 
 // ---------- Notices, prompts, interaction ----------
@@ -460,7 +465,14 @@ AHKGame::FLookHit AHKGame::LookTarget(double Range) const
 {
 	// The web raycasts only against interactable meshes (door parts, locked doors, drinks), so walls do not block it.
 	FLookHit Hit;
-	const FVector From = HK::ToUE(CamPos), Dir = HK::DirToUE(CamQuat.RotateVector(FVector(0, 0, -1)));
+	// The stash items' and the shops' invisible hit boxes (web: interactables too); the nearest hit of all wins.
+	const FVector WebDir = CamQuat.RotateVector(FVector(0, 0, -1));
+	double BoxT = Range;
+	int32 StashI = -1, ShopI = -1;
+	if (Stash) { double T; const int32 I = Stash->Aimed(CamPos, WebDir, BoxT, T); if (I >= 0) { StashI = I; BoxT = T; } }
+	if (Shops) { double T; const int32 I = Shops->Aimed(CamPos, WebDir, BoxT, T); if (I >= 0) { ShopI = I; StashI = -1; BoxT = T; } }
+	auto BoxHit = [&]() { FLookHit B; B.Stash = StashI; B.ShopBox = ShopI; B.bHit = true; return B; };
+	const FVector From = HK::ToUE(CamPos), Dir = HK::DirToUE(WebDir);
 	TArray<FHitResult> Hits;
 	FCollisionQueryParams Q(SCENE_QUERY_STAT(HKLook), true);
 	GetWorld()->LineTraceMultiByChannel(Hits, From, From + Dir * Range * 100, ECC_GameTraceChannel1, Q);
@@ -470,6 +482,7 @@ AHKGame::FLookHit AHKGame::LookTarget(double Range) const
 		const AHKRigActor* A = Cast<AHKRigActor>(H.GetActor());
 		FHKNode* N = A ? A->NodeOfComponent(H.GetComponent()) : nullptr;
 		if (!N || !N->IsVisibleInTree()) continue;
+		if ((StashI >= 0 || ShopI >= 0) && BoxT * 100 < H.Distance) return BoxHit();
 		// The part's flags (or, for merged door meshes, the door node above it).
 		for (FHKNode* P = N; P; P = P->Parent)
 		{
@@ -480,6 +493,7 @@ AHKGame::FLookHit AHKGame::LookTarget(double Range) const
 		}
 		if (!Hit.DoorId.IsEmpty() || Hit.bLocked || Hit.Drink >= 0) { Hit.bHit = true; return Hit; }
 	}
+	if (StashI >= 0 || ShopI >= 0) return BoxHit();
 	return Hit;
 }
 
@@ -525,8 +539,16 @@ FHKPrompt AHKGame::FindPrompt()
 	if (HK::Hypot(Player.X - MissionMark.X, Player.Z - MissionMark.Y) < 1.6 && FMath::Abs(Player.Feet - FHKData::Get().HeightWorld(MissionMark.X, MissionMark.Y)) < 2)
 		return {TEXT("□ Start mission: rescue the hostage (4th floor)"), [this]() { if (StartMission) StartMission(); }};
 	{
+		const FHKPrompt Sp = ShopPrompt();
+		if (Sp.IsSet()) return Sp;
+	}
+	{
 		const FHKPrompt Fp = FirePrompt();
 		if (Fp.IsSet()) return Fp;
+	}
+	{
+		const FHKPrompt Sp = StashPrompt();
+		if (Sp.IsSet()) return Sp;
 	}
 	if (VehiclePrompt) { FHKPrompt P; if (VehiclePrompt(P)) return P; }
 	if (MinigamePrompt) { FHKPrompt P; if (MinigamePrompt(P)) return P; }
@@ -558,7 +580,8 @@ void AHKGame::Drink(FHKDrink& D)
 		D.bUsed = true;
 		FHKAudio::Get().Sfx(TEXT("bottleOpen")); FHKAudio::Get().Sfx(TEXT("gulp"));
 		Drunk += 30;
-		Notice(TEXT("You drink a beer. (+30 s drunk)"));
+		if (Shops) Shops->Wallet.AddPant(1);
+		Notice(TEXT("You drink a beer. (+30 s drunk, +1 bottle for the deposit)"));
 	}
 	else
 	{
@@ -576,7 +599,8 @@ void AHKGame::DrinkBeer()
 	FHKAudio::Get().Sfx(TEXT("bottleOpen")); FHKAudio::Get().Sfx(TEXT("gulp"));
 	Drunk += 30;
 	BeerT = 20;
-	Notice(TEXT("Skål! A beer from the crate. (+30 s drunk)"), 3);
+	if (Shops) Shops->Wallet.AddPant(1);
+	Notice(TEXT("Skål! A beer from the crate. (+30 s drunk, +1 bottle for the deposit)"), 3);
 }
 
 // ---------- Firepit seats ----------
@@ -626,7 +650,7 @@ void AHKGame::Tick(float DeltaSeconds)
 	// camera.near: the web's .05 m on foot; its pistol had its own overlay camera, so the mission uses 1 cm here.
 	if (Player.Mode == TEXT("foot") || Player.Mode == TEXT("sit") || Player.Mode == TEXT("minigame")) SetClip(bDynamicEveryFrame || PaintballArmed() ? .01 : .05);
 	Frame_(FixedDt > 0 ? FixedDt : Dt);
-	if (Site) { Site->Step(FixedDt > 0 ? FixedDt : Dt); SyncSiteLoads(); }
+	if (Site) { Site->Step((FixedDt > 0 ? FixedDt : Dt) * WorldScale()); SyncSiteLoads(); }   // bullet time: the soil slides slower
 	if (Paintball && bStarted) TickPaintball(FixedDt > 0 ? FixedDt : Dt);
 	// The mission runs its own requestAnimationFrame loop in the web, on real time.
 	if (Mission) Mission->Tick(FixedDt > 0 ? FixedDt : DeltaSeconds);
@@ -728,6 +752,8 @@ void AHKGame::Frame_(double Dt)
 	// "Drunk effect: decays in real time."
 	Drunk = FMath::Max(0.0, Drunk - Dt);
 	const double Dl = DrunkLevel();
+	// The boost's clock, the stash cooldowns, the shops (game-main.js: "stash.update(dt); shopsTick(dt)").
+	TickShops(Dt);
 	if (Player.Mode == TEXT("sit")) UpdateSit(Dt, Dl);
 	else if (Player.Mode == TEXT("foot")) UpdateFoot(Dt, Dl);
 	else if (ModeUpdate) ModeUpdate(Dt, Dl);
@@ -749,7 +775,7 @@ void AHKGame::Frame_(double Dt)
 	{
 		PromptTimer = .15;
 		// "promptAction = player.mode === 'minigame' || player.mode === 'drone' || gear?.open || quick || photo.active || (mission not playing) ? null : findPrompt()"
-		const bool bBlocked = Player.Mode == TEXT("minigame") || Player.Mode == TEXT("drone") || (bGear && bGearOpen) || bQuick || Photo.bActive || (PromptBlocked && PromptBlocked());
+		const bool bBlocked = Player.Mode == TEXT("minigame") || Player.Mode == TEXT("drone") || (bGear && bGearOpen) || bQuick || bBag || Photo.bActive || (PromptBlocked && PromptBlocked());
 		PromptAction = bBlocked ? FHKPrompt() : FindPrompt();
 	}
 	AmbienceTimer -= Dt;
@@ -786,7 +812,7 @@ void AHKGame::UpdateFoot(double Dt, double Dl)
 		if (Frame.WasPressed("cross"))
 		{
 			if (Player.Stance != TEXT("stand")) SetStance(TEXT("stand"));
-			else if (!Player.JumpY && !Player.JumpV) { Player.JumpV = 3.1; FHKAudio::Get().Footstep(TEXT("grass"), false, .4); }
+			else if (!Player.JumpY && !Player.JumpV) { Player.JumpV = 3.1 * (BoostIs(TEXT("jump")) ? FMath::Sqrt(3.0) : 1); FHKAudio::Get().Footstep(TEXT("grass"), false, .4); }
 		}
 		if (Frame.WasPressed("circle")) { Player.CircleAt = Time; Player.bCircleHeld = false; }
 		if (Player.CircleAt >= 0)
@@ -809,7 +835,7 @@ void AHKGame::UpdateFoot(double Dt, double Dl)
 		// On foot, standing: 3.5 m/s (user, 28 Oct 2026; the web walks at 1.45). Crouching and prone keep the web's speeds
 		// (1.45 x .55 and x .28); running stays 3.6.
 		const double Base = Player.Stance == TEXT("stand") ? HKFoot::Speed : 1.45 * StanceSpeed();
-		const double Speed = (bRunning ? 3.6 : Base) * (bMission && MissionMoveScale ? MissionMoveScale() : 1) * (1 - Dl * .25), Fwd = -My, Right = Mx;
+		const double Speed = (bRunning ? 3.6 : Base) * (bMission && MissionMoveScale ? MissionMoveScale() : 1) * (1 - Dl * .25) * (BoostIs(TEXT("speed")) ? 3 : 1), Fwd = -My, Right = Mx;
 		const double Dx = (-FMath::Sin(Player.Yaw) * Fwd + FMath::Cos(Player.Yaw) * Right) * Speed * Dt, Dz = (-FMath::Cos(Player.Yaw) * Fwd - FMath::Sin(Player.Yaw) * Right) * Speed * Dt;
 		const double Bx = Player.X, Bz = Player.Z;
 		MovePlayer(Dx, Dz);
@@ -833,7 +859,7 @@ void AHKGame::UpdateFoot(double Dt, double Dl)
 	CamPos = FVector(Player.X, Player.Feet + Player.EyeNow + Player.JumpY, Player.Z);
 	SetCameraFromEuler(Player.Pitch + Sway.Z, Player.Yaw + Sway.Y, Sway.X);
 	// "const fov = photo.active && photo.raised > .5 ? 70 / photo.zoom : caseGame?.active ? camera.fov : 70"
-	if (!bMission) Fov = Photo.bActive && Photo.Raised > .5 ? 70 / Photo.Zoom : PaintballArmed() ? 70 / (1 + .45 * Paintball->AimAmount()) : 70;
+	if (!bMission) Fov = Photo.bActive && Photo.Raised > .5 ? 70 / Photo.Zoom : PaintballArmed() ? 70 / (1 + .45 * Paintball->AimAmount()) : BoostIs(TEXT("speed")) ? 82 : 70;
 	else if (FootFov) Fov = FootFov();
 }
 

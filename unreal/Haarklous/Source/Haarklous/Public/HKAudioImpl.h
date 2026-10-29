@@ -56,6 +56,8 @@ public:
 	void Sfx(const FString& Name, const FHKSfxOpts& Opts);
 	TSharedPtr<FHKEngineVoice> Engine(const FString& Kind);
 	void Fire(double Level, double Gain);
+	// Bullet time: the world sounds muffled and low (a low-pass on everything except the music).
+	void Muffle(bool bOn);
 	// case-game.js sound(kind, distance): kind 'shot', 'click' or 'enemy'.
 	void CaseSound(const FString& Kind, double Distance, double Gain = 1);
 	// The 120 ms ambience interval (called by the context timer unless bAutoTick is false, as in the tests).
@@ -86,6 +88,7 @@ private:
 	bool bAutoTick;
 	TUniquePtr<FHKSynthContext> Ctx;
 	TSharedPtr<FHKSynthGain> Master, Dry, ReverbSend;
+	TSharedPtr<FHKSynthBiquad> MuffleF;
 	TSharedPtr<FHKSynthConvolver> Convolver;
 	TSharedPtr<FHKSynthBuffer> NoiseBuf;
 	struct FAmb
@@ -155,6 +158,7 @@ public:
 	virtual void Sfx(const FString& Name, const FHKSfxOpts& Opts = FHKSfxOpts()) override;
 	virtual TSharedPtr<IHKEngineSound> Engine(const FString& Kind) override;
 	virtual void Fire(double Level, double Near) override;
+	virtual void Muffle(bool bOn) override;
 	virtual void SetListener(const FVector& WebPos, double WebYaw) override { ListenerPos = WebPos; ListenerYaw = WebYaw; }
 	FVector ListenerPos = FVector::ZeroVector;   // the web version has no positional sound; kept for later
 	double ListenerYaw = 0;

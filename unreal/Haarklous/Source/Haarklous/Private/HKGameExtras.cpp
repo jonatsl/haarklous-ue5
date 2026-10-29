@@ -329,6 +329,7 @@ bool AHKGame::ExtrasUpdate(double Dt)
 		Frame.Move = FVector2D::ZeroVector;
 		for (const TCHAR* B : {TEXT("cross"), TEXT("circle"), TEXT("up"), TEXT("down"), TEXT("square"), TEXT("triangle")}) Frame.Pressed.Remove(FName(B));
 	}
+	if (bBag) BagInput();
 	if (MissionRoute) MissionRoute();
 	const bool bMission = MissionActive && MissionActive();
 	if (Frame.WasPressed("touchpad") && !bMission) MapToggle();
@@ -371,6 +372,7 @@ bool AHKGame::ExtrasUpdate(double Dt)
 			}
 		}
 		if (Frame.WasPressed("up") && !Photo.bActive && !bGear) WatchToggle();
+		if (Frame.WasPressed("down") && !Photo.bActive && !bGear && !bBag && Shops) { OpenBag(); Frame.Pressed.Remove(FName(TEXT("down"))); }
 	}
 	else if (bGear) bGear = false;
 	if (Photo.bActive || Player.Mode != TEXT("foot")) WatchHide();
@@ -696,11 +698,30 @@ void AHKGame::DrawExtras(UCanvas* C)
 			Icon(FVector2D(T[0], T[1]), Hex(0x6a1b9a), FString::Printf(TEXT("Disc golf %d"), ++Hi), TEXT("●"));
 			Icon(FVector2D(B[0], B[1]), Hex(0x9c4dcc), FString(), TEXT("○"));
 		}
+		// The real Muselunden DiscGolfPark (12 holes).
+		for (const TSharedPtr<FJsonValue>& V : HKJson::Arr(HKJson::Obj(Data.Game, TEXT("muselunden")), TEXT("holes")))
+		{
+			const TSharedPtr<FJsonObject> O = V->AsObject();
+			const TArray<double> T = HKJson::Nums(O, TEXT("tee")), B = HKJson::Nums(O, TEXT("basket"));
+			const int32 N = (int32)HKJson::Num(O, TEXT("n"));
+			if (T.Num() < 2 || B.Num() < 2) continue;
+			Icon(FVector2D(T[0], T[1]), Hex(0x6a1b9a), N == 1 ? FString(TEXT("Muselunden disc golf 1")) : FString::FromInt(N), TEXT("●"));
+			Icon(FVector2D(B[0], B[1]), Hex(0x9c4dcc), FString(), TEXT("○"));
+		}
 		const TSharedPtr<FJsonObject> Pq = HKJson::Obj(Data.D, TEXT("petanque"));
 		if (Pq) Icon(FVector2D(HKJson::Num(Pq, TEXT("x")), HKJson::Num(Pq, TEXT("s"))), Hex(0x00838f), TEXT("Petanque"), TEXT("●"));
 		Icon(Data.ToLocal(26, 14), Hex(0x1565c0), TEXT("Helipad"), TEXT("H"));
 		Icon(Data.ToLocal(-116.5, 0), Hex(0x1565c0), TEXT("Airstrip"), TEXT("A"));
 		Icon(Data.ToLocal(FirePos.X, FirePos.Y), Hex(0xe65100), TEXT("Firepit"), TEXT("F"));
+		// Joker and Kiwi, the construction site, the paintball course and HODET N.N. (game-main.js POI list).
+		if (Shops) for (const FHKShop& Sh : Shops->Shops) { const FVector2D Wc = Sh.ToWorld(Sh.W / 2, Sh.D / 2); Icon(Data.ToLocal(Wc.X, Wc.Y), Hex(Sh.Id == TEXT("kiwi") ? 0x2e9a3f : 0xd0021b), Sh.Name, TEXT("●")); }
+		if (Data.Cleared.Num() > 0) Icon(Data.Cleared[0].GetCenter(), Hex(0xf9a825), TEXT("Construction site"), TEXT("●"));
+		{
+			static const TSharedPtr<FJsonObject> PbCentre = HKJson::Obj(HKJson::LoadFile(FHKData::DataDir() / TEXT("paintball.json")), TEXT("centre"));
+			if (PbCentre) Icon(FVector2D(HKJson::Num(PbCentre, TEXT("x")), HKJson::Num(PbCentre, TEXT("s"))), Hex(0x2e7d32), TEXT("Paintball"), TEXT("●"));
+		}
+		if (const TSharedPtr<FJsonObject> Sc = HKJson::Obj(HKJson::Obj(Data.Game, TEXT("sculpture")), TEXT("at")))
+			Icon(FVector2D(HKJson::Num(Sc, TEXT("x")), HKJson::Num(Sc, TEXT("s"))), Hex(0x7a5c3e), TEXT("HODET N.N."), TEXT("●"));
 		if (RemotePoi) for (const TTuple<FVector2D, FLinearColor, FString>& R : RemotePoi()) Icon(Data.ToLocal(R.Get<0>().X, R.Get<0>().Y), R.Get<1>(), R.Get<2>(), TEXT("●"));
 		// You: an arrow along headingLocal = -(yaw - theta) + PI.
 		{

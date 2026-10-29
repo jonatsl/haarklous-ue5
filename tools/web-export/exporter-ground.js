@@ -1,7 +1,8 @@
 /* Extra export (runs after exporter.js): surface masks for the Unreal ground material, painted from the same map data
  * and in the same order as surroundings.js paint(): R = asphalt (streets, parking), G = gravel (paths, yards, petanque,
- * tee pads), B = sand (playgrounds); black = grass. Near: 4096 px over +-300 m, far: 2048 px over +-600 m (local frame,
- * like the web's terrain textures, so they map onto the terrain meshes' UVs).
+ * tee pads), B = sand (playgrounds); black = grass. Near: 4096 px over +-300 m, outer: 2048 px over +-playHalf (760 m),
+ * far: 2048 px over +-800 m (local frame, like the web's terrain textures, so they map onto the terrain meshes' UVs:
+ * surroundings.js nearTerrain, outerTerrain, farTerrain).
  */
 (() => {
   'use strict';
@@ -26,7 +27,9 @@
     for (const b of D.buildings) ring(b.r.o, C.none);
     return c.toDataURL('image/png');
   }
+  const half = window.haarklousGame.world.playHalf, far = D.terrain.half;
   X.files.tex_ground_near = {json: mask(4096, 300), bin: null};
-  X.files.tex_ground_far = {json: mask(2048, 600), bin: null};
-  X.log.push('ground masks: near 4096 px / +-300 m, far 2048 px / +-600 m');
+  X.files.tex_ground_outer = {json: mask(2048, half), bin: null};
+  X.files.tex_ground_far = {json: mask(2048, far), bin: null};
+  X.log.push(`ground masks: near 4096 px / +-300 m, outer 2048 px / +-${half} m, far 2048 px / +-${far} m`);
 })();

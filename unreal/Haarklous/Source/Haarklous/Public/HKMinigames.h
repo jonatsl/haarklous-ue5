@@ -64,6 +64,8 @@ struct HAARKLOUS_API FHKMinigamesContext
 	TFunction<double()> Random;                            // Math.random(): [0, 1)
 	TFunction<double()> NowMs;                             // performance.now()
 	TSharedPtr<FJsonObject> Data;                          // surroundings data D (discgolf, petanque)
+	TSharedPtr<FJsonObject> Muselunden;                    // muselunden-data.js (game.json "muselunden"): {name, holes}
+	TFunction<void(double, const FString&)> Reward;        // reward(kr, why): the wallet (game-main.js earn), may be unset
 	TArray<FHKData::FTree> Trees;                          // world.trees (local frame x, s, h)
 	FString RigDir;                                        // folder of discgolf.json / petanque.json
 	// Everything from the running game: FHKData::Get(), FHKAudio::Get(), a random stream, FPlatformTime.
@@ -106,7 +108,8 @@ protected:
 class HAARKLOUS_API FHKDiscGolf : public FHKMinigame
 {
 public:
-	explicit FHKDiscGolf(const FHKMinigamesContext& InCtx);
+	// course: {name, holes: [{tee: [x, s], basket: [x, s], par, n?}]} in the local map frame; RigName = its rig.
+	FHKDiscGolf(const FHKMinigamesContext& InCtx, const FString& InCourse, const TArray<TSharedPtr<FJsonValue>>& CourseHoles, const FString& RigName);
 
 	struct FHole
 	{
@@ -129,6 +132,7 @@ public:
 	// hud.discgolf(state)
 	struct FHud
 	{
+		FString Course;
 		int32 Hole = 0, Holes = 0;
 		double Par = 3;
 		TArray<int32> Strokes;
@@ -136,6 +140,7 @@ public:
 		FString Message;
 	};
 
+	FString Course;                             // course.name
 	TArray<FHole> Holes;
 	int32 Hole = 0;
 	TArray<int32> Strokes;
@@ -258,6 +263,8 @@ public:
 	FBall& Jack() { return Balls[0]; }
 	const FBall& Jack() const { return Balls[0]; }
 	static FString SideName(EHKSide S) { return S == EHKSide::You ? TEXT("you") : S == EHKSide::Npc ? TEXT("npc") : FString(); }
+	// GameMinigames.petanqueNext(hold, left): who throws next after the first two boules; None = the mène is over.
+	static EHKSide PetanqueNext(EHKSide Hold, int32 LeftYou, int32 LeftNpc);
 
 private:
 	TArray<FHKNode*> BallNodes;     // 7 nodes made from the templates (jack, boule_you, boule_npc)
@@ -268,7 +275,7 @@ private:
 	double Best(EHKSide Owner) const;
 	EHKSide Holding() const;
 	int32 Left(EHKSide Owner) const;
-	bool NextThrower(EHKSide& Out);   // false: the web code would throw (left(null))
+	EHKSide NextThrower();
 	EHKSide EndMene();
 	void NpcTurn();
 	int32 FirstFree(EHKSide Owner) const;   // boules[owner].find(b => !b.alive && !b.dead), -1 if none
@@ -276,12 +283,17 @@ private:
 	void SetHud(const FHud& S) { Hud = S; bHasHud = true; }
 };
 
-/* create({...}) -> {discgolf, petanque} */
+/* create({...}) -> {discgolf, muselunden, petanque}: the two Torshovdalen holes, the real 12-hole Muselunden DiscGolfPark
+ * (when the data has it) and petanque. */
 struct HAARKLOUS_API FHKMinigames
 {
-	explicit FHKMinigames(const FHKMinigamesContext& Ctx) : DiscGolf(Ctx), Petanque(Ctx) {}
+	explicit FHKMinigames(const FHKMinigamesContext& Ctx);
 	FHKDiscGolf DiscGolf;
+	TUniquePtr<FHKDiscGolf> Muselunden;
 	FHKPetanque Petanque;
+	// [discgolf, muselunden, petanque] without the missing ones (game-main.js discCourses + petanque).
+	TArray<FHKMinigame*> All();
+	bool IsDiscGolf(const FHKMinigame* G) const { return G == &DiscGolf || (Muselunden && G == Muselunden.Get()); }
 };
 
 namespace HKJs

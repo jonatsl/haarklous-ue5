@@ -17,6 +17,9 @@ Meshes (metres, Blender z up, the wall plane at y = 0, sticking out toward -y):
   SM_Ledge          a 1 m concrete ledge on top of the plinth (slot 0 concrete)
   SM_Gutter         a 1 m half-round eaves gutter, stretched along each eave of the hipped roofs (slot 0 metal)
   SM_RoadDash, SM_ZebraStripe  a 1 m road-paint square, stretched per mark (slot 0 yellow / white paint)
+  SM_StreetLamp     a post-top street lamp (issue #2): the web's lamp in footprint and height (pole 0.07 m radius at the
+                    foot, 0.05 m at the top, 5 m; a shade 0.12 -> 0.25 m wide, 0.25 m tall, centred at 5 m), with a
+                    flared foot, a collar, a domed cap and an opal diffuser (slot 0 lamp metal, 1 diffuser), smooth
   SM_Kerb           a 1 m granite kerb stone, 15 cm wide, 10 cm above the ground (slot 0 granite), placed 2 m
                     long (stretched) to halve the number of objects
 each written to tools/out/fbx/details_<name>.fbx.
@@ -165,9 +168,9 @@ def ground_helpers(s, game):
     surf = np.fromfile(os.path.join(DATA, 'surface-classes.bin'), dtype=np.uint8).reshape(1024, 1024)
 
     def height(x, z):
-        """The visible ground: surroundings.js terrainMesh triangles (a c b, b c d), 4 m cells within 300 m (the near
-        terrain), else the far terrain (8 m cells, 0.5 m lower)."""
-        res, drop = (4, 0.0) if max(abs(x), abs(z)) < 300 else (8, 0.5)
+        """The visible ground: surroundings.js terrainMesh triangles (a c b, b c d), 4 m cells within the walkable
+        square (the near and outer terrain), else the far terrain (8 m cells, 0.5 m lower)."""
+        res, drop = (4, 0.0) if max(abs(x), abs(z)) < play else (8, 0.5)   # near + outer terrain (4 m) out to ±playHalf
         k = res // step
         fi = min(n - 1 - k, max(0.0, (x + half) / step)) / k; fj = min(n - 1 - k, max(0.0, (z + half) / step)) / k
         i, j = int(fi), int(fj); u, v = fi - i, fj - j
@@ -317,6 +320,96 @@ def chimney():
     return m
 
 
+def lathe(profile, slots, sides=12):
+    """Solid of revolution about z: profile = [(r, z, slot index of the band above this point)], bottom to top; a closed
+    bottom when the first radius is 0 and a closed top when the last is 0. Shared vertices, so it can be smooth."""
+    verts, faces, mats = [], [], []
+    rings = []
+    for r, z, _ in profile:
+        if r <= 0:
+            rings.append([len(verts)]); verts.append((0.0, 0.0, z))
+        else:
+            rings.append(list(range(len(verts), len(verts) + sides)))
+            verts += [(r * math.cos(2 * math.pi * k / sides), r * math.sin(2 * math.pi * k / sides), z) for k in range(sides)]
+    for i in range(len(profile) - 1):
+        a, b, slot = rings[i], rings[i + 1], profile[i][2]
+        for k in range(sides):
+            k1 = (k + 1) % sides
+            if len(a) == 1:
+                faces.append((a[0], b[k], b[k1]))
+            elif len(b) == 1:
+                faces.append((a[k], a[k1], b[0]))
+            else:
+                faces.append((a[k], a[k1], b[k1], b[k]))
+            mats.append(slot)
+    return verts, faces, mats
+
+
+def street_lamp():
+    """(verts, faces, material per face) of SM_StreetLamp, origin on the ground at the pole's axis."""
+    M, G = 0, 1
+    return lathe([(0.0, 0.0, M), (0.115, 0.0, M), (0.115, 0.04, M), (0.085, 0.12, M), (0.072, 0.32, M),   # flared foot
+                  (0.07, 0.36, M), (0.05, 4.82, M),                                                     # tapered pole
+                  (0.068, 4.84, M), (0.068, 4.875, M), (0.105, 4.875, G), (0.105, 4.885, M),            # collar, diffuser
+                  (0.12, 4.885, M), (0.25, 5.10, M), (0.255, 5.11, M), (0.22, 5.125, M),               # shade and its rim
+                  (0.12, 5.15, M), (0.0, 5.165, M)], [M, G], sides=16)
+
+
+def smooth_object(name, verts, faces, mats, slots, sharp_deg=40):
+    """A smooth-shaded object with sharp edges above sharp_deg (weighted normals keep flat bands flat)."""
+    import bmesh
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(verts, [], faces)
+    me.update()
+    for poly in me.polygons:
+        poly.material_index = mats[poly.index]
+        poly.use_smooth = True
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    for e in bm.edges:
+        if len(e.link_faces) == 2 and e.calc_face_angle(0) > math.radians(sharp_deg):
+            e.smooth = False
+    bm.to_mesh(me)
+    bm.free()
+    uvl = me.uv_layers.new(name='UVMap')
+    for poly in me.polygons:
+        for li in poly.loop_indices:
+            x, y, z = me.vertices[me.loops[li].vertex_index].co
+            uvl.data[li].uv = (math.atan2(y, x) * 0.08, z)      # metres up the pole
+    for sl in slots:
+        me.materials.append(bpy.data.materials.get(sl) or bpy.data.materials.new(sl))
+    ob = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(ob)
+    ob.modifiers.new('weighted', 'WEIGHTED_NORMAL').keep_sharp = True
+    return ob
+
+
+def lamps(s, game, to_world, ue):
+    """Every street lamp of the map data (surroundings.js draws them all; the ones inside the walkable square are also
+    solid, game.json), standing on the ground (yLocal = ground + RelLocal), except on the construction site and in the
+    paintball yard (cleared ground, like the trees)."""
+    import base64
+    ter = s['terrain']
+    n, half, step = ter['n'], ter['half'], ter['step']
+    grid = np.frombuffer(base64.b64decode(ter['dm']), dtype='<i2', count=n * n).astype(np.float64).reshape(n, n) / 10.0
+    rects = [json.load(open(os.path.join(DATA, f), encoding='utf-8'))['rect'] for f in ('site.json', 'paintball.json') if os.path.exists(os.path.join(DATA, f))]
+
+    def rel(x, z):               # FHKData::RelLocal
+        fi = min(n - 1.001, max(0.0, (x + half) / step)); fj = min(n - 1.001, max(0.0, (z + half) / step))
+        i, j = int(fi), int(fj); u, v = fi - i, fj - j
+        return grid[j, i] * (1 - u) * (1 - v) + grid[j, i + 1] * u * (1 - v) + grid[j + 1, i] * (1 - u) * v + grid[j + 1, i + 1] * u * v
+
+    out = []
+    L = s.get('lamps', [])
+    for k in range(0, len(L) - 1, 2):
+        x, z = L[k], L[k + 1]
+        if any(r['x0'] <= x <= r['x0'] + r['w'] and r['s0'] <= z <= r['s0'] + r['d'] for r in rects):
+            continue
+        wx, wz = to_world(x, z)
+        out.append(ue(wx, s['ground'] + rel(x, z), wz, (k * 37) % 360))
+    return out
+
+
 # ---------- placements ----------
 def main():
     s = json.load(open(os.path.join(DATA, 'surroundings.json'), encoding='utf-8'))
@@ -453,6 +546,7 @@ def main():
                 yaw = math.degrees(math.atan2(w2[1] - w1[1], w2[0] - w1[0]))
                 lists['SM_Chimney'].append(ue(wx, top + rise, wz, yaw))
     lists['SM_Kerb'] = kerbs(s, game, to_world, ue)
+    lists['SM_StreetLamp'] = lamps(s, game, to_world, ue)
     lists['SM_RoadDash'], lists['SM_ZebraStripe'] = markings(s, game, to_world)
     return lists
 
@@ -480,10 +574,11 @@ for name, mb, slots in (('SM_Balcony', balcony(False), ['MI_HK_DetailConcrete'])
                         ('SM_Ledge', ledge(), ['MI_HK_DetailConcrete']),
                         ('SM_Kerb', kerb(), ['MI_HK_DetailGranite']),
                         ('SM_RoadDash', road_mark(), ['MI_HK_PaintYellow']),
-                        ('SM_ZebraStripe', road_mark(), ['MI_HK_PaintWhite'])):
+                        ('SM_ZebraStripe', road_mark(), ['MI_HK_PaintWhite']),
+                        ('SM_StreetLamp', None, ['MI_HK_LampMetal', 'MI_HK_LampDiffuser'])):
     for o in list(bpy.data.objects):
         bpy.data.objects.remove(o)
-    ob = mb.object(name, slots)
+    ob = mb.object(name, slots) if mb is not None else smooth_object(name, *street_lamp(), slots)
     bpy.ops.object.select_all(action='DESELECT')
     ob.select_set(True)
     bpy.ops.export_scene.fbx(filepath=os.path.join(OUT, f'details_{name}.fbx'), use_selection=True, apply_unit_scale=True,

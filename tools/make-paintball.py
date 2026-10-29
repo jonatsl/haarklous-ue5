@@ -2,6 +2,11 @@
 play area, lobby, team bases, flags, spawn points and the cover (containers, building shells, walls with windows,
 barriers, a car wreck, cable spools, sandbags, barrels, pallets, tyres).
 
+29 Oct 2026: moved into the valley floor that the construction site left (the user: the site moves south, the course
+must not cross buildings or the HODET N.N. sculpture). Yard x -72..-8, s 296..344 (no buildings, paths or trees; the
+ground falls 9 m), play area x -70..-10, s 298..338, gate x -51..-47 in the south wall where the lawn is level with the
+yard, lobby on the lawn south of it. 17 m west of the sculpture. The web game uses the same numbers. The first version:
+
 Place: in the park valley next to the construction site, a 64 x 48 m paved yard in the map's local frame
 (x -112..-48, s 376..424, on the far terrain's 8 m grid, which build_assets.py cuts open). The ground there falls 7 m
 from east to west, so the yard is one level (the median height) with retaining walls: a parapet on the low sides, the
@@ -24,10 +29,10 @@ import numpy as np
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DATA = os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data')
-RECT = dict(x0=-112.0, s0=376.0, w=64.0, d=48.0)          # the yard (terrain cut), local frame
-PLAY = dict(x0=-110.0, s0=378.0, w=60.0, d=40.0)          # inside the net
-GATE = (-88.0, -84.0)                                    # x range of the gate in the south wall (s = 424)
-LOBBY = dict(x0=-98.0, s0=419.0, w=28.0, d=17.0)          # spectator corridor + the lawn outside the gate
+RECT = dict(x0=-72.0, s0=296.0, w=64.0, d=48.0)           # the yard (terrain cut), local frame
+PLAY = dict(x0=-70.0, s0=298.0, w=60.0, d=40.0)           # inside the net
+GATE = (-51.0, -47.0)                                    # x range of the gate in the south wall (s = 344)
+LOBBY = dict(x0=-61.0, s0=339.0, w=28.0, d=17.0)          # spectator corridor + the lawn outside the gate
 
 # One half of the course (blue, u < 0); the other half is the same turned by 180 degrees about the centre.
 # kind, u, v, yaw (radians, about the vertical, course coordinates)
@@ -123,7 +128,7 @@ def main():
     gnd = ground(X, S)
     print(f'HK: paintball yard {RECT["w"]:.0f} x {RECT["d"]:.0f} m at {floor:.2f} m (ground {gnd.min():.1f}..{gnd.max():.1f}), '
           f'{len(pieces)} cover pieces, {len(coll)} boxes, centre {out["centre"]["world"]}, '
-          f'gate ground {float(ground(-86.0, 424.0)):.2f} m')
+          f'gate ground {float(ground((GATE[0] + GATE[1]) / 2, RECT["s0"] + RECT["d"])):.2f} m')
 
 
 if __name__ == '__main__':

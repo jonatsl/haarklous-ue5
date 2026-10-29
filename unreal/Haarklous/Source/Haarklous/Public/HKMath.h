@@ -79,3 +79,13 @@ struct HAARKLOUS_API FHKMat
 	FVector GetPosition() const { return FVector(E[12], E[13], E[14]); }
 	FQuat GetRotation() const;                         // Quaternion.setFromRotationMatrix (scale removed)
 };
+
+/* An invisible hit box the web aims at with its raycaster (BoxGeometry size centred on its mesh, world matrix). */
+struct HAARKLOUS_API FHKHitBox
+{
+	FHKMat World;
+	FVector Size = FVector::ZeroVector;
+	// Distance along Dir (a unit vector) from From to the box, if it is hit within Far.
+	bool Ray(const FVector& From, const FVector& Dir, double Far, double& OutT) const;
+	static FHKHitBox FromJson(const TSharedPtr<class FJsonObject>& O);   // {world: [16], size: [w, h, d]}
+};
