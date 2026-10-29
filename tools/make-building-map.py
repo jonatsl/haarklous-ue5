@@ -117,6 +117,16 @@ def main():
         lid = look_id(style, rgb, tile, style == 'plaster', variant)
         polys.append(([to_world(x, z) for x, z in ring], lid))
         per_building[i] = {'style': style, 'web': b['s'], 'tile': tile, 'look': lid}
+    # The shops (game-shops.js) are cut out of their buildings' outlines; the wall the web rebuilds above each shop
+    # front (on the old outline) takes its look from here, so the shop's rectangle gets its building's look too.
+    game_path = os.path.join(DATA, 'game.json')
+    if os.path.exists(game_path):
+        for sh in json.load(open(game_path, encoding='utf-8')).get('shops', {}).get('shops', []):
+            if sh['building'] not in per_building:
+                continue
+            o, u, v = sh['origin'], sh['u'], sh['v']
+            at = lambda a, b_: (o[0] + u[0] * a + v[0] * b_, o[1] + u[1] * a + v[1] * b_)
+            polys.append(([at(0, -.3), at(sh['W'], -.3), at(sh['W'], sh['D']), at(0, sh['D'])], per_building[sh['building']]['look']))
 
     # Haarklous plass 17 itself (the web's own building, already in the world frame): salmon brick, slate roof.
     own = s['own']

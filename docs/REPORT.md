@@ -510,6 +510,44 @@ play-through ran at 46.5 fps on average, 26.7 at the 1 % low.
 and the `balcony` test (the prompt from all 25 places, open, close from the balcony: 0 failures) were run in the new
 packaged build itself (the scripted tests now also write `results.txt`, since the packaged game has no log).
 
+## Catching up with the web game (29 Oct 2026, GitHub issues #1–#14)
+
+You asked to implement every open issue. The web snapshot is now web `main` (d4ec404); web PRs #18 and #19 were
+still open and were ported from their branches. Every issue's own checks are in the new play-through `places`
+(0 failures), with the vehicle jump in `vehicles`, mouse flying in `mouseflight`; 54 automation tests pass.
+
+| Issue | What you get | Checked |
+| --- | --- | --- |
+| #1 | The concrete barriers' end caps are filled by ear clipping, no see-through gap | unit test (6 triangles, areas add up); screenshot |
+| #2 | A Blender street lamp at all 389 lamp spots; 359 posts are solid | walking into one stops you 0.28 m from it (web 0.32) |
+| #3 | HODET N.N., the 7 m bronze head, at its real place with its stone steps | you stop 2.43 m from it (web 2.43); standing on a step 0.34 m up |
+| #4 | Cars and motorcycles leave the ground over crests (9.81 m/s²) | car 90 km/h: 0.60 s, 14.9 m; bike 110 km/h: 0.73 s, 22.3 m (the web code gives the same) |
+| #5 | Joker and Kiwi with a cashier, money in kroner, the bag, the bottle return | 196,60 kr and 47,80 kr baskets; beer hours; declined card; alarm; bag; +2 kr a bottle; firewood +3 |
+| #6 | Three stashes with 30-second boosts | 10.6 m/s and FOV 82; jump 1.42 m (web 1.47); bullet time 0.35×; back after 90 s |
+| #7, #8 | Petanque ends once at 13 (150 kr once); no freeze without boules | "You win 13–12!", ends after 4 s; the seven `petanqueNext` cases |
+| #9 | A vehicle world made during play gets the parked cars at once | all 6 parked cars block the bike on its first ride |
+| #10 | The site 96 m south / 72 m west, paintball in the old site area | data identical to the web's; in through the gate at x −120, the fence stops you at s 370.74 (web 370.74) |
+| #11 | The world is ±760 m; the real Muselunden DiscGolfPark, 12 holes, par 36 | the prompt, Hull 1/12, then hole 2's tee; far buildings block you |
+| #13 | Fly with the mouse like Battlefield; Shift or the right button looks around | `mouseflight`: free look 0.96 rad, helicopter −0.39 rad after 2 s (web about −0.4) |
+| #14 | The distant land lies below the real ground and joins it with an apron | screenshots from 60 m and 150 m up |
+
+![The Joker shop at its real place, with the cashier](img/places--10-shop-0-front.jpg)
+![Inside Joker: aim at an item and press □](img/places--11-shop-0-inside.jpg)
+![HODET N.N. from the south-south-west, the steps on the right](img/places--03-sculpture-from-ssw.jpg)
+![A stash crate in the park](img/places--07-stash-2.jpg)
+![A street lamp](img/places--04-street-lamp.jpg)
+![Muselunden hole 1](img/places--05-muselunden-tee-1.jpg)
+![The construction site at its new place](img/places--01-site-new-place.jpg)
+![A concrete barrier's end, solid](img/places--02b-barrier-end-knee.jpg)
+![The distant land from 60 m up, looking south](img/places--14-distant-land-south.jpg)
+
+Frame rates after the bigger world (editor build, 1280 × 720 at 75 %, this laptop): home 57.0, firepit 42.9,
+street 44.0, park 35.1, flying 33.5, site 28.6, paintball 25.8 fps (averages; the slowest 1 % of frames 12–30 fps).
+The baked lighting is bigger now (298 MB, was 155 MB), because the walkable world doubled in area.
+
+Not changed without asking: the lamps give no light at night (the web's sun is fixed); the cashier wears the shop's
+colour on one of the realistic people; the HUD drops the web's emoji (the game's font has none).
+
 ## What still needs you
 
 - **Online for everyone:** a lobby holds 12 players (your decision, the whole lobby). The test server already does,
@@ -517,15 +555,12 @@ packaged build itself (the scripted tests now also write `results.txt`, since th
   friends with the same build join it (`-HKOnline -HKLobby=CODE` or the code pad); the web game at
   https://haarklous-ue5-test.server-smoke.workers.dev joins the same lobbies (without the site and paintball). The
   live server (haarklous-online) still holds 5; changing it is yours to do, I never touch it.
-- **Your three new issues** (jonatsl/haarklous-ue5 #1 paintball cover that may look see-through, #2 street lamps,
-  #3 the Torshovdalen sculpture) are filed, not started.
 - **Buildings further away:** the blocks around 17A have their real colour in OpenStreetMap; most others do not,
   so their brick or plaster colour is a believable Torshov guess, the same for one block. If one you know looks
   wrong, tell me its street and colour (one line in `tools/make-building-map.py`).
-- **Decide on the web-game bugs** in `docs/GAMEPLAY-IDEAS.md` (they are copied 1:1, as the rules say):
-  petanque never ends after 13 points, petanque can freeze when no boule is left, and vehicle obstacles appear one
-  update late. Fixing them is a small change in both games once you say yes.
-- Web pull request #4 (hidden stashes with boosts) was not in the snapshot; refresh the snapshot when it is merged.
+- Web pull requests #18 (distant land) and #19 (mouse flying) were still open; they are ported from their branches.
+  Refresh the snapshot once they are merged (`tools
+efresh-reference.ps1`).
 - Decide whether you want the web's "aerial imagery" checkbox back. The web only shows Esri aerial photos when it is
   online; Unreal draws real ground materials instead, so the option was left out. Bringing it back means downloading
   the photos while the game runs.

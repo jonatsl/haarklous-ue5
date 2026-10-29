@@ -37,8 +37,6 @@ namespace HKPlacesTest
 		T.Do([&T, X, S, Yaw]() { AHKGame* G = T.Game(); if (G->Player.Mode != TEXT("foot")) G->ExitVehicle(); const FVector2D P = W(X, S); G->Place(P.X, P.Y, Yaw); G->Player.Pitch = 0; });
 		GameWait(T, .3);
 	}
-	// Walk forward with the left stick for Seconds of game time.
-	void Walk(AHKTestDriver& T, double Seconds) { T.Stick(0, -1, Seconds); }
 	// Look at a world point from the eye.
 	void LookAt(AHKGame* G, const FVector& P)
 	{
@@ -47,6 +45,14 @@ namespace HKPlacesTest
 		G->Player.Pitch = std::atan2(P.Y - E.Y, FVector2D(P.X - E.X, P.Z - E.Z).Size());
 	}
 	FString PromptOf(AHKGame* G) { return G->FindPrompt().Text; }
+	// A fixed camera now (T.Pose adds a step at the end of the script when called from a running step).
+	void PoseNow(AHKGame* G, double X, double Y, double Z, double Yaw, double Pitch)
+	{
+		G->bCameraOverride = true;
+		G->OverridePos = FVector(X, Y, Z);
+		G->OverrideQuat = HK::EulerToQuat(Pitch, Yaw, 0, TEXT("YXZ"));
+		G->UpdateCamera();
+	}
 	FDateTime Day(int32 DayOfWeekMon0, int32 Hour) { return FDateTime(2026, 10, 26) + FTimespan::FromDays(DayOfWeekMon0) + FTimespan::FromHours(Hour); }   // 26 Oct 2026 is a Monday
 	// Walk forward (W held) for Seconds of game time (the game runs fixed 1/60 s frames, whatever the real frame rate).
 	void WalkGame(AHKTestDriver& T, double Seconds)
@@ -55,6 +61,7 @@ namespace HKPlacesTest
 		GameWait(T, Seconds);
 		T.Do([]() { if (auto I = FHKInputProcessor::Get()) I->SimulateKey(TEXT("KeyW"), false); });
 	}
+	void Walk(AHKTestDriver& T, double Seconds) { WalkGame(T, Seconds); }
 
 	struct FRegister
 	{
@@ -111,6 +118,16 @@ namespace HKPlacesTest
 				T.Expect(TEXT("#10 the yard floor is at -27.05 m"), []() { const FVector2D P = W(-40, 318); return FMath::Abs(D().GroundWorld(P.X, P.Y) + 27.05) < .02; });
 				T.Shot(TEXT("02-paintball-lobby"));
 
+				// ---------------- #1: the concrete barriers' ends are solid ----------------
+				// The barrier at course (-24, -6), along v: its end at v -7.5 seen from 1.5 m, at knee and eye height.
+				for (const double H : {.5, 1.6})
+				{
+					T.Do([&T, H]() { const FVector2D P = W(-64, 309), Q = W(-64, 318); PoseNow(T.Game(), P.X, -27.05 + H, P.Y, std::atan2(-(Q.X - P.X), -(Q.Y - P.Y)), H < 1 ? .05 : -.35); });
+					T.Wait(1);
+					T.Shot(FString::Printf(TEXT("02b-barrier-end-%s"), H < 1 ? TEXT("knee") : TEXT("eye")));
+				}
+				T.FreeCamera();
+
 				// ---------------- #3: HODET N.N. ----------------
 				T.Expect(TEXT("#3 HODET N.N. at local (9.1, 275.5)"), []() { const TSharedPtr<FJsonObject> A = HKJson::Obj(HKJson::Obj(D().Game, TEXT("sculpture")), TEXT("at")); return FMath::Abs(HKJson::Num(A, TEXT("x")) - 9.1) < .1 && FMath::Abs(HKJson::Num(A, TEXT("s")) - 275.5) < .1; });
 				// Walk at it from 8 m south (+s): you stop 2.43 m from its centre.
@@ -158,6 +175,14 @@ namespace HKPlacesTest
 				GameWait(T, .5);
 				T.Expect(TEXT("#11 playing Muselunden: HUD Hull 1/12"), [&T]() { FHKDiscGolf* M = T.Game()->Mini->Muselunden.Get(); return M->bActive && M->Hud.Course == TEXT("Muselunden DiscGolfPark") && M->Hud.Hole == 1 && M->Hud.Holes == 12; });
 				T.Shot(TEXT("06-muselunden-hud"));
+				// Hole 1 in the basket: the game moves you to hole 2's tee and the HUD says Hull 2/12.
+				T.Do([&T]() { FHKDiscGolf* M = T.Game()->Mini->Muselunden.Get(); M->bHasPending = true; M->Pending = FHKDiscGolf::FPending(); M->Pending.bNext = true; M->Pending.T = .01; });
+				GameWait(T, .5);
+				T.Expect(TEXT("#11 after hole 1 you are on hole 2's tee: Hull 2/12"), [&T]()
+				{
+					AHKGame* G = T.Game(); FHKDiscGolf* M = G->Mini->Muselunden.Get(); const FHKDiscGolf::FHole& H = M->Holes[1];
+					return M->Hud.Hole == 2 && M->Hud.Holes == 12 && FVector2D(G->Player.X - H.Tee.X, G->Player.Z - H.Tee.Z).Size() < .5;
+				});
 				T.Press(1);   // ○ quits
 				GameWait(T, .5);
 				T.Expect(TEXT("#11 buildings beyond the old 540 m edge block you"), []()
@@ -300,9 +325,12 @@ namespace HKPlacesTest
 				for (int32 Si = 0; Si < 2; Si++)
 				{
 					// From the street through the door centre into the shop.
+					// The shop front from across the pavement (the sign, the glass, the doors), then from the door.
+					T.Do([&T, Si]() { AHKGame* G = T.Game(); const FHKShop& S = G->Shops->Shops[Si]; const FVector2D A = S.ToWorld(S.W / 2, -9), B = S.ToWorld(S.W / 2, 3); G->Place(A.X, A.Y, std::atan2(-(B.X - A.X), -(B.Y - A.Y))); G->Player.Pitch = .1; });
+					GameWait(T, .6);
+					T.Shot(FString::Printf(TEXT("10-shop-%d-front"), Si));
 					T.Do([&T, Si]() { AHKGame* G = T.Game(); const FHKShop& S = G->Shops->Shops[Si]; const FVector2D A = S.ToWorld(S.UDoor, -3.5), B = S.ToWorld(S.UDoor, 3); G->Place(A.X, A.Y, std::atan2(-(B.X - A.X), -(B.Y - A.Y))); G->Player.Pitch = 0; });
 					GameWait(T, .4);
-					T.Shot(FString::Printf(TEXT("10-shop-%d-front"), Si));
 					Walk(T, 2.2);
 					T.Expect(FString::Printf(TEXT("#5 walked through the door into shop %d"), Si), [&T, Si]() { return T.Game()->Shops->ShopAt(T.Game()->Player.X, T.Game()->Player.Z, T.Game()->Player.Feet) == Si; });
 					T.Shot(FString::Printf(TEXT("11-shop-%d-inside"), Si));
@@ -386,10 +414,10 @@ namespace HKPlacesTest
 				T.Do([&T]() { T.Game()->ShopClock = nullptr; T.Game()->Shops->Wallet.Reset(500); });
 
 				// ---------------- #14: the distant land from the air ----------------
-				T.Do([&T]() { const FVector2D P = W(-300, 640), Q = W(-300, 2000); T.Pose(P.X, D().HeightWorld(P.X, P.Y) + 60, P.Y, std::atan2(-(Q.X - P.X), -(Q.Y - P.Y)), -.18); });
+				T.Do([&T]() { const FVector2D P = W(-300, 640), Q = W(-300, 2000); PoseNow(T.Game(), P.X, D().HeightWorld(P.X, P.Y) + 60, P.Y, std::atan2(-(Q.X - P.X), -(Q.Y - P.Y)), -.18); });
 				T.Wait(2);
 				T.Shot(TEXT("14-distant-land-south"));
-				T.Do([&T]() { const FVector2D P = W(-88, 400), Q = W(-88, 1500); T.Pose(P.X, D().HeightWorld(P.X, P.Y) + 150, P.Y, std::atan2(-(Q.X - P.X), -(Q.Y - P.Y)), -.3); });
+				T.Do([&T]() { const FVector2D P = W(-88, 400), Q = W(-88, 1500); PoseNow(T.Game(), P.X, D().HeightWorld(P.X, P.Y) + 150, P.Y, std::atan2(-(Q.X - P.X), -(Q.Y - P.Y)), -.3); });
 				T.Wait(2);
 				T.Shot(TEXT("15-above-the-site-south"));
 				T.FreeCamera();

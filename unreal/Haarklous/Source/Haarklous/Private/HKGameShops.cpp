@@ -15,10 +15,10 @@
 
 namespace
 {
-	// BOOSTS of game-main.js.
+	// BOOSTS of game-main.js, without the emoji (the game's font has none; the badge shows the boost's colour).
 	const TCHAR* BoostName(const FString& K)
 	{
-		return K == TEXT("speed") ? TEXT("⚡ 3× running speed") : K == TEXT("jump") ? TEXT("🦘 3× jump height") : TEXT("⏳ Bullet time – the world slows down");
+		return K == TEXT("speed") ? TEXT("3× running speed") : K == TEXT("jump") ? TEXT("3× jump height") : TEXT("Bullet time – the world slows down");
 	}
 	const TCHAR* BoostKinds[] = {TEXT("speed"), TEXT("jump"), TEXT("slowmo")};
 	const TCHAR* Greet[] = {TEXT("Hei! Velkommen inn."), TEXT("Hei hei!"), TEXT("God dag!"), TEXT("Hei, si fra om du trenger hjelp.")};
@@ -255,7 +255,13 @@ void AHKGame::UseItem(int32 Product)
 		for (int32 i = 0; i < 3; i++)
 		{
 			FTimerHandle H;
-			GetWorldTimerManager().SetTimer(H, FTimerDelegate::CreateWeakLambda(this, [this]() { if (ThrowLog) ThrowLog(FVector(Player.X, Player.Feet + 1.3, Player.Z)); AddLog(); }), .001 + i * .35, false);
+			GetWorldTimerManager().SetTimer(H, FTimerDelegate::CreateWeakLambda(this, [this]()
+			{
+				// fire.throwLog(...); mp.addWood() (offline: the local fire, as AddLog does)
+				if (ThrowLog) ThrowLog(FVector(Player.X, Player.Feet + 1.3, Player.Z));
+				if (AddWood) AddWood();
+				else { LocalFire.Level = FMath::Min((double)FireMax, FireLevel() + 1); LocalFire.T = FPlatformTime::Seconds(); }
+			}), .001 + i * .35, false);
 		}
 		Notice(TEXT("You empty the sack of firewood onto the fire."), 3);
 	}
@@ -324,11 +330,11 @@ void AHKGame::DrawShopsHud(UCanvas* C)
 	if (!Shops) return;
 	// The cashiers' speech bubbles.
 	for (const FCashier& Ca : Cashiers) Ca.Av->DrawHud(C);
-	// #wallet: "💰 500,00 kr · 🍾 0" while in a shop, with a basket or the bag, or a few seconds after money changed.
+	// #wallet: the web's "💰 500,00 kr · 🍾 0" (no emoji in the game's font) while in a shop, with a basket or the bag, or a few seconds after money changed.
 	const int32 S = Player.Mode == TEXT("foot") ? Shops->ShopAt(Player.X, Player.Z, Player.Feet) : -1;
 	if (S >= 0 || Basket.Num() || bBag || WalletT > 0)
 	{
-		const FString T = FString::Printf(TEXT("💰 %s · 🍾 %d"), *FHKShops::Kr(Shops->Wallet.Money), Shops->Wallet.Pant);
+		const FString T = FString::Printf(TEXT("%s · %d bottle%s"), *FHKShops::Kr(Shops->Wallet.Money), Shops->Wallet.Pant, Shops->Wallet.Pant == 1 ? TEXT("") : TEXT("s"));
 		const float W = FHKUi::Measure(C, T, 16, true).X + 28;
 		FHKUi::Panel(C, Sz.X - 20 - W, 18, W, 32, Css(0x10241a, .8f), 14);
 		FHKUi::Text(C, T, Sz.X - 20 - W + 14, 24, 16, FHKUi::TextMain, EHKAlign::Left, true);
