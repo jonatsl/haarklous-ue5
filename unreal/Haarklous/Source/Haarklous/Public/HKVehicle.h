@@ -19,6 +19,9 @@ struct FHKVehicleInput
 	double L2 = 0, R2 = 0;
 	// sticks {lx, ly, rx, ry}; for aircraft and the drone these are the Mode 2 flight sticks (flightSticks()).
 	double LX = 0, LY = 0, RX = 0, RY = 0;
+	// hold: flying by mouse (Battlefield style), keep the tilt the mouse gave instead of levelling (helicopter; in the
+	// drone's angle mode the mouse moves the tilt).
+	bool bHold = false;
 	bool bEmpty = true;   // update(dt, {}) for parked / idle vehicles
 	bool bCross = false;  // ✕ pressed this frame (construction-site cranes: hook / unhook)
 };

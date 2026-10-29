@@ -313,7 +313,8 @@ void FHKHelicopter::Step(double Dt, const FHKVehicleInput& Inp)
 	Attitude(Pitch_, Bank);
 	const FVector Vb = BodyVel();
 	const double Fwd = -Vb.Z;
-	FVector Tw(ry * 1.25 - Pitch_ * 1.2 * (1 - FMath::Min(1.0, FMath::Abs(ry) * 2)), -lx * 1.3, -rx * 1.7 + Bank * 1.2 * (1 - FMath::Min(1.0, FMath::Abs(rx) * 2)));
+	const double Lv = Inp.bHold ? .15 : 1.2;   // flying by mouse: the tilt holds (it levels only slowly)
+	FVector Tw(ry * 1.25 - Pitch_ * Lv * (1 - FMath::Min(1.0, FMath::Abs(ry) * 2)), -lx * 1.3, -rx * 1.7 + Bank * Lv * (1 - FMath::Min(1.0, FMath::Abs(rx) * 2)));
 	if (Fwd > 5) Tw.Y += -std::atan2(Vb.X, Fwd) * FMath::Min(1.0, Fwd / 30) * 1.2 - Bank * FMath::Min(1.0, Sp / 25) * .55;
 	const bool bLight = Lift > G * .95;
 	if (bGrounded && !bLight) Tw = FVector(0, bLight ? Tw.Y : 0, 0);
@@ -545,8 +546,13 @@ void FHKDrone::Update(double Dt, const FHKVehicleInput& Inp, const FHKDroneEnv& 
 	if (Mode == TEXT("angle"))
 	{
 		YawA -= lx * 3.2 * Dt;
-		PitchA += (ry * .75 - PitchA) * FMath::Min(1.0, Dt * 9);
-		RollA += (rx * .75 - RollA) * FMath::Min(1.0, Dt * 9);
+		// The stick sets the tilt; flying by mouse, the mouse moves the tilt (up to 0.75 rad) and it stays there.
+		if (Inp.bHold) { PitchA = HKV::Clamp(PitchA + ry * 1.6 * Dt, -.75, .75); RollA = HKV::Clamp(RollA + rx * 1.6 * Dt, -.75, .75); }
+		else
+		{
+			PitchA += (ry * .75 - PitchA) * FMath::Min(1.0, Dt * 9);
+			RollA += (rx * .75 - RollA) * FMath::Min(1.0, Dt * 9);
+		}
 		Q = HKV::Euler(PitchA, YawA, -RollA, TEXT("YXZ"));
 		// Left stick sets the climb rate (+-7 m/s); centred it holds altitude.
 		Thr = HKV::Clamp(G + (-ly * 7 - Vel.Y) * 3, 0, 3.4 * G) / FMath::Max(.6, std::cos(PitchA) * std::cos(RollA));

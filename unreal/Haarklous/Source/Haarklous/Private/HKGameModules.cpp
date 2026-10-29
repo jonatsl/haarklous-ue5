@@ -25,8 +25,8 @@
 
 namespace
 {
-	const TCHAR* AirHelpHeli = TEXT("Helicopter (Mode 2) · left stick ↑↓ collective (centre = hover), ←→ pedals · right stick pitch/roll · R3 / V chase camera · the rotor needs a few seconds to spool up");
-	const TCHAR* AirHelpPlane = TEXT("Plane (Mode 2) · left stick ↑ to add throttle (it stays), ←→ rudder/nose wheel · right stick pitch/roll · pull back at about 85 km/h · L2 brakes · R3 / V view");
+	const TCHAR* AirHelpHeli = TEXT("Helicopter (Mode 2) · left stick ↑↓ collective (centre = hover), ←→ pedals · right stick pitch/roll · R3 / V chase camera · Keyboard + mouse: W/S collective, A/D pedals, mouse pitch/roll (up = nose down), hold Shift to look around · the rotor needs a few seconds to spool up");
+	const TCHAR* AirHelpPlane = TEXT("Plane (Mode 2) · left stick ↑ to add throttle (it stays), ←→ rudder/nose wheel · right stick pitch/roll · pull back at about 85 km/h · L2 brakes · R3 / V view · Keyboard + mouse: W/S throttle, A/D rudder, mouse pitch/roll (up = nose down), hold Shift to look around");
 	FString Verb(const FHKVehicle* V)
 	{
 		if (!V->VerbText.IsEmpty()) return V->VerbText;
@@ -351,20 +351,47 @@ void AHKGame::SiteMachineView(FHKVehicle* V, const FHKSeatPose& S)
 	}
 }
 
-FHKVehicleInput AHKGame::FlightSticks(double Dl) const
+FHKVehicleInput AHKGame::FlightSticks(double Dl, double Dt, double MouseScale)
 {
 	// "Mode 2 sticks for the aircraft and the drone; the keyboard uses W/S, A/D and the arrow keys."
+	// "Battlefield-style mouse flying (issue #16): the mouse is the right stick – mouse up = nose down, mouse down = nose up,
+	// left / right = roll – with W / S and A / D as the left stick. The mouse's speed is the stick deflection (700 px/s = full
+	// at sensitivity 1), so how far you move it is how far the aircraft tilts; `hold` asks the aircraft to keep that tilt rather
+	// than level itself. Arrow keys and the controller work as before (they turn `hold` off)."
 	auto Dz = [](double A) { return FMath::Abs(A) < .07 ? 0.0 : A; };
 	auto Kb = [this](const char* A, const char* B) { return (Frame.IsHeld(A) ? 1.0 : 0.0) - (Frame.IsHeld(B) ? 1.0 : 0.0); };
 	const double Wob = Dl ? FMath::Sin(Time * 1000 / 480) * .3 * Dl : 0;
+	const double K = Frame.bFreeLook ? 0 : MouseScale * Sensitivity.Mouse / 700 / FMath::Max(Dt, .004), A = FMath::Min(1.0, Dt / .05);
+	MouseFly.X += (Frame.Mouse.Dx * K - MouseFly.X) * A;
+	MouseFly.Y += (Frame.Mouse.Dy * K - MouseFly.Y) * A;
+	if (K && (Frame.Mouse.Dx || Frame.Mouse.Dy)) MouseFly.bHold = true;
+	if (FMath::Abs(Frame.Look.X) + FMath::Abs(Frame.Look.Y) > .1 || Kb("right", "left") || Kb("down", "up")) MouseFly.bHold = false;
 	FHKVehicleInput In;
 	In.bEmpty = false;
 	In.LX = Dz(Frame.Move.X) + Wob * .5;
 	In.LY = Dz(Frame.Move.Y);
-	In.RX = HK::Clamp(Dz(Frame.Look.X) + Kb("right", "left") + Wob, -1, 1);
-	In.RY = HK::Clamp(Dz(Frame.Look.Y) + Kb("down", "up") + Wob * .4, -1, 1);
+	In.RX = HK::Clamp(Dz(Frame.Look.X) + Kb("right", "left") + Wob + MouseFly.X, -1, 1);
+	In.RY = HK::Clamp(Dz(Frame.Look.Y) + Kb("down", "up") + Wob * .4 + MouseFly.Y, -1, 1);
 	In.Brake = Frame.L2;
+	In.bHold = MouseFly.bHold;
 	return In;
+}
+
+void AHKGame::FlightLook(double Dt)
+{
+	// "Free look while flying: Shift or the right mouse button held, the mouse turns your head; let go and it turns back."
+	if (Frame.bFreeLook)
+	{
+		Player.LookYaw = HK::Clamp(Player.LookYaw - Frame.Mouse.Dx * .0024 * Sensitivity.Mouse, -2.6, 2.6);
+		Player.LookPitch = HK::Clamp(Player.LookPitch - Frame.Mouse.Dy * .0024 * Sensitivity.Mouse, -1.1, 1);
+	}
+	else
+	{
+		const double K = FMath::Max(0.0, 1 - Dt * 5);
+		Player.LookYaw *= K; Player.LookPitch *= K;
+	}
+	// camera.rotateY(lookYaw); camera.rotateX(lookPitch)
+	CamQuat = CamQuat * HK::AxisAngle(FVector(0, 1, 0), Player.LookYaw) * HK::AxisAngle(FVector(1, 0, 0), Player.LookPitch);
 }
 
 void AHKGame::UpdateAircraft(double Dt, double Dl)
@@ -372,19 +399,12 @@ void AHKGame::UpdateAircraft(double Dt, double Dl)
 	FHKVehicle* V = Player.Vehicle;
 	if (Frame.WasPressed("square") && V->bGrounded && V->Speed < 3) { ExitVehicle(); return; }
 	if (Frame.WasPressed("r3") || Frame.WasPressed("view")) { Player.bChase = !Player.bChase; Player.bHasChaseCam = false; }
-	V->Update(Dt, FlightSticks(Dl));
+	V->Update(Dt, FlightSticks(Dl, Dt));
 	const FHKCameraPose Pose = V->CameraPose(Player.bChase, Player.bHasChaseCam ? &Player.ChaseCam : nullptr);
 	if (Player.bChase) { Player.ChaseCam = Pose.Position; Player.bHasChaseCam = true; }
 	CamPos = Pose.Position;
 	CamQuat = Pose.Quaternion;
-	if (!Player.bChase)
-	{
-		Player.LookYaw = Player.LookYaw - Frame.Mouse.Dx * .0024 * Sensitivity.Mouse;
-		Player.LookPitch = HK::Clamp(Player.LookPitch - Frame.Mouse.Dy * .0024 * Sensitivity.Mouse, -1.1, 1);
-		if (!Frame.Mouse.Dx) Player.LookYaw *= FMath::Max(0.0, 1 - Dt * .8);
-		if (!Frame.Mouse.Dy) Player.LookPitch *= FMath::Max(0.0, 1 - Dt * .8);
-		CamQuat = CamQuat * HK::AxisAngle(FVector(0, 1, 0), Player.LookYaw) * HK::AxisAngle(FVector(1, 0, 0), Player.LookPitch);
-	}
+	if (!Player.bChase) FlightLook(Dt);
 	Fov = 72;
 	Player.X = V->X; Player.Z = V->Z; Player.Feet = V->Y; Player.Yaw = V->Yaw;
 	bSpeedoAir = true;
@@ -460,9 +480,10 @@ void AHKGame::UpdateDrone(double Dt, double Dl)
 	Env.Solid = [&Data](const FVector& P, double Y0, double Y1) { return Data.WalkWorld.HitsSolid(FHKPt(P.X, P.Z), Y0, Y1); };
 	Env.bHasListener = true;
 	Env.Listener = FVector(Player.X, Player.Feet + 1.6, Player.Z);
-	Drone->Update(Dt, FlightSticks(Dl), Env);
+	Drone->Update(Dt, FlightSticks(Dl, Dt, Drone->Mode == TEXT("acro") ? .3 : 1), Env);
 	const FHKCameraPose Pose = Drone->CameraPose();
 	CamPos = Pose.Position; CamQuat = Pose.Quaternion;
+	FlightLook(Dt);
 	Fov = 100;
 	if ((OsdT -= Dt) > 0) return;
 	OsdT = .1;

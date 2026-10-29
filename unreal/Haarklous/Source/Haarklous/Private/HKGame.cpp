@@ -724,7 +724,9 @@ void AHKGame::UpdateGrass()
 void AHKGame::Frame_(double Dt)
 {
 	Time += Dt;
-	Frame = InputProc ? InputProc->ReadFrame(Player.Mode == TEXT("vehicle")) : FHKInputFrame();
+	// "const flying = player.mode === 'drone' || (player.mode === 'vehicle' && !!player.vehicle?.aircraft)"
+	const bool bFlying = Player.Mode == TEXT("drone") || (Player.Mode == TEXT("vehicle") && Player.Vehicle && Player.Vehicle->bAircraft);
+	Frame = InputProc ? InputProc->ReadFrame(Player.Mode == TEXT("vehicle"), bFlying) : FHKInputFrame();
 	FpsAvg += (1 / FMath::Max(Dt, .001) - FpsAvg) * .05;
 	if (NoticeT > 0 && (NoticeT -= Dt) <= 0) NoticeText.Empty();
 	if (PendingThud > 0 && (PendingThud -= Dt) <= 0) FHKAudio::Get().Sfx(TEXT("thud"), FHKSfxOpts(.4));

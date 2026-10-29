@@ -44,6 +44,7 @@ struct HAARKLOUS_API FHKInputFrame
 	TSet<FName> Held, Pressed, Released;
 	double R2 = 0, L2 = 0;
 	bool bGamepad = false;
+	bool bFreeLook = false;   // flying: Shift or the right mouse button held, the mouse looks around (input.freeLook)
 	FHKMouse Mouse;
 	bool IsHeld(const FName& N) const { return Held.Contains(N); }
 	bool WasPressed(const FName& N) const { return Pressed.Contains(N); }
@@ -81,8 +82,9 @@ public:
 	virtual bool HandleMouseWheelOrGestureEvent(FSlateApplication& SlateApp, const FPointerEvent& InWheelEvent, const FPointerEvent* InGestureEvent) override;
 	virtual const TCHAR* GetDebugName() const override { return TEXT("Haarklous input"); }
 
-	// Called once per game frame. Mode is the player's mode (W/S drive vehicles, as in the web code).
-	FHKInputFrame ReadFrame(bool bInVehicle);
+	// Called once per game frame. Mode is the player's mode (W/S drive vehicles, as in the web code); bFlying: in the
+	// helicopter, the plane or the drone (Shift and the right mouse button are free look then).
+	FHKInputFrame ReadFrame(bool bInVehicle, bool bFlying = false);
 	// Typed characters (from UHKGameViewportClient::InputChar).
 	void HandleChar(TCHAR C);
 	// Text entry (chat, lobby code, name): while a text field is open, typed characters go here instead of the game.

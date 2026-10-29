@@ -30,9 +30,9 @@ namespace
 		{TEXT("Motorcycle / car"), TEXT("□ get on/in · R2 throttle · L2 brake/reverse · left stick steer · right stick look")},
 		{TEXT("Excavator"), TEXT("L1/L2 left track forward/back · R1/R2 right track · left stick: swing and stick · right stick: boom and bucket")},
 		{TEXT("Disc golf / petanque"), TEXT("Aim with the camera · hold R2, release to throw · ○ quit")},
-		{TEXT("Helicopter"), TEXT("Mode 2: left stick ↑↓ collective (centre = hover), ←→ pedals · right stick pitch and roll · R3 / V chase camera · □ get out after landing")},
-		{TEXT("Plane"), TEXT("Mode 2: left stick ↑↓ throttle (stays where you leave it), ←→ rudder and nose wheel · right stick pitch and roll (pull back to lift off at about 95 km/h) · L2 brakes · R3 / V view")},
-		{TEXT("FPV drone"), TEXT("Hold △, pick the drone · left stick ↑↓ thrust, ←→ yaw · right stick tilt (angle) or rates (acro) · L1 / Q angle ↔ acro · ✕ reset after a crash · ○ pack away")},
+		{TEXT("Helicopter"), TEXT("Mode 2: left stick ↑↓ collective (centre = hover), ←→ pedals · right stick pitch and roll · R3 / V chase camera · □ get out after landing · Keyboard + mouse (Battlefield): W/S collective, A/D pedals, mouse pitch and roll (mouse up = nose down), hold Shift or the right mouse button to look around")},
+		{TEXT("Plane"), TEXT("Mode 2: left stick ↑↓ throttle (stays where you leave it), ←→ rudder and nose wheel · right stick pitch and roll (pull back to lift off at about 95 km/h) · L2 brakes · R3 / V view · Keyboard + mouse: W/S throttle, A/D rudder, mouse pitch and roll, hold Shift to look around")},
+		{TEXT("FPV drone"), TEXT("Hold △, pick the drone · left stick ↑↓ thrust, ←→ yaw · right stick tilt (angle) or rates (acro) · L1 / Q angle ↔ acro · ✕ reset after a crash · ○ pack away · Keyboard + mouse: W/S thrust, A/D yaw, mouse tilt (up = nose down), hold Shift to look around")},
 		{TEXT("Multiplayer"), TEXT("Up to five players per lobby (code above) · □ next to a vehicle someone is driving: ride along as passenger (motorcycle, cars, helicopter, plane) · Share / Enter: chat")},
 		{TEXT("Firepit"), TEXT("In the park in front of the building: □ sit on a bench, R2 have a beer, □ at the woodpile throws a log on the fire")},
 		{TEXT("Drinks"), TEXT("Beer and aquavit in the apartment: each beer or sip = 30 s drunk")}};

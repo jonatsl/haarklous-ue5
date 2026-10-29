@@ -15,6 +15,8 @@
  * Controls are "Mode 2" (FHKVehicleInput LX/LY/RX/RY as game-main.js flightSticks(), plus Brake = L2 for the plane):
  *   left stick up/down collective (heli: centre = hover) / throttle (plane: it stays where you leave it) / thrust (drone);
  *   left stick left/right yaw; right stick up/down pitch (pull back = nose up), left/right roll.
+ *   bHold: flying by mouse (Battlefield style), keep the tilt the mouse gave instead of levelling (helicopter; in the
+ *   drone's angle mode the mouse moves the tilt).
  * Body rates W: x pitch up, y yaw left, z roll left. Web space throughout (metres, y up).
  *
  * The FHKVehicle read-outs X, Y, Z, Yaw, Speed are kept equal to the web's getters (x = pos.x, y = pos.y - gearH,
