@@ -154,6 +154,8 @@ FHKGroundVehicle::FHKGroundVehicle(double InX, double InZ, double InYaw, double 
 	X = InX; Z = InZ; Yaw = InYaw; Speed = 0; Radius = InRadius; Length = InLength; Pitch = 0; Roll = 0;
 	Y = HeightAt(InX, InZ);
 	bActive = false;
+	// Vertical motion (cars and motorcycles set flies = true): vertical speed, time off the ground, landing dip.
+	bFlies = false; Vy = 0; AirT = 0; bAirborne = false; Squash = 0; bHasGroundPrev = false;
 }
 
 void FHKGroundVehicle::LoadRig(const FString& RigName)
@@ -181,6 +183,13 @@ bool FHKGroundVehicle::Clear(double NX, double NZ) const
 	const FHKWalkWorld& W = Data.VehicleWorld(Radius);
 	const FVector2D F = Forward();
 	const double H = Length / 2 - Radius, Yh = Data.GroundWorld(NX, NZ);
+	// In the air only solids at the vehicle's own height count (it can fly over a hedge); a slope face ahead stops it.
+	if (bAirborne)
+	{
+		auto Free = [&](double K) { const FHKPt P(NX + F.X * K, NZ + F.Y * K); return !(W.HitsSolid(P, Y + .25, Y + Height) || Data.GroundWorld(P.X, P.Z) > Y + .5); };
+		if (H > 0) return Free(-H) && Free(H);
+		return Free(0);
+	}
 	auto Stand = [&](double K) { const FHKPt P(NX + F.X * K, NZ + F.Y * K); return W.CanStand(P, 1.2, Data.GroundWorld(P.X, P.Z)); };
 	if (H > 0) { if (!Stand(-H) || !Stand(H)) return false; }
 	else if (!Stand(0)) return false;
@@ -192,10 +201,49 @@ void FHKGroundVehicle::Settle(double Dt)
 	const FVector2D F = Forward();
 	const double Rx = -F.Y, Rz = F.X, L = Length * .4, Wd = .6;
 	const double Hf = HeightAt(X + F.X * L, Z + F.Y * L), Hb = HeightAt(X - F.X * L, Z - F.Y * L), Hl = HeightAt(X - Rx * Wd, Z - Rz * Wd), Hr = HeightAt(X + Rx * Wd, Z + Rz * Wd);
-	Y = (Hf + Hb) / 2;
-	const double K = FMath::Min(1.0, Dt * 8);
-	Pitch += (std::atan2(Hf - Hb, 2 * L) - Pitch) * K;
+	const double G0 = (Hf + Hb) / 2, K = FMath::Min(1.0, Dt * 8), Slope = std::atan2(Hf - Hb, 2 * L);
 	TerrainRoll = std::atan2(Hl - Hr, 2 * Wd);
+	if (!bFlies) { Y = G0; Pitch += (Slope - Pitch) * K; return; }
+	// Cars and motorcycles: the wheels follow the ground as long as gravity (9.81 m/s²) can keep them on it. Where the
+	// ground falls away faster than a free fall from the current vertical speed (a crest or bump taken fast), the
+	// vehicle leaves the ground and flies on a ballistic path until the ground comes back up to meet it.
+	const double G = HKVehicles::Gravity;
+	Squash *= std::exp(-Dt * 7);
+	if (Dt >= .5 || !bHasGroundPrev || FMath::Abs(G0 - GroundPrev) > 2.5)
+	{
+		Y = G0; Vy = 0; AirT = 0; bAirborne = false; Pitch = Slope; GroundPrev = G0; bHasGroundPrev = true;
+		return;
+	}
+	const double GroundVy = FMath::Max(-25.0, FMath::Min(25.0, (G0 - GroundPrev) / Dt)), Free = Y + Vy * Dt - .5 * G * Dt * Dt;
+	if (Free > G0)
+	{
+		Y = Free; Vy -= G * Dt; AirT += Dt;
+		// Millimetre hops over the 4 m terrain grid don't count as flying (steering and throttle keep working).
+		if (!bAirborne && AirT > .06 && Y - G0 > .03) bAirborne = true;
+		if (bAirborne)
+		{
+			const double Path = std::atan2(Vy, FMath::Max(2.0, FMath::Abs(Speed))) * (Speed < 0 ? -1 : 1);
+			Pitch += (Path - Pitch) * FMath::Min(1.0, Dt * 1.6);
+		}
+		else Pitch += (Slope - Pitch) * K;
+	}
+	else
+	{
+		if (bAirborne) Land(FMath::Max(0.0, GroundVy - Vy));
+		Y = G0; Vy = GroundVy; AirT = 0; bAirborne = false; Pitch += (Slope - Pitch) * K;
+	}
+	GroundPrev = G0;
+}
+
+void FHKGroundVehicle::Land(double Impact)
+{
+	if (Impact > 1)
+	{
+		Snd().Sfx(TEXT("thud"), FHKSfxOpts(FMath::Min(1.0, Impact / 7)));
+		if (Impact > 5) Snd().Sfx(TEXT("hit"), FHKSfxOpts(FMath::Min(1.0, (Impact - 5) / 6)));
+	}
+	Squash = FMath::Min(.2, Impact * .025);
+	if (OnLand) OnLand(Impact);
 }
 
 void FHKGroundVehicle::Move(double Dt)
@@ -255,6 +303,7 @@ TArray<double> FHKGroundVehicle::NetGet() const
 void FHKGroundVehicle::NetSet(const TArray<double>& A)
 {
 	X = At(A, 0); Y = At(A, 1); Z = At(A, 2); Yaw = At(A, 3); Pitch = At(A, 4); Roll = At(A, 5); Speed = At(A, 6);
+	Vy = 0; AirT = 0; bAirborne = false; bHasGroundPrev = false;
 	TArray<double> Rest;
 	for (int32 i = 7; i < A.Num(); i++) Rest.Add(A[i]);
 	NetApply(Rest);
@@ -282,7 +331,7 @@ FHKMotorcycle::FHKMotorcycle(double InX, double InZ, double InYaw, uint32 InColo
 	Width = .8; Height = 1.3; Kind = TEXT("motorcycle"); Name = TEXT("Honda CBF600S"); Lean = 0; Bar = 0; Gear = 1; Rpm = 1300; Engine = nullptr; WheelSpin = 0;
 	HipD = {true, nullptr, FVector(0, 1.0, .28), TEXT("ride")};
 	HipP = {true, nullptr, FVector(0, 1.06, .66), TEXT("pillion")};
-	PassengerEye = FVector(0, 1.74, .76);
+	PassengerEye = FVector(0, 1.74, .76); bFlies = true;
 	ColorHex = InColor; PaintColor = HKVehicles::ColorFromHex(InColor); bHasPaint = true;
 	LoadRig(TEXT("motorcycle"));
 	Body = N(TEXT("body")); Front = N(TEXT("front")); Fw = N(TEXT("fw")); Rw = N(TEXT("rw")); Steer = N(TEXT("steer")); Bars = N(TEXT("bars"));
@@ -296,7 +345,7 @@ FHKSeatPose FHKMotorcycle::Seat()
 	const FVector2D F = Forward();
 	const double Up = 1.58;
 	FHKSeatPose S;
-	S.X = X - F.X * .36; S.Y = Y + Up * std::cos(Lean); S.Z = Z - F.Y * .36; S.Lateral = std::sin(Lean) * Up;
+	S.X = X - F.X * .36; S.Y = Y + Up * std::cos(Lean) - Squash; S.Z = Z - F.Y * .36; S.Lateral = std::sin(Lean) * Up;
 	S.Yaw = Yaw; S.Pitch = Pitch; S.Roll = Lean;
 	return S;
 }
@@ -322,12 +371,15 @@ void FHKMotorcycle::Update(double Dt, const FHKVehicleInput& In)
 	if (bActive)
 	{
 		const double V = Speed, Wobble = In.Drunk ? std::sin(HKVehicles::NowMs() / 380) * .35 * In.Drunk : 0;
-		const double Accel = In.Throttle * FMath::Max(1.2, 7.5 - V * .12) - In.Brake * 9 * HKV::Sign(V != 0 && !FMath::IsNaN(V) ? V : 1) - V * .02 - (V > 0 ? .25 : 0);
+		const bool bAir = bAirborne;
+		// In the air the wheels have no grip: only air drag slows the bike, and steering does nothing until it lands.
+		const double Accel = bAir ? -V * .02 : In.Throttle * FMath::Max(1.2, 7.5 - V * .12) - In.Brake * 9 * HKV::Sign(V != 0 && !FMath::IsNaN(V) ? V : 1) - V * .02 - (V > 0 ? .25 : 0);
 		// Holding L2 when (almost) stopped walks the bike backwards at about 1.5 m/s instead of braking against it.
-		const bool bReversing = In.Brake > .5 && V < .3 && In.Throttle < .1;
+		const bool bReversing = !bAir && In.Brake > .5 && V < .3 && In.Throttle < .1;
 		Speed = bReversing ? FMath::Max(-1.5, FMath::Min(0.0, V) - 2.5 * Dt) : FMath::Max(V > .3 ? 0.0 : -1.5, FMath::Min(55.0, V + Accel * Dt));
 		const double SteerIn = FMath::Max(-1.0, FMath::Min(1.0, In.Steer + Wobble));
-		if (FMath::Abs(Speed) < 4)
+		if (bAir) Bar += (SteerIn * .3 - Bar) * FMath::Min(1.0, Dt * 4);
+		else if (FMath::Abs(Speed) < 4)
 		{
 			// Low speed: steer the bars directly.
 			Bar += (SteerIn * .55 - Bar) * FMath::Min(1.0, Dt * 6);
@@ -388,7 +440,7 @@ FHKCar::FHKCar(double InX, double InZ, double InYaw, int32 InModel)
 	Width = 1.8; Height = 1.45; Kind = TEXT("car"); Name = HKVehicles::CarName(InModel) + TEXT(" hatchback"); SteerAngle = 0; Rpm = 800; Engine = nullptr; WheelSpin = 0;
 	HipD = {true, nullptr, FVector(-.37, .62, .28), TEXT("drive")};
 	HipP = {true, nullptr, FVector(.37, .62, .28), TEXT("sit")};
-	PassengerEye = FVector(.37, 1.24, .22);
+	PassengerEye = FVector(.37, 1.24, .22); bFlies = true;
 	PaintColor = HKVehicles::ColorFromHex(HKVehicles::CarColor(InModel)); bHasPaint = true;
 	LoadRig(TEXT("car"));
 	Body = N(TEXT("body"));
@@ -405,8 +457,8 @@ FHKSeatPose FHKCar::Seat()
 	const FVector2D F = Forward();
 	const double Rx = -F.Y, Rz = F.X;
 	FHKSeatPose S;
-	S.X = X + Rx * -.37 - F.X * .22; S.Y = Y + 1.24; S.Z = Z + Rz * -.37 - F.Y * .22;
-	S.Yaw = Yaw; S.Pitch = Pitch; S.Roll = FMath::IsNaN(TerrainRoll) ? 0 : TerrainRoll;
+	S.X = X + Rx * -.37 - F.X * .22; S.Y = Y + 1.24 - Squash; S.Z = Z + Rz * -.37 - F.Y * .22;
+	S.Yaw = Yaw; S.Pitch = Pitch; S.Roll = FMath::IsNaN(Roll) ? 0 : Roll;
 	return S;
 }
 
@@ -431,18 +483,21 @@ void FHKCar::Update(double Dt, const FHKVehicleInput& In)
 	if (bActive)
 	{
 		const double V = Speed, Wobble = In.Drunk ? std::sin(HKVehicles::NowMs() / 420) * .4 * In.Drunk : 0, Steer = FMath::Max(-1.0, FMath::Min(1.0, In.Steer + Wobble));
-		const double ForwardAcc = In.Throttle * FMath::Max(1.0, 4.2 - FMath::Abs(V) * .08), Braking = In.Brake * (V > .3 ? 8 : 0), Reverse = In.Brake * (V <= .3 ? 2.2 : 0);
-		Speed = FMath::Max(-5.0, FMath::Min(36.0, V + (ForwardAcc - Braking - Reverse - V * .03 - HKV::Sign(V) * .2) * Dt));
-		if (FMath::Abs(Speed) < .05 && In.Throttle < .05 && In.Brake < .05) Speed = 0;
+		// In the air the tyres have no grip: throttle, brakes and steering do nothing until the car lands.
+		const double Grip = bAirborne ? 0 : 1;
+		const double ForwardAcc = Grip * In.Throttle * FMath::Max(1.0, 4.2 - FMath::Abs(V) * .08), Braking = Grip * In.Brake * (V > .3 ? 8 : 0), Reverse = Grip * In.Brake * (V <= .3 ? 2.2 : 0);
+		Speed = FMath::Max(-5.0, FMath::Min(36.0, V + (ForwardAcc - Braking - Reverse - V * .03 - Grip * HKV::Sign(V) * .2) * Dt));
+		if (Grip && FMath::Abs(Speed) < .05 && In.Throttle < .05 && In.Brake < .05) Speed = 0;
 		SteerAngle += (Steer * .6 * FMath::Max(.35, 1 - FMath::Abs(V) / 30) - SteerAngle) * FMath::Min(1.0, Dt * 5);
-		Yaw -= Speed * std::tan(SteerAngle) / 2.63 * Dt;
+		Yaw -= Grip * Speed * std::tan(SteerAngle) / 2.63 * Dt;
 		// const target = 800 + Math.abs(this.speed) * 3.6 * 38 % 3600 + input.throttle * 1500;
 		const double Target = 800 + std::fmod(FMath::Abs(Speed) * 3.6 * 38, 3600.0) + In.Throttle * 1500;
 		Rpm += (FMath::Min(6200.0, Target) - Rpm) * FMath::Min(1.0, Dt * 5);
 		if (Engine) Engine->Set(Rpm, In.Throttle);
 	}
 	else Speed *= FMath::Max(0.0, 1 - Dt * 4);
-	Move(Dt); Settle(Dt); Roll = FMath::IsNaN(TerrainRoll) ? 0 : TerrainRoll;
+	Move(Dt); Settle(Dt);
+	if (!bAirborne) Roll = FMath::IsNaN(TerrainRoll) ? 0 : TerrainRoll;
 	WheelSpin += Speed * Dt / .31;
 	for (FWheel& Wh : Wheels) { Wh.Wheel->SetRotX(-WheelSpin); if (Wh.bFront) Wh.Holder->SetRotY(SteerAngle); }
 	SteeringWheel->SetRotY(-SteerAngle * 1.6);

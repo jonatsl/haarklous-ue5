@@ -180,6 +180,7 @@ namespace
 			else if (F == TEXT("lean")) O = {static_cast<FHKMotorcycle&>(G).Lean};
 			else if (F == TEXT("bar")) O = {static_cast<FHKMotorcycle&>(G).Bar};
 			else if (F == TEXT("steerAngle")) O = {static_cast<FHKCar&>(G).SteerAngle};
+			else if (F == TEXT("air")) O = {G.Vy, G.AirT, G.bAirborne ? 1.0 : 0.0, G.Squash};
 			else if (G.Kind == TEXT("excavator"))
 			{
 				FHKExcavator& E = static_cast<FHKExcavator&>(G);
@@ -233,9 +234,14 @@ namespace
 			{
 				Vehicle->OnDump = [this](double X, double Z) { Dumps.Add(FVector(X, Z, StepIndex)); };
 			}
+			if (Kind == TEXT("car") || Kind == TEXT("motorcycle"))
+			{
+				Ground()->OnLand = [this](double Impact) { Lands.Add(FVector2D(Impact, StepIndex)); };
+			}
 			return true;
 		}
 		int32 StepIndex = 0;
+		TArray<FVector2D> Lands;   // impact, step
 
 		void Compare(const TSharedPtr<FJsonObject>& Step, int32 Si, const TArray<FString>& Fields, const TArray<int32>& Sizes)
 		{
@@ -348,6 +354,7 @@ namespace
 					if (R.Num() == 2 && (FMath::Abs(E.X - R[0]) > 1e-6 || FMath::Abs(E.Y - R[1]) > 1e-6)) Error(FString::Printf(TEXT("exit point (%.6f, %.6f), web (%.6f, %.6f)"), E.X, E.Y, R[0], R[1]));
 				}
 				else if (Op == TEXT("net")) Vehicle->NetSet(HKJson::Nums(St, TEXT("a")));
+				else if (Op == TEXT("speed")) Vehicle->Speed = HKJson::Num(St, TEXT("s"));
 				else if (Op == TEXT("anim")) Vehicle->NetAnimate(Dt);
 				else if (Op == TEXT("launch")) { const TArray<double> C = HKJson::Nums(Sc, TEXT("ctor")); Drone->Launch(C[0], C[1], C[2], C[3]); }
 				else if (Op == TEXT("mode")) Drone->SetMode(HKJson::Str(St, TEXT("m")));
@@ -371,6 +378,18 @@ namespace
 					const TArray<double> R = HKJson::Nums((*RefDumps)[i]);
 					if (FMath::Abs(Dumps[i].X - R[0]) > 1e-6 || FMath::Abs(Dumps[i].Y - R[1]) > 1e-6 || (int32)Dumps[i].Z != (int32)R[2]) Error(FString::Printf(TEXT("dump %d at (%.4f, %.4f) step %d, web (%.4f, %.4f) step %d"), i, Dumps[i].X, Dumps[i].Y, (int32)Dumps[i].Z, R[0], R[1], (int32)R[2]));
 				}
+			}
+			// Landings of cars and motorcycles (jump scenarios): impact (m/s) and step.
+			const TArray<TSharedPtr<FJsonValue>>* RefLands;
+			if (Sc->TryGetArrayField(TEXT("lands"), RefLands))
+			{
+				if (RefLands->Num() != Lands.Num()) Error(FString::Printf(TEXT("%d landings, web %d"), Lands.Num(), RefLands->Num()));
+				for (int32 i = 0; i < FMath::Min(RefLands->Num(), Lands.Num()); i++)
+				{
+					const TArray<double> R = HKJson::Nums((*RefLands)[i]);
+					if (FMath::Abs(Lands[i].X - R[0]) > 1e-6 || (int32)Lands[i].Y != (int32)R[1]) Error(FString::Printf(TEXT("landing %d: impact %.6f m/s at step %d, web %.6f at step %d"), i, Lands[i].X, (int32)Lands[i].Y, R[0], (int32)R[1]));
+				}
+				if (Lands.Num()) Test.AddInfo(FString::Printf(TEXT("%s: first landing at step %d, impact %.3f m/s"), *Name, (int32)Lands[0].Y, Lands[0].X));
 			}
 			// Report.
 			FString Worst;
@@ -403,6 +422,7 @@ namespace
 			auto Has = [&](const TCHAR* S) { if (!C.Contains(S)) Error(FString::Printf(TEXT("no '%s' sound"), S)); };
 			if (Kind == TEXT("motorcycle")) { Has(TEXT("starter")); Has(TEXT("engine:bike")); }
 			else if (Kind == TEXT("car")) { Has(TEXT("carDoor")); Has(TEXT("starter")); Has(TEXT("engine:car")); if (Name == TEXT("carCrash")) Has(TEXT("hit")); }
+			if (Name.EndsWith(TEXT("Jump"))) Has(TEXT("thud"));
 			else if (Kind == TEXT("excavator")) { Has(TEXT("carDoor")); Has(TEXT("engine:excavator")); Has(TEXT("scrape")); Has(TEXT("dump")); }
 			else if (Kind == TEXT("helicopter")) { Has(TEXT("starter")); Has(TEXT("engine:heli")); Has(TEXT("crash")); }
 			else if (Kind == TEXT("plane")) { Has(TEXT("starter")); Has(TEXT("engine:plane")); Has(TEXT("crash")); }
@@ -432,6 +452,152 @@ HK_VEHICLE_SCENARIO_TEST(FHKVehDroneIndoorTest, "DroneIndoor", "droneIndoor")
 HK_VEHICLE_SCENARIO_TEST(FHKVehHeliStrikeTest, "HelicopterRotorStrike", "helicopterStrike")
 HK_VEHICLE_SCENARIO_TEST(FHKVehCarDrunkTest, "CarDrunk", "carDrunk")
 HK_VEHICLE_SCENARIO_TEST(FHKVehBikeDrunkTest, "MotorcycleDrunk", "motorcycleDrunk")
+HK_VEHICLE_SCENARIO_TEST(FHKVehCarJumpTest, "CarJump", "carJump")
+HK_VEHICLE_SCENARIO_TEST(FHKVehBikeJumpTest, "MotorcycleJump", "motorcycleJump")
+
+/*
+ * Gravity and jumps (issue #4 = web PR #5) with the checks of the web version: the grass hump at local (392, -392),
+ * driven along local (0.707, 0.707) in fixed 1/60 s steps from 30 m before the crest, the speed held by the throttle.
+ * Car 50 km/h stays on the ground; car 90 km/h flies about 0.57 s / 14 m / up to 0.22 m above the ground; motorcycle
+ * 110 km/h about 0.68 s / 21 m / 0.85 m; the vertical acceleration in the air is -9.81 m/s². In the air throttle, brake
+ * and steering do nothing; the landing thuds and dips the seat. The excavator does not fly.
+ */
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHKVehJumpTest, "Haarklous.Vehicles.Jump", EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+bool FHKVehJumpTest::RunTest(const FString& Parameters)
+{
+	FHKData& Data = FHKData::Get();
+	if (!TestTrue(TEXT("data loaded"), Data.bLoaded)) return false;
+	FNoDynamic NoDyn;
+	FRecordingAudio Rec;
+	FHKAudio::SetInstance(&Rec);
+	const double Dt = 1.0 / 60, Yaw = HKVehicles::LocalHeadingToYaw(std::atan2(.707, .707));
+	const FVector2D Crest = Data.ToWorld(392, -392), F(-std::sin(Yaw), -std::cos(Yaw));
+	struct FFlight
+	{
+		double OffT = 0, AirborneT = 0, Dist = 0, MaxH = 0, MaxG = 0, Impact = 0, TakeoffAt = 0, LandAt = 0, MinAcc = 1e9, MaxAcc = -1e9, MaxYawChange = 0, MaxSpeedErr = 0;
+		int32 Landings = 0, AccN = 0, Blocked = 0;
+		bool bFlew = false, bThud = false, bSeatDip = false;
+	};
+	// Same run as the recorded "carJump" / "motorcycleJump" scenarios (tools/web-export/reference-vehicles.js): 30 m before the
+	// crest with the speed set at once (a short hop at the start), a cruise control on the ground, full throttle, half brake
+	// and steering in the air over the crest. Measured: the flight that takes off within 5 m of the crest.
+	auto Drive = [&](const FString& Kind, double Kmh)
+	{
+		FFlight R;
+		TUniquePtr<FHKGroundVehicle> V;
+		const double X0 = Crest.X - F.X * 30, Z0 = Crest.Y - F.Y * 30;
+		if (Kind == TEXT("car")) V = MakeUnique<FHKCar>(X0, Z0, Yaw, 4); else V = MakeUnique<FHKMotorcycle>(X0, Z0, Yaw, 0x9e1b20);
+		const bool bCar = Kind == TEXT("car");
+		auto Along = [&]() { return (V->X - Crest.X) * F.X + (V->Z - Crest.Y) * F.Y; };
+		V->Enter();
+		const double Target = Kmh / 3.6;
+		V->Speed = Target;
+		FVector2D Start(X0, Z0);
+		double StartAt = -1e9, CrestAirT = 0;
+		TArray<double> Ys;   // heights of consecutive steps off the ground
+		V->OnLand = [&](double Impact)
+		{
+			R.Landings++;
+			if (R.bFlew || StartAt <= -5) return;
+			R.bFlew = true;
+			R.OffT = V->AirT; R.Impact = Impact; R.TakeoffAt = StartAt;
+			R.Dist = HKV::Hypot(V->X - Start.X, V->Z - Start.Y);
+			R.LandAt = Along();
+		};
+		for (int32 i = 0; i < 360 && !R.bFlew; i++)
+		{
+			const bool bAir = V->bAirborne, bOverCrest = bAir && Along() > -5;
+			FHKVehicleInput In;
+			In.bEmpty = false;
+			if (bOverCrest) { In.Throttle = 1; In.Brake = .5; In.Steer = .6; }
+			else
+			{
+				// Cruise control: the throttle whose acceleration lands exactly on the target speed.
+				const double S = V->Speed;
+				In.Throttle = FMath::Clamp(bCar ? ((Target - S) / Dt + S * .03 + HKV::Sign(S) * .2) / FMath::Max(1.0, 4.2 - FMath::Abs(S) * .08)
+					: ((Target - S) / Dt + S * .02 + (S > 0 ? .25 : 0)) / FMath::Max(1.2, 7.5 - S * .12), 0.0, 1.0);
+			}
+			const double PrevAirT = V->AirT, YawBefore = V->Yaw, SpeedBefore = V->Speed;
+			V->Update(Dt, In);
+			if (V->Speed == 0) R.Blocked++;
+			if (bOverCrest)
+			{
+				R.MaxYawChange = FMath::Max(R.MaxYawChange, FMath::Abs(V->Yaw - YawBefore));
+				R.MaxSpeedErr = FMath::Max(R.MaxSpeedErr, FMath::Abs(V->Speed - SpeedBefore * (1 - (bCar ? .03 : .02) * Dt)));
+			}
+			if (V->AirT > 0 && PrevAirT == 0) { Start = FVector2D(V->X, V->Z); StartAt = Along(); R.MaxH = R.MaxG = 0; Ys.Reset(); }
+			if (V->bAirborne && StartAt > -5) CrestAirT += Dt;
+			if (V->AirT > 0 && !R.bFlew)
+			{
+				// Above the ground under the middle, and above the ground the wheels follow (front and back averaged).
+				const FVector2D G = V->Forward();
+				const double L = V->Length * .4;
+				R.MaxH = FMath::Max(R.MaxH, V->Y - Data.GroundWorld(V->X, V->Z));
+				R.MaxG = FMath::Max(R.MaxG, V->Y - (Data.GroundWorld(V->X + G.X * L, V->Z + G.Y * L) + Data.GroundWorld(V->X - G.X * L, V->Z - G.Y * L)) / 2);
+				Ys.Add(V->Y);
+				if (Ys.Num() >= 3)
+				{
+					const double A = (Ys.Last() - 2 * Ys[Ys.Num() - 2] + Ys[Ys.Num() - 3]) / (Dt * Dt);
+					R.MinAcc = FMath::Min(R.MinAcc, A); R.MaxAcc = FMath::Max(R.MaxAcc, A); R.AccN++;
+				}
+			}
+			else Ys.Reset();
+			if (R.bFlew)
+			{
+				R.bThud = Rec.Calls.Contains(TEXT("thud"));
+				const FHKSeatPose S = V->Seat();
+				R.bSeatDip = V->Squash > 0 && FMath::Abs(S.Y - (bCar ? V->Y + 1.24 : V->Y + 1.58 * std::cos(static_cast<FHKMotorcycle*>(V.Get())->Lean)) + V->Squash) < 1e-9;
+			}
+		}
+		R.AirborneT = CrestAirT;
+		AddInfo(FString::Printf(TEXT("%s at %.0f km/h: %s; off the ground %.3f s (flagged airborne %.3f s), %.2f m from %.2f m to %.2f m past the crest, up to %.3f m above the ground (%.3f m above the wheels' ground), impact %.2f m/s, %d landings in all; vertical acceleration %.4f..%.4f m/s² over %d steps"),
+			*Kind, Kmh, R.bFlew ? TEXT("flew over the crest") : TEXT("stayed on the ground at the crest"), R.OffT, R.AirborneT, R.Dist, R.TakeoffAt, R.LandAt, R.MaxH, R.MaxG, R.Impact, R.Landings, R.AccN ? R.MinAcc : 0, R.AccN ? R.MaxAcc : 0, R.AccN));
+		TestEqual(Kind + TEXT(": never blocked"), R.Blocked, 0);
+		return R;
+	};
+	// The web code itself with these fixed 1/60 s steps: car 90 km/h 0.600 s / 14.90 m / 0.177 m, motorcycle 110 km/h
+	// 0.733 s / 22.28 m / 0.764 m (the recorded scenarios check the port against it exactly). The numbers in the web
+	// PR (car 0.57 s / 14 m / 0.22 m, motorcycle 0.68 s / 21 m / 0.85 m) came from a run with the speed held fixed all the
+	// way; the flight depends on the small hops just before the crest, so they are checked here as "about".
+	Rec.Calls.Reset();
+	const FFlight Car50 = Drive(TEXT("car"), 50);
+	TestFalse(TEXT("car 50 km/h stays on the ground at the crest"), Car50.bFlew);
+	TestTrue(TEXT("car 50 km/h: nothing longer than the 0.06 s hop filter at the crest"), Car50.AirborneT == 0);
+	Rec.Calls.Reset();
+	const FFlight Car90 = Drive(TEXT("car"), 90);
+	TestTrue(TEXT("car 90 km/h flies over the crest"), Car90.bFlew);
+	TestTrue(TEXT("car 90 km/h flies about 0.57 s"), FMath::Abs(Car90.OffT - .57) < .06);
+	TestTrue(TEXT("car 90 km/h flies about 14 m"), FMath::Abs(Car90.Dist - 14) < 1.5);
+	TestTrue(TEXT("car 90 km/h up to about 0.22 m"), FMath::Abs(Car90.MaxH - .22) < .06);
+	TestTrue(TEXT("car: no yaw from steering in the air"), Car90.MaxYawChange < 1e-12);
+	TestTrue(TEXT("car: in the air only air drag changes the speed"), Car90.MaxSpeedErr < 1e-9);
+	TestTrue(TEXT("car: landing thud"), Car90.bThud);
+	TestTrue(TEXT("car: landing dips the seat"), Car90.bSeatDip);
+	Rec.Calls.Reset();
+	const FFlight Bike = Drive(TEXT("motorcycle"), 110);
+	TestTrue(TEXT("motorcycle 110 km/h flies over the crest"), Bike.bFlew);
+	TestTrue(TEXT("motorcycle 110 km/h flies about 0.68 s"), FMath::Abs(Bike.OffT - .68) < .1);
+	TestTrue(TEXT("motorcycle 110 km/h flies about 21 m"), FMath::Abs(Bike.Dist - 21) < 2.5);
+	TestTrue(TEXT("motorcycle 110 km/h up to about 0.85 m"), FMath::Abs(Bike.MaxH - .85) < .12);
+	TestTrue(TEXT("motorcycle: no yaw in the air"), Bike.MaxYawChange < 1e-12);
+	TestTrue(TEXT("motorcycle: in the air only air drag changes the speed"), Bike.MaxSpeedErr < 1e-9);
+	TestTrue(TEXT("motorcycle: landing thud"), Bike.bThud);
+	TestTrue(TEXT("motorcycle: landing dips the seat"), Bike.bSeatDip);
+	for (const FFlight* Fl : {&Car90, &Bike})
+		TestTrue(TEXT("vertical acceleration in the air is -9.81 m/s²"), Fl->AccN > 10 && FMath::Abs(Fl->MinAcc + 9.81) < 1e-4 && FMath::Abs(Fl->MaxAcc + 9.81) < 1e-4);
+	// The excavator still hugs the ground; a network pose ends a flight.
+	{
+		FHKExcavator Ex(Crest.X, Crest.Y, Yaw);
+		TestFalse(TEXT("the excavator does not fly"), Ex.bFlies);
+		FHKCar Car(Crest.X, Crest.Y, Yaw, 4);
+		TestTrue(TEXT("cars fly"), Car.bFlies);
+		Car.Vy = 3; Car.AirT = .4; Car.bAirborne = true;
+		Car.NetSet(Car.NetGet());
+		TestTrue(TEXT("netSet resets the vertical motion"), Car.Vy == 0 && Car.AirT == 0 && !Car.bAirborne && !Car.bHasGroundPrev);
+	}
+	FHKAudio::SetInstance(nullptr);
+	return true;
+}
 
 /* The vehicle list: same 41 vehicles in the same order as the web (multiplayer numbering). */
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHKVehListTest, "Haarklous.Vehicles.List", EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)

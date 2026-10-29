@@ -507,6 +507,51 @@ namespace
 				T.Steps.Add([&T](double) { return FMath::Abs(T.Game()->Player.Vehicle->Speed) < .5; });
 				T.Hold(6, 0);
 				GetOut(TEXT("car"));
+				// Jump (gravity 9.81 m/s², issue #4): the same car 30 m before the grass hump at local (392, -392), heading along
+				// local (0.707, 0.707), at 90 km/h (R2 at 0.43 holds that speed); a screenshot in the air over the crest, then the
+				// landing. (Setting the speed at once on the downhill run-up gives a short hop at the start, which is not counted.)
+				struct FJump { FHKGroundVehicle* Car = nullptr; FVector2D Crest, F; double Wait = 0, AirT = 0, Impact = 0; bool bOverCrest = false, bLanded = false; };
+				TSharedPtr<FJump> J = MakeShared<FJump>();
+				T.Do([&T, J]()
+				{
+					const double Yaw = HKVehicles::LocalHeadingToYaw(FMath::Atan2(.707, .707));
+					J->Crest = FHKData::Get().ToWorld(392, -392); J->F = FVector2D(-FMath::Sin(Yaw), -FMath::Cos(Yaw));
+					for (FHKVehicle* V : T.Game()->VehicleList)
+						if (V->Kind == TEXT("car"))
+						{
+							J->Car = static_cast<FHKGroundVehicle*>(V);
+							J->Car->X = J->Crest.X - J->F.X * 30; J->Car->Z = J->Crest.Y - J->F.Y * 30; J->Car->Yaw = Yaw; J->Car->Speed = 0;
+							J->Car->Settle(1); J->Car->Place();
+							J->Car->OnLand = [J](double Impact) { if (J->bOverCrest && !J->bLanded) { J->bLanded = true; J->AirT = J->Car->AirT; J->Impact = Impact; } };
+							break;
+						}
+				});
+				Approach(TEXT("car"));
+				T.Do([&T]() { T.Game()->Player.Vehicle->Speed = 25; });
+				T.Hold(7, .43);
+				T.Steps.Add([J](double Dt)
+				{
+					const FHKGroundVehicle* V = J->Car;
+					J->bOverCrest = V->bAirborne && (V->X - J->Crest.X) * J->F.X + (V->Z - J->Crest.Y) * J->F.Y > -5;
+					return J->bOverCrest || (J->Wait += Dt) > 5;
+				});
+				T.Wait(.12);
+				T.Do([&T, J]()
+				{
+					const FHKGroundVehicle* V = J->Car;
+					J->Wait = 0;
+					const FString File = FPaths::Combine(T.OutDir, TEXT("03b-car-jump.png"));
+					FScreenshotRequest::RequestScreenshot(File, true, false);
+					UE_LOG(LogTemp, Display, TEXT("HK-TEST shot %s: car %s, %.2f m above the ground at %.0f km/h  %s"), *File, V->bAirborne ? TEXT("in the air") : TEXT("on the ground"), V->Y - FHKData::Get().GroundWorld(V->X, V->Z), V->Speed * 3.6, *T.P());
+				});
+				T.Steps.Add([J](double Dt) { return J->bLanded || (J->Wait += Dt) > 4; });
+				T.Log([J]() { return FString::Printf(TEXT("car jump at 90 km/h: off the ground %.2f s, landing impact %.2f m/s, seat dip %.3f m (web: about 0.6 s)"), J->AirT, J->Impact, J->Car->Squash); });
+				T.Expect(TEXT("car: flew over the hump and landed"), [J]() { return J->bLanded && J->AirT > .3; });
+				T.Hold(7, 0); T.Hold(6, 1);
+				T.Steps.Add([&T](double) { return FMath::Abs(T.Game()->Player.Vehicle->Speed) < .5; });
+				T.Hold(6, 0);
+				T.Do([J]() { J->Car->OnLand = nullptr; });
+				GetOut(TEXT("car"));
 				// Excavator: both tracks forward, then swing and boom.
 				Approach(TEXT("excavator"));
 				T.Hold(4, 1); T.Hold(5, 1); T.Wait(2); T.Hold(4, 0); T.Hold(5, 0);
