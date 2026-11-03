@@ -143,7 +143,10 @@ namespace
 				{
 					static const FCarView Views[] = {
 						{TEXT("front34"), 4.6, -3.0, 1.45, 0, 0, .7}, {TEXT("side"), 0, 5.6, 1.2, 0, 0, .75}, {TEXT("rear34"), -4.8, 3.2, 1.5, 0, 0, .75},
-						{TEXT("headlight"), 2.9, -1.2, 1.05, 2.0, -.55, .75}, {TEXT("wheel"), 1.3, 2.1, .65, 1.3, .8, .35}, {TEXT("low-front"), 6.5, -.8, .5, 0, 0, .7}};
+						{TEXT("headlight"), 2.9, -1.2, 1.05, 2.0, -.55, .75}, {TEXT("wheel"), 1.3, 2.1, .65, 1.3, .8, .35},
+							// Down onto the bonnet from standing height: the sky and the houses in the clear coat (the low
+							// front view it replaces put the camera inside whatever stood 6.5 m ahead of the first car).
+							{TEXT("bonnet"), 3.4, -.9, 1.75, .9, 0, .85}};
 					for (const FCarView& V : Views)
 					{
 						T.Do([&T, Pick, V]()

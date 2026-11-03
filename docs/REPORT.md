@@ -637,7 +637,10 @@ glass balconies; granite kerbs, narrow asphalt streets, parked hatchbacks, vans 
   lacquer, so the sun and sky glare off it; the lowest 30 cm carry a little road dust. Interiors, sizes, wheels and
   driving are unchanged. Checked against a photo of a real Mk7 (Wikipedia): length, wheelbase, where the bonnet
   meets the windscreen, the short rear with the upright tailgate and the 16-inch wheels match; seen from 6 m in the
-  shade a black one reads as a modern hatchback, its sharp shoulder line and thick rear pillar show up close.
+  shade a black one reads as a modern hatchback, its sharp shoulder line and thick rear pillar show up close. The
+  paint is glossy, but what it mirrors from above (the sky, the houses) comes from the 67 street reflection captures,
+  which are soft at their 128-pixel size; sharper ones would need 200-800 MB more video memory than this laptop's
+  2 GB allow. Where the street itself is on screen, the reflections are sharp (screen-space reflections).
 
 Checked: the play-through `look` (0 failures), 54 automation tests, the `vehicles` play-through (every vehicle, the
 car's jump, now in a Golf and an ID.3), a new lighting bake (21.7 min).
@@ -648,6 +651,7 @@ car's jump, now in a Golf and an ID.3), a new lighting bake (21.7 min).
 ![The front of 17A](img/look--f1-front-of-17A-a.jpg)
 ![The brick up close: dark mortar, mixed bricks, the concrete plinth](img/look--s3-haarklous-plass.jpg)
 ![The Golf: Norwegian plate, LED strip, the grille bar, the sky in the bonnet](img/look--c1-headlight.jpg)
+![The paint seen from standing height: the sky in the clear coat](img/look--c1-bonnet.jpg)
 ![The Golf from the front](img/look--c1-front34.jpg)
 ![The Golf from behind: tail lights with their light signature](img/look--c1-rear34.jpg)
 ![The ID.3 (silver, white and blue cars)](img/look--c2-headlight.jpg)
