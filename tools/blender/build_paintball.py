@@ -194,7 +194,7 @@ def course():
             p = (a[0] + (b[0] - a[0]) * i / k, a[1] + (b[1] - a[1]) * i / k)
             cyl(n, (p[0], 0, p[1]), (p[0], 5.0, p[1]), .05, GALV, seg=8)
         n.quad((a[0], .05, a[1]), (b[0], .05, b[1]), (b[0], 5.0, b[1]), (a[0], 5.0, a[1]), NET)
-        n.quad((b[0], .05, b[1]), (a[0], .05, a[1]), (a[0], 5.0, a[1]), (b[0], 5.0, b[1]), NET)
+        # (One face: the net's material is two-sided; a second face in the same place fought with it, 3 Nov 2026.)
         cyl(n, (a[0], 5.0, a[1]), (b[0], 5.0, b[1]), .025, GALV, seg=6)
     r.node('net', root, mesh=n)
     # Cover.

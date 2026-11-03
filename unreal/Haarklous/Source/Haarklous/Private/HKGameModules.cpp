@@ -83,6 +83,13 @@ void AHKGame::SetupModules()
 	{
 		VehicleList.Add(V.Get());
 		AHKRigActor* A = GetWorld()->SpawnActor<AHKRigActor>(AHKRigActor::StaticClass(), FTransform::Identity, SP);
+		// Two real car bodies (tools/blender/car_model.py, car_id3.py): the silver, white and blue cars are ID.3s, the
+		// others Golfs. Only the look: the web's car model number still picks just the colour.
+		if (V->Kind == TEXT("car"))
+		{
+			const int32 M = ((static_cast<FHKCar*>(V.Get())->Model % 7) + 7) % 7;
+			if (M == 2 || M == 3 || M == 4) A->MeshVariant = TEXT("_B");
+		}
 		A->Init(&V->Rig, RigNameOf(V.Get()));
 		if (V->bHasPaint) A->SetPaint(V->PaintColor);
 		A->SetCullDistance(20000);

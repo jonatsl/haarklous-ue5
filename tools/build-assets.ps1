@@ -3,12 +3,15 @@
 #   2. rigs and the Blender build plan                 node tools/web-export/make-rigs.mjs
 #   3. Blender: build FBX files and ground textures    blender -b -P tools/blender/build_assets.py / make_textures.py
 #      photo-real pass: CC0 scans (python tools/fetch-library.py, downloads once), building map, grass and leaf
-#      cards, then balconies / downpipes / chimneys / kerbs (blender -b -P tools/blender/build_details.py)
+#      cards, then balconies / downpipes / chimneys / kerbs (blender -b -P tools/blender/build_details.py);
+#      realism pass (2 Nov 2026): the dark-mortar brick (make-brick.py), number plates (make-car-textures.py)
 #   4. Unreal: import meshes, textures, materials      tools/unreal/run-python.ps1 tools/unreal/import_assets.py
 #   5. Unreal: ground, post-process and realism materials  materials_ground.py, materials_extra.py, materials_realism.py,
-#      materials_photoreal.py, material_usage.py
+#      materials_photoreal.py, import_facades.py, materials_cars.py (after materials_realism.py), material_usage.py
 #   6. Unreal: build the level                         tools/unreal/run-python.ps1 tools/unreal/build_level.py
 #      then the photographed sky on its dome            tools/unreal/materials_sky.py
+#   7. full-precision uvs for meshes laid out in world metres (3 Nov 2026; also after importing the site and paintball
+#      meshes): blender -b -P tools/blender/uv_ranges.py, then tools/unreal/full_precision_uvs.py
 #   (then bake the lighting: tools/unreal/build-lighting.ps1)
 #   powershell -File tools\build-assets.ps1 [-From 3]
 param([int]$From = 1, [string]$Rigs = "")
@@ -25,6 +28,8 @@ try {
     & $blender -b --factory-startup -P tools/blender/build_assets.py -- $Rigs.Split(' ') 2>&1 | Select-String "HK:|Error|Traceback"
     & $blender -b --factory-startup -P tools/blender/make_textures.py 2>&1 | Select-String "Error|Traceback"
     python tools/fetch-library.py; if ($LASTEXITCODE) { throw "fetch-library failed" }
+    python tools/make-brick.py; if ($LASTEXITCODE) { throw "make-brick failed" }
+    python tools/make-car-textures.py; if ($LASTEXITCODE) { throw "make-car-textures failed" }
     python tools/make-grass-atlas.py; if ($LASTEXITCODE) { throw "make-grass-atlas failed" }
     python tools/make-leaf-atlas.py; if ($LASTEXITCODE) { throw "make-leaf-atlas failed" }
     python tools/make-sky.py; if ($LASTEXITCODE) { throw "make-sky failed" }
@@ -35,6 +40,7 @@ try {
   if ($From -le 4) {
     $extra = if ($Rigs) { @("-ScriptArgs", $Rigs) } else { @() }
     powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/import_assets.py @extra | Select-String "HK:|Error:|Traceback"
+    powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/fix_material_slots.py | Select-String "HK:|Error:|Traceback"
   }
   if ($From -le 5) {
     powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/materials_ground.py | Select-String "HK:|Error:|Traceback"
@@ -42,10 +48,15 @@ try {
     powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/materials_realism.py | Select-String "HK:|Error:|Traceback"
     powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/materials_photoreal.py | Select-String "HK:|Error:|Traceback"
     powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/import_facades.py | Select-String "HK:|Error:|Traceback"
+    powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/materials_cars.py | Select-String "HK:|Error:|Traceback"
     powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/material_usage.py | Select-String "HK:|Error:|Traceback"
   }
   if ($From -le 6) {
     powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/build_level.py | Select-String "HK:|Error:|Traceback"
     powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/materials_sky.py | Select-String "HK:|Error:|Traceback"
+  }
+  if ($From -le 7) {
+    & $blender -b --factory-startup -P tools/blender/uv_ranges.py 2>&1 | Select-String "HK:|Error|Traceback"
+    powershell -NoProfile -File tools/unreal/run-python.ps1 tools/unreal/full_precision_uvs.py | Select-String "HK:|Error:|Traceback"
   }
 } finally { Pop-Location }

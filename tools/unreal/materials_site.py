@@ -49,7 +49,8 @@ def tex(src, name, kind):
 
 
 def import_textures():
-    PH = {'Soil': 'farm_soil', 'Subsoil': 'excavated_soil_wall', 'Gravel': 'gravelly_sand', 'Plate': 'metal_plate',
+    # Topsoil: gravelly_sand (3 Nov 2026; farm_soil's ploughed furrows tiled into a shimmering barcode on the site).
+    PH = {'Soil': 'gravelly_sand', 'Subsoil': 'excavated_soil_wall', 'Gravel': 'gravelly_sand', 'Plate': 'metal_plate',
           'Corrugated': 'corrugated_iron_02', 'Rust': 'rusty_metal_02'}
     for key, a in PH.items():
         for kind, suf in (('D', 'diff_2k.jpg'), ('N', 'nor_gl_2k.jpg'), ('R', 'rough_2k.jpg')):
@@ -125,23 +126,28 @@ def dirt_material():
     def add(a, b):
         e = g.n(unreal.MaterialExpressionAdd); g.c(a, '', e, 'A'); g.c(b, '', e, 'B'); return e
 
-    def soil_and_sub(uv_soil, uv_sub, tag, rough=True):
-        """Topsoil and subsoil (where digging went deeper than 30 cm, vertex colour green) at the given uvs."""
+    def soil_and_sub(uv_soil, uv_sub, tag, rough=True, sub_tex='T_Subsoil_D', sub_tint=(1.0, .95, .9, 1)):
+        """Topsoil and subsoil (where digging went deeper than 30 cm, vertex colour green) at the given uvs. The
+        subsoil scan is a photo of a cut wall (vertical striations): on level ground it tiled into a shimmering
+        barcode (3 Nov 2026), so the top projection uses the dirt scan darkened to clay instead."""
         sd = g.tex(f'SoilD{tag}', f'{TDIR}/T_Soil_D', uv_soil, 'color')
-        bd = g.tex(f'SubD{tag}', f'{TDIR}/T_Subsoil_D', uv_sub, 'color')
-        col = g.lerp(g.mul(sd, g.vector('SoilTint', (.95, .9, .85, 1)), 'RGB', ''), g.mul(bd, g.vector('SubTint', (1.0, .95, .9, 1)), 'RGB', ''), vc, '', '', 'G')
+        bd = g.tex(f'SubD{tag}', f'{TDIR}/{sub_tex}', uv_sub, 'color')
+        col = g.lerp(g.mul(sd, g.vector('SoilTint', (.95, .9, .85, 1)), 'RGB', ''), g.mul(bd, g.vector(f'SubTint{tag}', sub_tint), 'RGB', ''), vc, '', '', 'G')
         return col
-    # Top projection: the mesh uv (local metres / 2.5).
-    uv = g.uv('SoilScale', 1.0)
-    uv2 = g.uv('SubScale', .8)
-    top = soil_and_sub(uv, uv2, '')
+    # Top projection on the world's x and y (cm -> 2.5 m tiles), not the mesh uv: a procedural mesh keeps its uvs as
+    # half floats, and at the site's uv values (local metres / 2.5, about 150) those snap to 1/8 of a tile, so rows of
+    # cells got no texture change at all and the soil smeared into streaky bands seen from eye height (3 Nov 2026).
+    wp = g.n(unreal.MaterialExpressionWorldPosition)
+    uv = g.mul(mask(wp, 'rg'), g.scalar('SoilScale', 1 / 250.0))
+    uv2 = g.mul(mask(wp, 'rg'), g.scalar('SubScale', .8 / 250.0))
+    top = soil_and_sub(uv, uv2, '', sub_tex='T_Soil_D', sub_tint=(.74, .58, .44, 1))
     sn = g.tex('SoilN', f'{TDIR}/T_Soil_N', uv, 'normal'); sr = g.tex('SoilR', f'{TDIR}/T_Soil_R', uv, 'mask')
-    bn = g.tex('SubN', f'{TDIR}/T_Subsoil_N', uv2, 'normal'); br = g.tex('SubR', f'{TDIR}/T_Subsoil_R', uv2, 'mask')
+    bn = g.tex('SubN', f'{TDIR}/T_Soil_N', uv2, 'normal'); br = g.tex('SubR', f'{TDIR}/T_Soil_R', uv2, 'mask')
     top_n = g.lerp(sn, bn, vc, 'RGB', 'RGB', 'G')
     top_r = g.lerp(sr, br, vc, 'R', 'R', 'G')
     # Side projections on the world's x and y axes (cm -> 2.5 m tiles) for pit walls and heap flanks, so steep faces
-    # are not smeared; blended by the normal (tri-planar, weights |n|^4).
-    wp = g.n(unreal.MaterialExpressionWorldPosition)
+    # are not smeared; blended by the normal (tri-planar, weights |n|^16: with |n|^4 the gentle slopes of ruts and
+    # banks took a share of the side projections, which smear across a near-level surface into streaks, 3 Nov 2026).
     k = g.scalar('SideScale', 1 / 250.0)
     uvx = g.mul(mask(wp, 'gb'), k)
     uvy = g.mul(mask(wp, 'rb'), k)
@@ -150,10 +156,10 @@ def dirt_material():
     nx = g.tex('SubNX', f'{TDIR}/T_Subsoil_N', uvx, 'normal'); ny = g.tex('SubNY', f'{TDIR}/T_Subsoil_N', uvy, 'normal')
     nws = g.n(unreal.MaterialExpressionVertexNormalWS)
     an = g.n(unreal.MaterialExpressionAbs); g.c(nws, '', an, '')
-    w2 = g.mul(an, an); w4 = g.mul(w2, w2)
+    w2 = g.mul(an, an); w4 = g.mul(w2, w2); w8 = g.mul(w4, w4); w16 = g.mul(w8, w8)
     one = g.n(unreal.MaterialExpressionConstant3Vector); one.set_editor_property('constant', unreal.LinearColor(1, 1, 1, 1))
-    tot = g.n(unreal.MaterialExpressionDotProduct); g.c(w4, '', tot, 'A'); g.c(one, '', tot, 'B')
-    w = g.n(unreal.MaterialExpressionDivide); g.c(w4, '', w, 'A'); g.c(tot, '', w, 'B')
+    tot = g.n(unreal.MaterialExpressionDotProduct); g.c(w16, '', tot, 'A'); g.c(one, '', tot, 'B')
+    w = g.n(unreal.MaterialExpressionDivide); g.c(w16, '', w, 'A'); g.c(tot, '', w, 'B')
     wx, wy, wz = mask(w, 'r'), mask(w, 'g'), mask(w, 'b')
     col = add(add(g.mul(top, wz), g.mul(side_x, wx)), g.mul(side_y, wy))
     loose = g.mul(col, g.scalar('LooseDark', .78))
@@ -223,14 +229,30 @@ def glass_material():
     return g.finish()
 
 
+MESH_HLSL = r"""
+float2 cell = float2(P.x + P.y, P.z) / float2(10.0, 25.0);
+float2 fw = max(fwidth(cell), 1e-5);
+float2 d = abs(frac(cell) - 0.5);
+float2 l = smoothstep(0.44 - fw, 0.44 + fw, d);
+l = lerp(l, 0.12, saturate(fw * 2.5 - 0.25));          // wires thinner than a pixel: their average cover
+float cov = 1.0 - (1.0 - l.x) * (1.0 - l.y);
+// Stochastic transparency: keep the pixel with probability cov (interleaved gradient noise that moves every frame),
+// so temporal anti-aliasing turns sub-pixel wires into a steady see-through haze instead of a shimmering moire.
+float2 sp = Parameters.SvPosition.xy + View.StateFrameIndexMod8 * float2(5.588238, 5.588238);
+float noise = frac(52.9829189 * frac(dot(sp, float2(0.06711056, 0.00583715))));
+return cov > noise ? 1.0 : 0.0;
+"""
+
+
 def mesh_material():
-    """Heras fence mesh: a wire grid (10 x 25 cm) cut out of a quad with an opacity mask, galvanised."""
+    """Heras fence mesh: a wire grid (10 x 25 cm) cut out of a quad with an opacity mask, galvanised. The wires are
+    filtered by their size on screen and dithered (3 Nov 2026: the hard-edged grid aliased and flickered)."""
     g = G('M_HK_SiteMesh')
     g.m.set_editor_property('blend_mode', unreal.BlendMode.BLEND_MASKED)
     g.m.set_editor_property('two_sided', True)
     wp = g.n(unreal.MaterialExpressionWorldPosition)
     c = g.n(unreal.MaterialExpressionCustom)
-    c.set_editor_property('code', 'float2 g = abs(frac(float2(P.x + P.y, P.z) / float2(10.0, 25.0)) - 0.5);\nreturn step(0.44, max(g.x * 1.0, g.y));')
+    c.set_editor_property('code', MESH_HLSL)
     c.set_editor_property('output_type', unreal.CustomMaterialOutputType.CMOT_FLOAT1)
     ci = unreal.CustomInput(); ci.set_editor_property('input_name', 'P'); c.set_editor_property('inputs', [ci])
     g.c(wp, '', c, 'P')

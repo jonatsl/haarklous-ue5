@@ -3,10 +3,12 @@
     python tools/make-building-map.py
 
 The web draws every apartment block in the same dark brick. The real ones differ (Street View and Esri imagery,
-27 Oct 2026): the blocks around Haarklous plass are light salmon brick with dark-brown wooden windows and grey
-concrete plinths, their neighbours yellow or red plaster with white windows; roofs are dark grey slate, some red
-clay tile. OSM gives building:colour for about 90 buildings (all those around home) and roof:colour for some; the
-others get a believable Torshov mix, the same for buildings of one block.
+27 Oct and 2 Nov 2026): the blocks around Haarklous plass are red-brown brick with dark mortar, dark-brown wooden
+windows and grey concrete plinths (OSM tags them #cb9c89, a pale salmon that looked pink in the game: the brick
+is darker), some blocks are orange-red brick with white windows and red tile roofs, their neighbours pale yellow or
+red plaster with white windows; roofs dark grey slate or red clay tile. OSM gives building:colour for about 90
+buildings (all those around home) and roof:colour for some; the others get a believable Torshov mix, the same for
+buildings of one block.
 
 Writes tools/out/textures/
   T_BuildingId.png       top-down map of the district in the Unreal world frame, one palette index per building
@@ -29,16 +31,20 @@ OUT = os.path.join(ROOT, 'tools', 'out', 'textures')
 OSM = os.path.join(ROOT, 'reference', 'web-game', 'assets', 'osm', 'torshov-osm.json')
 SIZE = 2048
 
-SALMON = (203, 156, 137)          # OSM #cb9c89, the real blocks around Haarklous plass (brick)
-RANDOM_LOOKS = [                  # (weight, style, colour) for buildings without an OSM colour
-    (0.45, 'brick', SALMON),
-    (0.12, 'plaster', (229, 211, 170)),   # pale yellow (OSM #e5d3aa)
-    (0.10, 'plaster', (214, 180, 112)),   # ochre
-    (0.10, 'plaster', (196, 116, 92)),    # oxide red
-    (0.08, 'plaster', (226, 174, 165)),   # pink (OSM #e2aea5)
-    (0.08, 'plaster', (221, 207, 172)),   # beige (OSM #ddcfac)
-    (0.07, 'plaster', (174, 169, 149)),   # grey (OSM #aea995)
+SALMON = (203, 156, 137)          # OSM #cb9c89, the tag of the real brick blocks around Haarklous plass
+BRICK = (150, 98, 80)             # their real brick (the average of brick and dark mortar, Street View 2 Nov 2026)
+ORANGE = (178, 98, 70)            # the orange-red brick blocks with white windows (Haarklous plass, north side)
+RANDOM_LOOKS = [                  # (weight, style, colour, white window frames) for buildings without an OSM colour
+    (0.38, 'brick', BRICK, False),
+    (0.12, 'brick', ORANGE, True),
+    (0.14, 'plaster', (229, 211, 170), True),   # pale yellow (OSM #e5d3aa)
+    (0.08, 'plaster', (214, 180, 112), True),   # ochre
+    (0.07, 'plaster', (196, 116, 92), True),    # oxide red
+    (0.06, 'plaster', (226, 174, 165), True),   # pink (OSM #e2aea5)
+    (0.08, 'plaster', (221, 207, 172), True),   # beige (OSM #ddcfac)
+    (0.07, 'plaster', (174, 169, 149), True),   # grey (OSM #aea995)
 ]
+TILE = {BRICK: 0.3, ORANGE: 0.85}  # share of red clay tile roofs by look (plaster 0.55), where OSM has no roof colour
 
 
 def hexrgb(h):
@@ -98,25 +104,27 @@ def main():
             # The web's own plaster buildings (no windows in the web): keep their colour.
             pc = [0xe3dccb, 0xd8cfbd, 0xcdd2cb, 0xe6e0d4, 0xd9c7a8][i % 5]
             style, rgb = 'plaster', hexrgb(colour) if colour else ((pc >> 16) & 255, (pc >> 8) & 255, pc & 255)
+            white = True
         elif colour:
             rgb = hexrgb(colour)
             style = 'brick' if rgb == SALMON else 'plaster'
+            rgb, white = (BRICK, False) if rgb == SALMON else (rgb, True)
         else:
             acc = 0
-            for w, st, c in RANDOM_LOOKS:
+            for w, st, c, wh in RANDOM_LOOKS:
                 acc += w
                 if r < acc:
                     break
-            style, rgb = st, c
+            style, rgb, white = st, c, wh
         rc = tags.get('roof:colour', '')
         if rc.startswith('#'):
             rr, rg, rb = hexrgb(rc)
             tile = rr > rg + 25
         else:
-            tile = hash01(cell[0], cell[1], 9.3) < (0.35 if style == 'plaster' else 0.12)
-        lid = look_id(style, rgb, tile, style == 'plaster', variant)
+            tile = hash01(cell[0], cell[1], 9.3) < TILE.get(rgb, 0.55)
+        lid = look_id(style, rgb, tile, white, variant)
         polys.append(([to_world(x, z) for x, z in ring], lid))
-        per_building[i] = {'style': style, 'web': b['s'], 'tile': tile, 'look': lid}
+        per_building[i] = {'style': style, 'web': b['s'], 'tile': tile, 'look': lid, 'rgb': list(rgb), 'white': white, 'variant': variant * 32 / 255.0}
     # The shops (game-shops.js) are cut out of their buildings' outlines; the wall the web rebuilds above each shop
     # front (on the old outline) takes its look from here, so the shop's rectangle gets its building's look too.
     game_path = os.path.join(DATA, 'game.json')
@@ -128,9 +136,9 @@ def main():
             at = lambda a, b_: (o[0] + u[0] * a + v[0] * b_, o[1] + u[1] * a + v[1] * b_)
             polys.append(([at(0, -.3), at(sh['W'], -.3), at(sh['W'], sh['D']), at(0, sh['D'])], per_building[sh['building']]['look']))
 
-    # Haarklous plass 17 itself (the web's own building, already in the world frame): salmon brick, slate roof.
+    # Haarklous plass 17 itself (the web's own building, already in the world frame): red-brown brick, slate roof.
     own = s['own']
-    lid = look_id('brick', SALMON, False, False, 3)
+    lid = look_id('brick', BRICK, False, False, 3)
     for part in own['lower'] + own['band'] + own['upper']:
         ring = np.array(part['o'], dtype=float).reshape(-1, 2)
         polys.append(([tuple(p) for p in ring], lid))
@@ -158,7 +166,7 @@ def main():
     # Each building's look (index in surroundings.json buildings) for tools/blender/build_details.py.
     json.dump(per_building, open(os.path.join(OUT, 'building-looks.json'), 'w'))
     styles = {}
-    for st, rgb, tile, white, v in looks:
+    for st, rgb, tile, wh, v in looks:
         styles[(st, tile)] = styles.get((st, tile), 0) + 1
     print(f'HK: building map {SIZE} px, {cm_px:.0f} cm/px, {len(polys)} footprints, {len(looks)} looks {styles}')
 

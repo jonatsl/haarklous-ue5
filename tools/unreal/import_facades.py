@@ -83,7 +83,18 @@ WALL_HLSL = r'''
 float3 c = lerp(BD, PD, VA) * VC.rgb * Scale;
 Rough = lerp(BR, PR, VA);
 Nrm = normalize(lerp(BN, PN, VA));
-return c;
+// Weathering (realism pass, 2 Nov 2026; real walls are never evenly clean). UV = metres along the wall (the web's
+// 3 m window bays) and up from the plinth top (the FBX import turned v over: height = 1 - UV.y).
+float u = UV.x, h = 1.0 - UV.y;
+float s = h - floor(h / 2.85) * 2.85;                                   // height within the storey (sill at 0.876 m)
+float bay = abs(frac(u / 3.0) - 0.5) * 3.0;                              // distance from the bay's centre line
+float col = frac(sin(floor(u * 28.0) * 12.9898 + floor(h / 2.85) * 78.233) * 43758.5453);
+float streak = step(bay, 0.62) * saturate(1.0 - (0.876 - s) / (0.35 + 0.6 * col)) * step(s, 0.876) * (0.35 + 0.65 * col);
+float n1 = sin(u * 0.83 + h * 0.31) * sin(u * 0.37 - h * 0.59 + 1.7);
+float n2 = sin(u * 2.1 + 0.6) * sin(h * 1.7 + 2.3);
+float grime = 1.0 - 0.10 * streak - 0.045 * (n1 * 0.7 + n2 * 0.3) - 0.07 * saturate(1.0 - h / 0.9);
+Rough = saturate(Rough + 0.06 * streak);
+return c * grime;
 '''
 
 GLASS_HLSL = r'''
@@ -130,7 +141,7 @@ def materials():
     c = g.custom(WALL_HLSL, F3, [('BD', g.tex('BrickAlbedo', f'{LIB}/T_Brick_D', bs, 'color'), 'RGB'), ('BN', g.tex('BrickNormal', f'{LIB}/T_Brick_N', bs, 'normal'), 'RGB'),
                                  ('BR', g.tex('BrickRough', f'{LIB}/T_Brick_R', bs, 'mask'), 'R'), ('PD', g.tex('PlasterAlbedo', f'{LIB}/T_Plaster_D', ps, 'color'), 'RGB'),
                                  ('PN', g.tex('PlasterNormal', f'{LIB}/T_Plaster_N', ps, 'normal'), 'RGB'), ('PR', g.tex('PlasterRough', f'{LIB}/T_Plaster_R', ps, 'mask'), 'R'),
-                                 ('VC', vc, ''), ('VA', vc, 'A'), ('Scale', g.scalar('ColourScale', 2.5), '')], [('Rough', F1), ('Nrm', F3)])
+                                 ('VC', vc, ''), ('VA', vc, 'A'), ('Scale', g.scalar('ColourScale', 2.5), ''), ('UV', tc, '')], [('Rough', F1), ('Nrm', F3)])
     MEL.connect_material_property(c, '', unreal.MaterialProperty.MP_BASE_COLOR)
     MEL.connect_material_property(c, 'Rough', unreal.MaterialProperty.MP_ROUGHNESS)
     MEL.connect_material_property(c, 'Nrm', unreal.MaterialProperty.MP_NORMAL)

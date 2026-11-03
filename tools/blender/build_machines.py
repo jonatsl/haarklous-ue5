@@ -579,7 +579,7 @@ def props():
     for y in (.05, 1.98):
         cyl(f, (-1.74, y, 0), (1.74, y, 0), .022, 'MI_Site_Galv', seg=6)
     f.quad((-1.72, .06, 0), (1.72, .06, 0), (1.72, 1.97, 0), (-1.72, 1.97, 0), 'MI_Site_Mesh')
-    f.quad((1.72, .06, .001), (-1.72, .06, .001), (-1.72, 1.97, .001), (1.72, 1.97, .001), 'MI_Site_Mesh')
+    # (One face: M_HK_SiteMesh is two-sided; a second face 1 mm behind it doubled the wires, 3 Nov 2026.)
     # Banner printed on the outside only (+z faces away from the site): image quad, plain back.
     f.quad((-1.65, .75, .0045), (1.65, .75, .0045), (1.65, 1.65, .0045), (-1.65, 1.65, .0045), 'MI_Site_Banner')
     f.quad((1.65, .75, .0035), (-1.65, .75, .0035), (-1.65, 1.65, .0035), (1.65, 1.65, .0035), DK)

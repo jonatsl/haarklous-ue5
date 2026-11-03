@@ -95,10 +95,7 @@ The web material instances keep their names, slots and colours; their parents ch
   `tools/unreal/materials_sky.py` puts `M_HK_SkyPhoto` (unlit, "is sky": no fog or aerial perspective, sun capped)
   on the cloud dome and keeps the dome out of the sky light and reflection captures, so the lighting still comes
   from the sky atmosphere. Run it after build_level.py. (Volumetric clouds were tried: 3-5 fps, removed.)
-- **Cars:** `tools/blender/car_model.py` builds a subdivided hatchback shell over the web car's profile (cage of
-  cross-sections, arches over the web's wheels, glass/pillar/roof faces by band, a lining inside without glass) and
-  five-spoke wheels (closed lathe solids, mirrored for the left side); `build_assets.py` swaps them for the web's
-  exterior materials of SM_car__body and the wheel meshes, keeping the interior. Other vehicles get `soften()`:
+- **Cars:** replaced by the real car of the realism pass 2 below. Other vehicles get `soften()`:
   welded, 12 mm bevel on edges over 35 degrees, weighted normals.
 - **3D walls:** `tools/blender/facade_model.py` lists the brick-block walls within 270 m of home (the web's near set) (not near stair
   towers, not shared with another footprint or 17A, at least 3.4 m) and builds them with window openings in the
@@ -120,6 +117,92 @@ The web material instances keep their names, slots and colours; their parents ch
   `apply_look.py`. `AHKGame::ApplyQuality` switches SSR, light shafts, lens flares and contact shadows per quality
   (Balanced: SSR and lens flares; Sharp: all). Test switches: `-HKNoGrass`, `-HKNoDetails`, `-HKSkipDetails=`,
   `-HKCmds=cvar:value,...`.
+
+### Realism pass 2 (2 Nov 2026: flicker fix, real car, real brick, 3D walls to 400 m)
+The user: buildings "twitch" or flicker when you look at them; then make it look like real life within about 400 m
+(Google Street View's vibe), real-looking buildings, cars that are copies of real cars with paint that glares.
+- **Flicker (cause and fix):** the web draws its far scene in a separate render pass under the near one, and that
+  far scene holds a copy of every building within NEAR_REACH (820 m) and every tree (surroundings.js:
+  `targets = [farSet, nearCell]`). Unreal draws one scene, so the copies lay exactly on the near buildings (and on the
+  3D walls near home, whose window openings they covered): the two surfaces fought over the same pixels as the
+  camera moved. `build_assets.py drop_far_duplicates()` leaves out every world_far triangle that is also in the near
+  export (37,478; matched by corners rounded to 2 cm), the district terrain under the walkable ground (71,672) and
+  the far tree copies within 820 m (4,688 of 5,994 instances, `far_tree_kept()`). Cornices and plinth ledges
+  overlap at outside corners: neighbouring pieces now differ by a few millimetres in depth, height and top
+  (`build_details.py`), so equal faces no longer fight. Check: `-hktest=look` shots f1-f6 (each view three times,
+  turned 0.1 degree and moved 3 cm).
+- **Real car** (`tools/blender/car_model.py`): the web car's sizes (4.2 x 1.8 x 1.45 m, 0.31 m wheels at
+  z +-1.3, x +-0.78) are a seventh-generation VW Golf's, Oslo's commonest hatchback, so the body is a Golf Mk7 in the
+  web car frame: a cage of 58 cross-sections (floor, arch liners, sill, door, the sharp shoulder line, belt ledge,
+  side glass leaning in, roof rail, roof / bonnet / tailgate deck) from its side, plan and section curves (`TOP`,
+  `FLOOR`, `WIDTH`, `SHOULDER`, `BELT`, `RAIL`, `RAIL_W`), subdivided twice. The windows are cut into the subdivided
+  surface along exact planes (`windows()`, `cut_windows()`: glass, a 2 cm rubber seal outside it, the windscreen and
+  rear window's black frit inside, the black B pillar), so their edges are clean. Lights, grilles, badges (a plain
+  ring, no maker's logo), reflectors, intakes and the panel gaps are decals: 2D outlines in a front, rear or side
+  view, cut into small triangles and ray-cast onto the body 1.5-6 mm above it (`decal()`). Separate parts: door
+  mirrors (bevelled housing, mirror glass, amber repeater), door handles, wipers, Norwegian number plates. Wheels
+  (`golf_wheel()`): 205/55 R16 tyres with four tread grooves, a ten-spoke alloy, brake disc, bolts. The web's
+  interior stays; its cabin pillar rods (which stood in the new windows) are dropped (`build_assets.car_parts`).
+  Lighter bodies `SM_car__body_LOD1` (subdivided once, no gaps or lining) and `_LOD2` (the cage, lights only) are
+  drawn by distance (`AHKRigActor`: the node mesh to 22 m, LOD1 to 60 m, LOD2 beyond; the commandlet has no static
+  mesh editor subsystem to make them real LODs unless the script first calls `unreal.load_module('StaticMeshEditor')`,
+  found later). The details stay on every level, so nothing fights when it
+  switches.
+- **Second car:** `tools/blender/car_id3.py`, a VW ID.3-style electric hatchback (nearly the Golf's footprint, very
+  common in Oslo): its own curves, stations, windows and decals, built by the same code through
+  `car_model.variant(car_id3.OVERRIDES)` as `SM_car__body_B` (+ `_LOD1`, `_LOD2`). `AHKRigActor::MeshVariant = "_B"`
+  (set in `HKGameModules.cpp`) uses it for the cars whose web colour is silver, white or blue; the web's model number
+  still only picks the colour, so nothing else changes.
+- **Car materials** (`tools/unreal/materials_cars.py`, after materials_realism.py): `M_HK_CarPaint` (clear coat 1,
+  clear-coat roughness 0.03 through a material-attributes node, metal flake amount from the colour, road dust on
+  the lowest 30 cm), `M_HK_CarGlass` (tinted, lit as a surface, see-through from inside), `M_HK_CarPart` (all other
+  parts: `MI_HK_Car*`). Number plates: `tools/make-car-textures.py` draws eight Norwegian plates (white, the blue band
+  with the flag and N, Bahnschrift lettering) in one atlas; `AHKRigActor::SetPaint` gives each painted vehicle the
+  next one in the web's vehicle order, so all players see the same plate on the same car.
+- **Flicker in the flat, the stairwells, on the paintball course and the site** (the user, 3 Nov 2026):
+  - The web settles some layered surfaces with polygonOffset (the flat's walls pushed back, game-apartment.js R())
+    or draw order; Unreal ignores both. `tools/blender/coplanar.py` finds triangles of different materials that lie
+    in one plane and overlap, and moves each material off the plane by 1.2 mm times its rank (the largest surface
+    stays): build_assets.py runs it for the apartment, the stairwells and the firepit (514 / ~600 / 161 triangles).
+  - Two of the flat's material slots (and one lamp material in each stairwell, one on the firepit) pointed at web
+    material numbers that a re-export had moved (29 Oct): Unreal drew its default grey grid there, the "tiles" on the
+    fridge and kitchen fronts. `tools/unreal/fix_material_slots.py` (after import_assets.py) repairs such slots by
+    the key of the same type and colour, without touching geometry.
+  - The Heras fence (`M_HK_SiteMesh`, also the paintball net) and the balcony railings (`M_HK_Railing`) drew their
+    wires with hard `step()` edges: they aliased and shimmered. Now the wires are filtered by their size on screen,
+    fade to their average cover when thinner than a pixel, and are dithered (interleaved gradient noise that moves
+    every frame) so TAA turns them into a steady haze. The net and fence panels had a second face in the same place
+    (the material is two-sided): removed.
+  - The site's topsoil scan (Poly Haven farm_soil, a ploughed field) tiled into a shimmering barcode: now
+    gravelly_sand.
+  - The streaky bands on the site's soil seen from eye height (also in the 28 Oct screenshots) were the uvs, not the
+    soil: Unreal keeps mesh uvs as half floats (11 significant bits) unless a mesh asks for full precision, and the
+    procedural soil's uvs (local metres / 2.5, about 150) snapped to 1/8 of a tile, so rows of cells got no texture
+    change and the texture smeared. `M_HK_Dirt` now takes its top projection from the world position like its side
+    projections. The same snapping bent the textures of 310 imported meshes laid out in world metres (all near-world
+    tiles, up to uv 698; the 3D facades, up to 238; the stairwells, 71; the site's gravel track; the paintball walls;
+    the tower crane's deck): `tools/blender/uv_ranges.py` lists every mesh whose uvs pass 16, and
+    `tools/unreal/full_precision_uvs.py` gives those past 32 full-precision uvs (step 7 of build-assets.ps1; the
+    commandlet loads the StaticMeshEditor module for its subsystem). Found by a probe play-through: the bands stayed
+    with the soil alone on screen and went away with a plain material. (The soil heights in site.json are whole
+    centimetres above the terrain, a 1 cm staircase; smoothing it for drawing changed nothing, so it was left as is.)
+  - The `fps` and `look` play-throughs looked at the paintball course and the site from their places before the move
+    of 29 Oct (the paintball view was 2.7 m under the new yard): fixed.
+- **Reflections:** 67 sphere reflection captures 2.5 m over the streets within 350 m (`build_level.py
+  street_captures()`), so paint and glass reflect the houses and trees around them, not only the sky photo.
+- **Brick:** Street View shows red-brown brick with dark, recessed mortar; the scan's mortar was light beige and
+  OSM's colour for the blocks (#cb9c89) pale salmon, so walls looked pink. `tools/make-brick.py` darkens the joints
+  (found as long valleys in the scan's height map) and spreads the bricks' colours; `BRICK_AVG` in
+  materials_photoreal.py and facade_model.py is its new average. `make-building-map.py`: OSM-salmon blocks get
+  `BRICK` (150, 98, 80); the mix for untagged blocks adds orange-red brick with white windows (`ORANGE`) and more red
+  tile roofs (`TILE`).
+- **3D walls** out to 400 m (`facade_model.RADIUS`, 793 walls instead of 433), with weathering in `M_HK_Wall3D`
+  (rain streaks under the sills, darker near the plinth, large soft stains). Bug fixed on the way: facade_model.py
+  read the building palette with PIL, which Blender's Python lacks, so every 3D wall had the fallback pink (0.8, 0.6,
+  0.55) whatever its building; make-building-map.py now writes each building's colour, frames and variant into
+  building-looks.json, which facade_model reads. (Unreal passes vertex colours to the material as stored: no sRGB
+  decoding.) Plaster blocks' balcony fronts are pale
+  green frosted glass (`MI_HK_DetailPanel`).
 
 ## Construction site (new feature, 28 Oct 2026; not in the web game)
 The user asked for one big construction site with dozers, excavators, wheel loaders, big trucks and two cranes that
@@ -266,7 +349,8 @@ them. The snapshot is web `main` at d4ec404; web PRs #18 and #19 (still open) we
   `CarJump`, `MotorcycleJump`, `Jump`). **Mouse flying (#13):** `AHKGame::FlightSticks` / `FlightLook`,
   `FHKInputFrame::bFreeLook`, `FHKVehicleInput::bHold` (play-through `mouseflight`, test `Vehicles.MouseHold`).
 - **Fixes (#1, #7, #8, #9):** see `docs/GAMEPLAY-IDEAS.md`.
-- **Checks:** `toolsun-game.ps1 -Test places` (every issue's in-game checks with screenshots), `mouseflight`,
+- **Checks:** `tools
+un-game.ps1 -Test places` (every issue's in-game checks with screenshots), `mouseflight`,
   `vehicles` (a jump over the hump at local (392, -392)), the automation tests and `python tools/tests/test_site_geometry.py`.
 
 ## Core C++ (Source/Haarklous)

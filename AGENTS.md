@@ -48,7 +48,7 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
   seat), `mouseflight` (helicopter, drone and plane flown with the mouse, free look with Shift or the right mouse
   button), `places` (the checks of GitHub issues #1-#14: the moved site and paintball course, HODET N.N., street
   lamps, Muselunden, the bike's first ride, petanque at 13, the stashes and boosts, the shops and money, the distant
-  land); tests also write `results.txt` in their shots folder, so they can be checked in the packaged build (no log):
+  land), `look` (flicker checks, the Street View spots, the real car up close); tests also write `results.txt` in their shots folder, so they can be checked in the packaged build (no log):
   `dist\...\Haarklous.exe -hktest=<name> -hkout=<folder>`;
   `tools\net-test\run-paintball.ps1` (the real game and seven bot clients on the test server). Scripted tests ignore the
   real keyboard and mouse.
@@ -78,6 +78,16 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
   Fab/Megascans is not used (needs the user's Epic sign-in and licence). Vehicles: the car has a new Blender body
   (`tools/blender/car_model.py`); the others keep the web shapes with rounded edges. Blocks within 270 m have real
   3D walls (`tools/blender/facade_model.py`); after changing them, rebuild world_near and bake the lighting.
+- Realism pass 2 (2 Nov 2026, the user: fix the buildings that flicker, then look like real life within ~400 m
+  from Google Street View, real cars with glossy paint): `docs/ARCHITECTURE.md` "Realism pass 2". The flicker was
+  the web's far-scene copy of every building lying on the near one (now dropped in `build_assets.py`). The car is a
+  VW Golf Mk7-style body (`tools/blender/car_model.py`), its lighter LODs switched by distance in `AHKRigActor`.
+  Play-through `look` (flicker triples, Street View spots, car close-ups). Run heavy jobs (Unreal runs, bakes,
+  Blender renders) one at a time (the user, 2 Nov 2026: RAM and CPU). Flicker in the flat, stairwells, paintball
+  course and site (3 Nov): overlapping coplanar surfaces pulled apart (`tools/blender/coplanar.py`), broken material
+  slots (`fix_material_slots.py`), filtered wires; meshes with world-metre uvs need full-precision uvs (build-assets
+  step 7) or their textures smear. In a commandlet, `unreal.load_module('StaticMeshEditor')` makes the static mesh
+  editor subsystem available.
 - Bugs found in the web game and ideas (not changed without the user's OK): `docs/GAMEPLAY-IDEAS.md`.
 - Final report: `docs/REPORT.md`; `python tools\make-report.py` turns it into `docs/report/Haarklous-UE5-report.html`
   with the screenshots embedded.

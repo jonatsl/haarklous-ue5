@@ -19,6 +19,14 @@ see-through, and the site has a gate with a gravel road so you can drive in and 
 five requests"): a clear sight when aiming in paintball, empty paintball games end, the balcony door works, walking
 at 3.5 m/s, and a 140 x 90 m site with two gates and new views from the machines (R3: cab, outside, above the hook).
 
+2 November 2026 (see "Flicker fix and real-life look"): the buildings no longer flicker (every building near home was
+drawn twice in the same place), and the world within 400 m looks like the real streets in Google Street View:
+red-brown brick with dark mortar, weathered 3D walls, and two real cars, a VW Golf and a VW ID.3, with glossy
+clear-coated paint, real lights and Norwegian number plates. 3 November: no more flicker inside the flat, on the
+paintball course or on the construction site, the kitchen fronts have their own finish again, the site's ground has
+no streaks, and textures keep their shape on every mesh laid out in world metres. The packaged game runs at 35–54 fps
+on average at 2240 × 1400.
+
 ## How to start the game
 
 - **From the project:** `"C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe" unreal\Haarklous\Haarklous.uproject -game -dx11`
@@ -548,8 +556,105 @@ The baked lighting is bigger now (298 MB, was 155 MB), because the walkable worl
 Not changed without asking: the lamps give no light at night (the web's sun is fixed); the cashier wears the shop's
 colour on one of the realistic people; the HUD drops the web's emoji (the game's font has none).
 
+## Flicker fix and real-life look (2 Nov 2026)
+
+You asked: many buildings "twitch" or flicker when you look at them; fix that, then make the game look like real
+life within about 400 m (Google Street View's vibe), with real-looking buildings and cars that are copies of real
+cars with paint that glares.
+
+**The flicker.** The web game draws its distant scene in a separate pass underneath, and that distant scene holds a
+second copy of every building within 820 m of home and of every tree. Unreal draws everything in one pass, so each
+building had two identical walls and roofs in the same place (and near home the old flat wall lay over the new 3D
+wall with its window openings): the two fought over every pixel, and which one won changed as the camera moved. The
+copies are now left out when the world is built (37,478 duplicate triangles, 4,688 duplicate trees, plus 71,672
+hidden ground triangles), and the cornices and plinth ledges, which overlapped at every outside corner, no longer
+share faces. Checked with the new play-through `look`: every view shot three times with the camera turned 0.1° and
+moved 3 cm; the frames are now identical apart from the move (before, the Joker building's windows were torn).
+
+**Flicker inside the flat, on the paintball course and on the construction site** (your notes of 3 Nov): four causes,
+all fixed, plus one that reached much further. (1) Surfaces drawn on top of each other in the flat and the stairwells (the web keeps them apart with a
+depth trick Unreal ignores): neighbouring rooms' wall paints, skirting, kitchen paint, wall tiles, brick, plaster,
+terrazzo; they are now 1–3 mm apart. (2) The "brick/tile pattern" on the fridge and kitchen fronts was Unreal's grey
+default material: two material slots of the flat pointed at material numbers that a re-export had moved; repaired
+(also a lamp in every stairwell and one in the firepit). (3) The site fence, the paintball net and the balcony
+railings drew their wires with hard edges, so they shimmered; they are now smoothed and dithered, and the net and
+fence panels lost a second face that sat in the same place. (4) The site's soil was a ploughed-field photo whose
+furrows tiled into a shimmering barcode; it is plain compacted gravelly soil now. (5) Streaky bands stayed on the
+site's ground when seen from eye height (they are in the 28 Oct screenshots too). A probe showed they came from the
+texture coordinates: Unreal stores them with only 11 significant bits by default, and on meshes laid out in world
+metres they snapped to steps of 1/8 to 1/2 of a texture, so the soil texture smeared along rows of the ground. The
+soil now takes its texture position from the world, and the same rounding was found on 310 other meshes (every
+street-and-ground tile near home, all 3D walls, the stairwells, the site's gravel track, the paintball walls); they
+now keep full precision, so bricks and paving no longer bend between vertices.
+
+**Street View.** Around Haarklous plass the blocks are red-brown brick with dark, slightly sunken mortar, dark-brown
+wooden windows with white curtains, thin concrete balconies with steel railings, grey plinths; some blocks are
+orange-red brick with white windows and red tile roofs; the neighbours are pale yellow plaster with frosted green
+glass balconies; granite kerbs, narrow asphalt streets, parked hatchbacks, vans and taxis. What changed to match:
+
+- Brick: a darker red-brown with dark grey joints and a livelier mix of bricks (the scan's light mortar and
+  OpenStreetMap's pale salmon made the walls look pink); orange-red brick with white windows and more red tile roofs
+  in the mix; frosted green glass balcony fronts on plaster blocks.
+- Real 3D walls (window openings, reveals, sills) now reach 400 m from home (793 walls, was 433 within 270 m), with
+  weathering: rain streaks under the sills, darker near the ground, soft stains. They also have their building's
+  real colour now: a script bug had given every 3D wall the same pale pink (the build ran in Blender, which could not
+  read the colour table), which is why the near blocks looked pink before.
+- 67 reflection captures along the streets, so car paint and windows reflect the houses and trees around them.
+- **Cars:** the game's car has exactly the size of a VW Golf (4.2 × 1.8 × 1.45 m, wheels where the Golf's are), so
+  it is now a seventh-generation Golf: real proportions, clean window lines with rubber seals and black frit, slim
+  headlights with LED daytime strips, the grille bar, tail lights with the light signature, mirrors with repeaters,
+  door handles, panel gaps, wipers, 16-inch ten-spoke alloys with brake discs, Norwegian number plates (eight
+  different, each car keeps its own). The silver, white and blue cars are a second real car, a VW ID.3 (short bonnet,
+  big rear quarter windows, light bars joined by black bands). Paint is a clear-coated metallic with a very smooth
+  lacquer, so the sun and sky glare off it; the lowest 30 cm carry a little road dust. Interiors, sizes, wheels and
+  driving are unchanged.
+
+Checked: the play-through `look` (0 failures), 54 automation tests, the `vehicles` play-through (every vehicle, the
+car's jump, now in a Golf and an ID.3), a new lighting bake (21.7 min).
+
+![Flicker check: the Joker building's windows, now clean in every frame (before, the old wall tore through them)](img/look--f5-joker-a.jpg)
+![The construction site from eye height: no more streaky bands on the soil](img/look--p7-site-2-a.jpg)
+![Sigurd Lies gate from Google Street View's own spot: red-brown brick, dark joints](img/look--s1-sigurd-lies-gate.jpg)
+![The front of 17A](img/look--f1-front-of-17A-a.jpg)
+![The brick up close: dark mortar, mixed bricks, the concrete plinth](img/look--s3-haarklous-plass.jpg)
+![The Golf: Norwegian plate, LED strip, the grille bar, the sky in the bonnet](img/look--c1-headlight.jpg)
+![The Golf from the front](img/look--c1-front34.jpg)
+![The Golf from behind: tail lights with their light signature](img/look--c1-rear34.jpg)
+![The ID.3 (silver, white and blue cars)](img/look--c2-headlight.jpg)
+![The ID.3 from the side](img/look--c2-side.jpg)
+![From the driver's seat](img/look--c9-driver-seat.jpg)
+![A street to the west: red tile and slate roofs, brick and plaster blocks](img/look--f3-street-west-a.jpg)
+![The district from the air](img/look--f6-aerial-a.jpg)
+
+Frame rates (editor build, 1280 × 720 at 75 %, the same test as on 29 Oct): home 52.3 (was 57.0), firepit 37.0
+(42.9), street 38.5 (44.0), park 31.3 (35.1), flying 32.0 (33.5), site 23.1 (28.6), paintball 21.6 (25.8) fps;
+about 10–18 % slower, mostly the twice as many 3D walls and the detailed cars (the 67 reflection captures cost
+nothing measurable: with them switched off the numbers are the same).
+
+In **the packaged game you start** (3 Nov 2026, after all of the above; full screen 2240 × 1400, "Balanced", the same
+`-hktest=fps` as in "Frame rates on this laptop"), two runs:
+
+| Place | Average (run 1 / run 2) | Slowest 1 % of frames |
+| --- | --- | --- |
+| Home | **49.1 / 53.5 fps** | 29.4 / 39.8 fps |
+| Firepit | **39.6 / 41.5 fps** | 29.4 / 29.8 fps |
+| The park | **40.5 / 42.2 fps** | 22.1 / 26.3 fps |
+| The street outside 17A | **43.2 / 43.1 fps** | 33.2 / 31.2 fps |
+| Flying, 110 m up | **36.0 / 35.3 fps** | 23.8 / 17.7 fps |
+| Construction site | **39.3 / 36.7 fps** | 25.8 / 22.5 fps |
+| Paintball course | **44.2 / 44.3 fps** | 29.4 / 29.6 fps |
+
+Every place is well above the 20–30 fps goal on average, and faster than on 28 Oct (26–32 fps), probably because
+the far copies of the buildings and trees are no longer drawn a second time; single frames still dip to 12–19 fps
+now and then (flying once had its slowest 1 % at 17.7).
+
 ## What still needs you
 
+- **More parked cars?** Street View shows the streets lined with parked cars on both sides; the game has the web's 32
+  cars and 7 motorcycles. More cars would be obstacles (and new vehicle numbers online), so that waits for your OK
+  (`docs/GAMEPLAY-IDEAS.md`).
+- **The web game moved on:** web PR #48 (a Gamle Oslo district, landmarks, sea) was merged on 2 Nov 2026. The
+  Unreal snapshot is still web `main` at d4ec404; say the word and I refresh it and port the new district.
 - **Online for everyone:** a lobby holds 12 players (your decision, the whole lobby). The test server already does,
   and you can play online today: start the game with `-HKOnline` (it joins the test server), share the 4-letter code,
   friends with the same build join it (`-HKOnline -HKLobby=CODE` or the code pad); the web game at

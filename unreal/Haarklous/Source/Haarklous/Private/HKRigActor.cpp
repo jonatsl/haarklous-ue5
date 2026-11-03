@@ -7,6 +7,7 @@
 #include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Misc/PackageName.h"
 
 AHKRigActor::AHKRigActor()
 {
@@ -30,7 +31,10 @@ void AHKRigActor::Init(FHKRig* InRig, const FString& InRigName, bool bSkipRootMe
 		if (!Parent) Parent = RootComponent;
 		USceneComponent* C = nullptr;
 		const bool bWantMesh = !N->MeshKey.IsNone() && !(bSkipRootMesh && N == Rig->Root);
-		UStaticMesh* Mesh = bWantMesh ? LoadObject<UStaticMesh>(nullptr, *FString::Printf(TEXT("/Game/Haarklous/Meshes/%s/%s.%s"), *RigName, *N->MeshKey.ToString(), *N->MeshKey.ToString())) : nullptr;
+		FString MeshName = N->MeshKey.ToString();
+		if (bWantMesh && !MeshVariant.IsEmpty() && FPackageName::DoesPackageExist(FString::Printf(TEXT("/Game/Haarklous/Meshes/%s/%s%s"), *RigName, *MeshName, *MeshVariant)))
+			MeshName += MeshVariant;
+		UStaticMesh* Mesh = bWantMesh ? LoadObject<UStaticMesh>(nullptr, *FString::Printf(TEXT("/Game/Haarklous/Meshes/%s/%s.%s"), *RigName, *MeshName, *MeshName)) : nullptr;
 		if (bWantMesh && !Mesh) UE_LOG(LogHaarklous, Warning, TEXT("Rig %s: mesh %s missing"), *RigName, *N->MeshKey.ToString());
 		if (Mesh)
 		{
@@ -46,11 +50,34 @@ void AHKRigActor::Init(FHKRig* InRig, const FString& InRigName, bool bSkipRootMe
 		C->SetMobility(EComponentMobility::Movable);
 		C->SetupAttachment(N == Rig->Root ? RootComponent.Get() : Parent);
 		C->RegisterComponent();
+		if (UStaticMeshComponent* M = Mesh ? Cast<UStaticMeshComponent>(C) : nullptr)
+		{
+			// Lighter versions of the mesh for further away (the real car's body: <mesh>_LOD1, <mesh>_LOD2 from
+			// tools/blender/car_model.py). Each draws in its own distance band; the commandlet cannot make them the
+			// mesh's own LODs, and switching by draw distance does the same.
+			for (int32 L = 1; L <= 2; L++)
+			{
+				const FString LodName = MeshName + FString::Printf(TEXT("_LOD%d"), L);
+				const FString Pkg = FString::Printf(TEXT("/Game/Haarklous/Meshes/%s/%s"), *RigName, *LodName);
+				UStaticMesh* LodMesh = FPackageName::DoesPackageExist(Pkg) ? LoadObject<UStaticMesh>(nullptr, *(Pkg + TEXT(".") + LodName)) : nullptr;
+				if (!LodMesh) break;
+				UStaticMeshComponent* LC = NewObject<UStaticMeshComponent>(this);
+				LC->SetStaticMesh(LodMesh);
+				LC->SetMobility(EComponentMobility::Movable);
+				LC->SetCastShadow(bCastShadows);
+				LC->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				LC->SetupAttachment(M);
+				LC->RegisterComponent();
+				LodComps.Add({LC, M, L});
+				LodCompRefs.Add(LC);
+			}
+		}
 		CompOf.Add(N, C);
 		Comps.Add(C);
 		Nodes.Add(N);
 	}
 	InitPerson();
+	SetCullDistance(0);
 	Sync();
 }
 
@@ -158,8 +185,22 @@ void AHKRigActor::SetAllCollision(bool bTrace)
 
 void AHKRigActor::SetCullDistance(float Cm)
 {
+	// Distance bands of a mesh with lighter versions: full detail to 22 m, LOD1 to 60 m, LOD2 beyond (cm).
+	static const float Band[] = {0.f, 2200.f, 6000.f, 0.f};
+	auto Clamp = [Cm](float Max) { return Cm > 0 && (Max <= 0 || Cm < Max) ? Cm : Max; };
 	for (USceneComponent* C : Comps)
-		if (UStaticMeshComponent* M = Cast<UStaticMeshComponent>(C)) M->SetCullDistance(Cm);
+		if (UStaticMeshComponent* M = Cast<UStaticMeshComponent>(C))
+		{
+			const bool bHasLods = LodComps.ContainsByPredicate([M](const FLodComp& L) { return L.Base == M; });
+			M->SetCullDistance(Clamp(bHasLods ? Band[1] : 0.f));
+		}
+	for (const FLodComp& L : LodComps)
+	{
+		const bool bLast = !LodComps.ContainsByPredicate([&L](const FLodComp& O) { return O.Base == L.Base && O.Level > L.Level; });
+		L.Comp->SetCullDistance(Clamp(bLast ? 0.f : Band[L.Level + 1]));
+		L.Comp->MinDrawDistance = Band[L.Level];
+		L.Comp->MarkRenderStateDirty();
+	}
 	if (Person) Person->SetCullDistance(Cm);
 }
 
@@ -174,6 +215,8 @@ void AHKRigActor::Sync()
 		const bool bVisible = N->bVisible && !HiddenNodes.Contains(i);
 		if (C->IsVisible() != bVisible) C->SetVisibility(bVisible, false);
 	}
+	for (const FLodComp& L : LodComps)
+		if (L.Comp->IsVisible() != L.Base->IsVisible()) L.Comp->SetVisibility(L.Base->IsVisible(), false);
 	if (Person) SyncPerson();
 }
 
@@ -187,11 +230,24 @@ void AHKRigActor::SetPaint(const FLinearColor& Color)
 {
 	if (PaintMids.Num() == 0)
 	{
-		for (USceneComponent* C : Comps)
+		// Number plates (the real car's MI_HK_CarPlate, an atlas of 8): each painted vehicle takes the next one, in the
+		// web's vehicle order, so every player sees the same plate on the same car.
+		static int32 NextPlate = 0;
+		const int32 Plate = NextPlate++ % 8;
+		TArray<USceneComponent*> All(Comps);
+		for (const FLodComp& L : LodComps) All.Add(L.Comp);
+		for (USceneComponent* C : All)
 			if (UStaticMeshComponent* M = Cast<UStaticMeshComponent>(C))
 				for (int32 s = 0; s < M->GetNumMaterials(); s++)
 				{
 					UMaterialInterface* Mat = M->GetMaterial(s);
+					if (Mat && Mat->GetName() == TEXT("MI_HK_CarPlate"))
+					{
+						UMaterialInstanceDynamic* Mid = UMaterialInstanceDynamic::Create(Mat, this);
+						Mid->SetScalarParameterValue(FName("Plate"), Plate);
+						M->SetMaterial(s, Mid);
+						continue;
+					}
 					// Car and motorcycle body paint: the clear-coated physical materials (not glass).
 					if (Mat && Mat->GetName().StartsWith(TEXT("MI_Physical")) && !Mat->GetName().Contains(TEXT("glass")))
 					{

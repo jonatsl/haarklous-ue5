@@ -22,3 +22,8 @@ gap on the concave profile; `site_geometry.prism()` now uses ear clipping (`tool
 ## Ideas
 - The web's "aerial imagery" ground option is not used in Unreal (the ground has real materials). It could come back
   as a map overlay if you miss it.
+- **More parked cars** (realism pass, 2 Nov 2026): in Google Street View the streets around Haarklous plass are lined
+  with parked cars, vans and taxis on both sides; the game has the web's 32 cars and 7 motorcycles within 330 m.
+  More cars would be obstacles (and, if drivable, new vehicle numbers online), so they change gameplay: they wait
+  for your OK. Two ways: more drivable cars in the web's generator (both games, same numbers), or parked-only cars
+  that block like lamp posts (Unreal and web).

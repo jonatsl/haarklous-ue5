@@ -37,9 +37,10 @@ Refresh after changes in the web game: `powershell -File tools\refresh-reference
   code, friends join with `-HKOnline -HKLobby=CODE` or the code pad, or in the web game at the test server's address) (server
   `wss://haarklous-ue5-test.server-smoke.workers.dev`, see `docs/ONLINE.md`). Never point it at the live game.
 
-## Frame rates (28 Oct 2026, this laptop, 2240 × 1400 full screen, quality "Balanced")
-Packaged game with the photo-real pass: home 31.8 fps, firepit 26.2, park 27.4, street 27.2, flying 29.6 (averages;
-slowest 1 % of frames 21–27 fps, one flying run 17.9; before the photo-real pass 3–7 fps faster). Measure again: `dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps
+## Frame rates (3 Nov 2026, this laptop, 2240 × 1400 full screen, quality "Balanced")
+Packaged game after realism pass 2 (two runs): home 49–54 fps, firepit 40–42, park 41–42, street 43, flying 35–36,
+construction site 37–39, paintball 44 (averages; slowest 1 % of frames 18–40 fps). On 28 Oct, after the photo-real
+pass: home 31.8, firepit 26.2, park 27.4, street 27.2, flying 29.6. Measure again: `dist\Haarklous-UE5\Windows\Haarklous.exe -hktest=fps
 -hkout=<folder> -fullscreen -ResX=2240 -ResY=1400` (results in `<folder>\fps.txt`), or in the editor build
 `powershell -File tools\run-game.ps1 -Test fps -Res 2240x1400 -Fullscreen`. Details: `docs/REPORT.md`.
 
@@ -61,6 +62,14 @@ See `docs/ARCHITECTURE.md`. In short:
   `tools/blender/build_trees.py` + `tools/unreal/import_trees.py` rebuild only the crowns), and the 3D walls of the
   near district (`tools/blender/build_facades.py`, `tools/unreal/import_facades.py`; then bake the lighting). Also run
   by `tools\build-assets.ps1`.
+- Realism pass 2 (2 Nov 2026: the flicker fix, a real car, real brick, 3D walls to 400 m): `tools/make-brick.py`
+  (dark-mortar brick), `tools/make-car-textures.py` (Norwegian number plates), `tools/blender/car_model.py` (a VW Golf
+  Mk7-style body, used by build_assets.py), `tools/unreal/materials_cars.py`; all run by `tools\build-assets.ps1`.
+  Check with `tools\run-game.ps1 -Test look`. See `docs/ARCHITECTURE.md` "Realism pass 2".
+- Full-precision uvs (3 Nov 2026): after importing meshes (also the site's and the paintball course's),
+  `blender -b --factory-startup -P tools/blender/uv_ranges.py`, then `tools\unreal\run-python.ps1 tools\unreal\full_precision_uvs.py`
+  (step 7 of `tools\build-assets.ps1`). Unreal's default half-float uvs bent and smeared textures on meshes laid out
+  in world metres.
 - Construction site (28 Oct 2026, a new feature the user asked for): `python tools/make-site.py` (place, soil,
   machines, props -> `Content/Data/site.json`), `tools/blender/build_machines.py` (dozer, excavator, wheel loader,
   hauler, tipper, mobile and tower crane, site props), `tools/unreal/materials_site.py` (soil and machine materials,

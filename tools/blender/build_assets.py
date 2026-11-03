@@ -22,9 +22,11 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import car_model  # noqa: E402  (photo-real pass: the car's new body and wheels)
+import car_model  # noqa: E402  (realism pass: the car is a VW Golf Mk7-style body)
+import car_id3  # noqa: E402  (and a VW ID.3-style body for some of the cars)
 import tree_model  # noqa: E402  (photo-real pass: tree crowns with limbs and leaf masses)
 import facade_model  # noqa: E402  (photo-real pass: 3D facades near home replace the flat web walls)
+import coplanar  # noqa: E402  (surfaces the web layered with polygonOffset / draw order are pulled apart)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 EXPORT = os.path.join(ROOT, 'tools', 'out', 'web-export')
@@ -283,21 +285,57 @@ def corners_to_data(P, N, U, K, slot_keys):
             'cast': np.ones(T, dtype=bool)}
 
 
+def seg_dist(p, a, b):
+    a, b = np.array(a, float), np.array(b, float)
+    t = np.clip(((p - a) @ (b - a)) / np.dot(b - a, b - a), 0, 1)
+    return np.linalg.norm(p - (a + np.outer(t, b - a)), axis=1)
+
+
 def car_parts(asset, data, slot_keys):
-    """Photo-real pass: the car keeps the web's interior, seats, dashboard and steering wheel, gets a smooth body
-    (car_model.car_shell) and alloy wheels (car_model.car_wheel, mirrored on the left side)."""
+    """The real car (car_model: a VW Golf Mk7-style body, 2 Nov 2026): the web's interior, seats, dashboard and steering
+    wheel stay, the outside and the wheels are new. The web's cabin pillars (rods from the dashboard to the roof,
+    game-vehicles.js) are left out: the new body has its own, elsewhere, and the rods stood in the windows."""
+    for k in car_model.NEW_KEYS + [car_model.CHROME, car_model.TRIM, car_model.PAINT]:
+        if k not in slot_keys:
+            slot_keys.append(k)                                  # the same list build_object() gets
     if asset == 'SM_car__body':
         keep = np.array([slot_keys[s] not in CAR_EXTERIOR for s in data['slot']], dtype=bool)
+        cen = data['pos'].mean(axis=1)
+        rods = [((s * .72, .97, -.66), (s * .66, 1.37, -.05), .035) for s in (-1, 1)] + \
+               [((s * .7, 1.02, .5), (s * .66, 1.38, .5), .04) for s in (-1, 1)] + \
+               [((s * .7, 1.02, 1.72), (s * .64, 1.38, 1.42), .045) for s in (-1, 1)]
+        pillar_keys = [slot_keys.index(k) for k in (car_model.DASH, car_model.LINER) if k in slot_keys]
+        for a, b, r in rods:
+            keep &= ~((seg_dist(cen, a, b) < r + 0.02) & np.isin(data['slot'], pillar_keys))
         inner = {k: v[keep] for k, v in data.items() if k in ('pos', 'nor', 'uv', 'slot', 'cast')}
-        shell = corners_to_data(*car_model.car_shell(), slot_keys)
+        shell = corners_to_data(*car_model.car_shell(0), slot_keys)
+        CAR_LODS['inner'] = inner
         return {k: np.concatenate([inner[k], shell[k]]) for k in inner}
     if asset.startswith('SM_car__wheels_') and asset.endswith('_wheel'):
-        P, N, U, K = car_model.car_wheel()
+        P, N, U, K = car_model.golf_wheel()
         if int(asset.split('_')[-2]) in (0, 2):                 # the left wheels (x = -0.78): outer face toward -x
             P, N = P * [-1, 1, 1], N * [-1, 1, 1]
             P, N, U = P[:, ::-1], N[:, ::-1], U[:, ::-1]
         return corners_to_data(P, N, U, K, slot_keys)
     return data
+
+
+CAR_LODS = {}
+
+
+def car_lods(slot_keys):
+    """Lighter bodies for the car seen from further away (AHKRigActor draws them by distance): the shell subdivided
+    once with lights, grilles and badges (and the cabin), and the bare cage with lights only; then the second body
+    (car_id3.py, SM_car__body_B) with its own two lighter versions."""
+    out = []
+    for suffix, overrides in (('', {}), ('_B', car_id3.OVERRIDES)):
+        with car_model.variant(overrides):
+            for level in ((1, 2) if not suffix else (0, 1, 2)):
+                shell = corners_to_data(*car_model.car_shell(level), slot_keys)
+                if level < 2 and 'inner' in CAR_LODS:
+                    shell = {k: np.concatenate([CAR_LODS['inner'][k], shell[k]]) for k in shell}
+                out.append((f'SM_car__body{suffix}' + (f'_LOD{level}' if level else ''), shell))
+    return out
 
 
 # Photo-real pass: these rigs keep the web's shapes but get rounded edges (a small bevel that catches the light, as
@@ -362,6 +400,54 @@ def drop_site_terrain(data, slot_keys):
                 print(f'HK: {int(other.sum())} other triangles (paths, lamps) on the {name} left out')
             drop |= other
     return {k: v[~drop] for k, v in data.items()}
+
+
+NEAR_REACH = 820.0   # surroundings.js PLAY_HALF + 60: buildings and trees closer to home are in the near pass too
+
+
+def tri_keys(pos):
+    """One hashable key per triangle (its corners rounded to 2 cm, in sorted order), for finding the same triangle twice."""
+    q = np.round(pos * 50.0).astype(np.int64)                      # T x 3 x 3
+    order = np.lexsort((q[:, :, 2], q[:, :, 1], q[:, :, 0]), axis=1)
+    q = np.take_along_axis(q, order[:, :, None], axis=1).reshape(len(q), 9)
+    return np.ascontiguousarray(q).view(np.dtype((np.void, q.dtype.itemsize * 9))).ravel()
+
+
+def drop_far_duplicates(data, slot_keys):
+    """The web draws the far pass in its own render pass underneath the near one, and it holds a copy of every building
+    within NEAR_REACH (surroundings.js: targets = [farSet, nearCell]). In Unreal both passes are one scene, so the copy
+    lay exactly on the near building (and on the 3D walls near home) and the two fought over the same pixels: buildings
+    flickered as the camera moved. Far triangles that are also in the near export are left out."""
+    exp = json.load(open(os.path.join(EXPORT, 'world_near.json'), encoding='utf-8'))
+    bin_data = open(os.path.join(EXPORT, 'world_near.bin'), 'rb').read()
+    plan = json.load(open(os.path.join(PLAN, 'world_near.json'), encoding='utf-8'))
+    near = [gather(exp, bin_data, a['meshes'], a['slots']) for a in plan['assets']]
+    near = np.concatenate([tri_keys(n['pos']) for n in near if n is not None])
+    drop = np.isin(tri_keys(data['pos']), near)
+    print(f'HK: {int(drop.sum())} far triangles are copies of near ones (buildings within {NEAR_REACH:.0f} m) and left out')
+    # The district terrain lies 0.5 m under the walkable ground (+-PLAY_HALF, 4 m grid, in world_near): there it is
+    # never seen, only drawn.
+    sur = json.load(open(os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data', 'surroundings.json'), encoding='utf-8'))
+    th, gx, gz = sur['geo']['theta'], sur['geo']['x'], sur['geo']['z']
+    px, pz = data['pos'][:, :, 0] - gx, data['pos'][:, :, 2] - gz
+    lx, ls = px * math.cos(th) - pz * math.sin(th), px * math.sin(th) + pz * math.cos(th)
+    under = (np.abs(lx) <= 760.01).all(axis=1) & (np.abs(ls) <= 760.01).all(axis=1) & np.isin(data['slot'], [slot_keys.index(k) for k in TERRAIN_KEYS if k in slot_keys])
+    print(f'HK: {int(under.sum())} district terrain triangles under the walkable ground left out')
+    drop |= under
+    r = np.hypot(lx.mean(axis=1), ls.mean(axis=1))
+    left = (r < NEAR_REACH - 40) & ~drop
+    print(f'HK: far triangles left within {NEAR_REACH - 40:.0f} m of home: {int(left.sum())}')
+    return {k: v[~drop] for k, v in data.items()}
+
+
+def far_tree_kept(rows):
+    """Far tree copies (trunks, light crowns) of trees the near pass already plants (within NEAR_REACH of home) are left
+    out: the two stood in the same place."""
+    sur = json.load(open(os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data', 'surroundings.json'), encoding='utf-8'))
+    th, gx, gz = sur['geo']['theta'], sur['geo']['x'], sur['geo']['z']
+    dx, dz = rows[:, 12] - gx, rows[:, 14] - gz
+    lx, ls = dx * math.cos(th) - dz * math.sin(th), dx * math.sin(th) + dz * math.cos(th)
+    return np.hypot(lx, ls) >= NEAR_REACH
 
 
 def drop_rebuilt_facades(data, slot_keys):
@@ -478,6 +564,8 @@ def build_rig(rig):
             data = moto_parts(a['asset'], data, a['slotKeys'])
         if rig in ('world_near', 'world_far') and data is not None:
             data = drop_site_terrain(data, a['slotKeys'])
+        if rig == 'world_far' and data is not None:
+            data = drop_far_duplicates(data, a['slotKeys'])
         if rig == 'world_near' and data is not None and 'MI_facade' in a['slotKeys']:
             data = drop_rebuilt_facades(data, a['slotKeys'])
         if rig == 'world_near' and data is not None and LAMP_KEY in a['slotKeys']:
@@ -486,6 +574,8 @@ def build_rig(rig):
             keep = np.array([a['slotKeys'][k] != LAMP_KEY for k in data['slot']], dtype=bool)
             print(f'HK: {int((~keep).sum())} triangles of the web street lamps replaced by SM_StreetLamp')
             data = {k: v[keep] for k, v in data.items()} if keep.any() else None
+        if data is not None and (rig in ('apartment', 'fire') or rig.startswith('stair_')):
+            data = coplanar.separate(data, a['slotKeys'], a['asset'])
         tile = TILES.get(rig) if a.get('levelStatic') else None
         if data is not None and tile:
             cx = data['pos'][:, :, 0].mean(axis=1)
@@ -518,6 +608,10 @@ def build_rig(rig):
             if rig in SOFTEN_RIGS:
                 soften(ob)
             made.append({'asset': a['asset'], 'levelStatic': bool(a.get('levelStatic'))})
+            if rig == 'car' and a['asset'] == 'SM_car__body':
+                for name, lod in car_lods(a['slotKeys']):
+                    build_object(name, lod, a['slotKeys'])
+                    made.append({'asset': name, 'lodOf': a['asset']})
         # Instanced meshes of this node: one base mesh each plus its placements.
         for mi in a['meshes']:
             m = exp['meshes'][mi]
@@ -549,8 +643,12 @@ def build_rig(rig):
                     continue
                 build_object(name, base, [a['slotKeys'][a['slots'].index(x)] if x in a['slots'] else 'M_missing' for x in mats])
                 key = ''
-            mats_arr = array(bin_data, m['instances'], np.float32).reshape(-1, 16)
-            instances.append({'asset': name, 'count': int(m['instanceCount']), 'transforms': [to_ue_transform(row.tolist()) for row in mats_arr[: int(m['instanceCount'])]],
+            mats_arr = array(bin_data, m['instances'], np.float32).reshape(-1, 16)[: int(m['instanceCount'])]
+            if rig == 'world_far':
+                kept = far_tree_kept(mats_arr)
+                print(f'HK: {name}: {int((~kept).sum())} far copies of near trees left out, {int(kept.sum())} kept')
+                mats_arr = mats_arr[kept]
+            instances.append({'asset': name, 'count': len(mats_arr), 'transforms': [to_ue_transform(row.tolist()) for row in mats_arr],
                               'cast': m.get('cast', True), 'kind': key})
             made.append({'asset': name, 'instanced': True})
     os.makedirs(OUT, exist_ok=True)

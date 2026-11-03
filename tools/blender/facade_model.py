@@ -23,13 +23,13 @@ import numpy as np
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 DATA = os.path.join(ROOT, 'unreal', 'Haarklous', 'Content', 'Data')
 TEX = os.path.join(ROOT, 'tools', 'out', 'textures')
-RADIUS = 270.0          # inside the web's near set (NEAR_LIMIT 280 m), whose walls are in world_near
+RADIUS = 400.0          # the realism pass (2 Nov 2026): every block within 400 m of home (all in world_near)
 STOREY, PLINTH = 2.85, 1.425
 SILL, HEAD = 0.876, 2.301
 
 WALL, GLASS, FRAME_DARK, FRAME_WHITE, SILL_KEY = 'MI_HK_Wall3D', 'MI_HK_Glass3D', 'MI_HK_FrameBrown', 'MI_HK_FrameWhite', 'MI_HK_DetailConcrete'
 SLOTS = [WALL, GLASS, FRAME_DARK, FRAME_WHITE, SILL_KEY]
-BRICK_AVG = (0.3587, 0.2353, 0.1676)
+BRICK_AVG = (0.3104, 0.1927, 0.1405)       # tools/make-brick.py prints it
 PLASTER_AVG = (0.4943, 0.4405, 0.3687)
 COLOUR_SCALE = 2.5          # vertex colours hold tint / 2.5 (they are clamped to 0..1); M_HK_Wall3D multiplies back
 
@@ -57,13 +57,9 @@ def _area(r):
 def covered_walls():
     s = json.load(open(os.path.join(DATA, 'surroundings.json'), encoding='utf-8'))
     game = json.load(open(os.path.join(DATA, 'game.json'), encoding='utf-8'))
+    # Each building's look from tools/make-building-map.py (its colour, window frames, variant). Until 3 Nov 2026 this
+    # read T_BuildingPalette.png with PIL, which Blender's Python does not have: every 3D wall got the fallback pink.
     looks = json.load(open(os.path.join(TEX, 'building-looks.json'), encoding='utf-8'))
-    pal = None
-    try:
-        from PIL import Image
-        pal = np.array(Image.open(os.path.join(TEX, 'T_BuildingPalette.png')))
-    except Exception:
-        pass
     th, gx, gz, ground = s['geo']['theta'], s['geo']['x'], s['geo']['z'], s['ground']
     cT, sT = math.cos(th), math.sin(th)
     to_world = lambda x, z: np.array([x * cT + z * sT + gx, -x * sT + z * cT + gz])
@@ -96,11 +92,10 @@ def covered_walls():
         y0 = g0 + PLINTH
         if top - y0 < STOREY:
             continue
-        lid = look['look']
-        colour = tuple(pal[0, lid, :3] / 255.0) if pal is not None else (0.8, 0.6, 0.55)
+        colour = tuple(c / 255.0 for c in look['rgb'])
         plaster = look['style'] == 'plaster'
-        white = bool(pal[1, lid, 2] > 127) if pal is not None else plaster
-        variant = (pal[1, lid, 3] / 255.0) if pal is not None else 0.5
+        white = bool(look['white'])
+        variant = look['variant']
         lin = np.power(np.array(colour), 2.2)
         tint = lin / PLASTER_AVG * 0.68 if plaster else lin / BRICK_AVG * (0.92 + 0.12 * variant)
         # The web's walls(): ring reversed when its signed area (map frame) is positive; u runs along that order.

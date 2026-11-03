@@ -38,6 +38,8 @@ public:
 	void SetAllCollision(bool bTrace);
 	FHKRig* GetRig() const { return Rig; }
 	bool bAutoSync = true;
+	// Set before Init: a node mesh <name><MeshVariant> is used instead of <name> where it exists (the car's second body).
+	FString MeshVariant;
 	// Max draw distance for the meshes (cm, 0 = unlimited).
 	void SetCullDistance(float Cm);
 
@@ -51,6 +53,10 @@ private:
 	TArray<FHKNode*> Nodes;
 	TMap<const UPrimitiveComponent*, FHKNode*> NodeByComp;
 	UPROPERTY() TArray<TObjectPtr<UMaterialInstanceDynamic>> PaintMids;
+	// Lighter versions of a node's mesh drawn further away (SetCullDistance gives each its distance band).
+	struct FLodComp { UStaticMeshComponent* Comp = nullptr; UStaticMeshComponent* Base = nullptr; int32 Level = 0; };
+	TArray<FLodComp> LodComps;
+	UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> LodCompRefs;   // keeps them alive
 
 	// Realistic person for avatar rigs.
 	UPROPERTY() TObjectPtr<UPoseableMeshComponent> Person;

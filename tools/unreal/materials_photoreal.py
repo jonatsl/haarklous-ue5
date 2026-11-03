@@ -34,7 +34,7 @@ MAP = json.load(open(os.path.join(TEX, 'building-map.json'), encoding='utf-8'))
 # name -> (folder, file prefix, maps): D colour, N normal (OpenGL, green flipped on import), R roughness, A ambient occlusion
 PH = lambda a: (a, a + '_', {'D': 'diff_2k.jpg', 'N': 'nor_gl_2k.jpg', 'R': 'rough_2k.jpg'})
 LIBRARY = {
-    'Brick': PH('brick_wall_09'),
+    'Brick': ('brick_wall_09', 'brick_wall_09_', {'D': 'hk_diff_2k.png', 'N': 'nor_gl_2k.jpg', 'R': 'rough_2k.jpg'}),   # dark mortar: tools/make-brick.py
     'Plaster': PH('plastered_wall_02'),
     'Concrete': PH('concrete_wall_008'),
     'Asphalt': PH('asphalt_02'),
@@ -45,7 +45,7 @@ LIBRARY = {
     'Lawn': ('Grass001', 'Grass001_2K-JPG_', {'D': 'Color.jpg', 'N': 'NormalGL.jpg', 'R': 'Roughness.jpg'}),
 }
 # Average linear colour of each scan (measured from the 2K maps), to tint them to a wanted colour.
-BRICK_AVG = (0.3587, 0.2353, 0.1676)
+BRICK_AVG = (0.3104, 0.1927, 0.1405)       # tools/make-brick.py prints it
 PLASTER_AVG = (0.4943, 0.4405, 0.3687)
 
 
@@ -318,6 +318,8 @@ float3 sillC = CD * float3(0.95, 0.93, 0.9);
 Emis = atGlass * glass * c * Bright;
 Rough = wall * wallR + reveal * wallR + atGlass * (wood * 0.5 + glass * 0.04) + inSill * 0.65;
 Nrm = normalize(wall * wallN + reveal * revN + (atGlass + inSill) * float3(0.0, 0.0, 1.0) + float3(0.0, 0.0, 1e-4));
+// Brick and render reflect little: specular 0.2 / 0.35 instead of the default 0.5.
+Spec = wall * lerp(0.2, 0.35, plaster) + reveal * 0.3 + atGlass * 0.5 + inSill * 0.4;
 return wall * wallC + reveal * wallC * 0.85 + atGlass * (wood * frameC * lit + glass * 0.015) + inSill * sillC;
 '''
 
@@ -347,8 +349,9 @@ def building_master():
         ('BAvg', g.vector('BrickAvg', (*BRICK_AVG, 1)), 'RGB'), ('PAvg', g.vector('PlasterAvg', (*PLASTER_AVG, 1)), 'RGB'),
         ('BrickK', g.scalar('BrickStrength', 1.0), ''), ('PlasterK', g.scalar('PlasterStrength', 0.68), ''),
         ('MaxV', g.scalar('WindowMaxV', 1.0), '')],
-        [('Emis', F3), ('Rough', F1), ('Nrm', F3)])
+        [('Emis', F3), ('Rough', F1), ('Nrm', F3), ('Spec', F1)])
     g.out(c, unreal.MaterialProperty.MP_BASE_COLOR)
+    g.out(c, unreal.MaterialProperty.MP_SPECULAR, 'Spec')
     g.out(c, unreal.MaterialProperty.MP_EMISSIVE_COLOR, 'Emis')
     g.out(c, unreal.MaterialProperty.MP_ROUGHNESS, 'Rough')
     g.out(c, unreal.MaterialProperty.MP_NORMAL, 'Nrm')
@@ -584,11 +587,20 @@ def brick_photo():
 
 RAILING_HLSL = r'''
 // Steel railing of the balconies: u = metres along the panel, v = height (0..1). Top and bottom rails, bars every
-// 12 cm, two-sided and alpha-tested.
-float v = frac(UV.y + 1e-4);
-float rail = step(v, 0.05) + step(0.93, v);
-float bar = step(frac(UV.x / 0.12), 0.16);
-return saturate(rail + bar);
+// 12 cm, two-sided and alpha-tested. Edges filtered by their size on screen, bars thinner than a pixel fade to their
+// average cover, then dithered (3 Nov 2026: the hard-edged bars shimmered on every balcony).
+float v = frac(UV.y + 1e-4), fv = max(fwidth(UV.y), 1e-5);
+float rail = smoothstep(0.05 + fv, 0.05 - fv, v) + smoothstep(0.93 - fv, 0.93 + fv, v);
+rail = lerp(rail, 0.12, saturate(fv * 2.5 - 0.25));
+float x = UV.x / 0.12, fx = max(fwidth(x), 1e-5);
+float dd = abs(frac(x - 0.08 + 0.5) - 0.5);
+float bar = lerp(smoothstep(0.08 + fx, 0.08 - fx, dd), 0.16, saturate(fx * 2.5 - 0.25));
+float cov = saturate(rail + bar);
+// Stochastic transparency: keep the pixel with probability cov (interleaved gradient noise that moves every frame),
+// so temporal anti-aliasing turns sub-pixel wires into a steady see-through haze instead of a shimmering moire.
+float2 sp = Parameters.SvPosition.xy + View.StateFrameIndexMod8 * float2(5.588238, 5.588238);
+float noise = frac(52.9829189 * frac(dot(sp, float2(0.06711056, 0.00583715))));
+return cov > noise ? 1.0 : 0.0;
 '''
 
 
@@ -623,7 +635,7 @@ def details():
     mis = {}
     for name, tex, scale, color, metal, rough in (
             ('MI_HK_DetailConcrete', 'Concrete', 1 / 2.71, (1.35, 1.45, 1.9), 0.0, 1.0),
-            ('MI_HK_DetailPanel', 'Plaster', 1 / 2.23, (1.15, 1.25, 1.25), 0.0, 0.8),
+            ('MI_HK_DetailPanel', 'Plaster', 1 / 2.23, (0.95, 1.22, 1.12), 0.0, 0.3),   # pale green frosted glass fronts (Street View, 2 Nov 2026)
             ('MI_HK_DetailBrick', 'Brick', 1 / 2.01, SALMON_TINT, 0.0, 1.0),
             ('MI_HK_DetailMetal', 'Concrete', 1 / 2.71, (1.2, 1.3, 1.6), 0.7, 0.5),
             ('MI_HK_DetailCornice', 'Plaster', 1 / 2.23, (1.25, 1.2, 1.12), 0.0, 1.0),   # painted render, off-white
@@ -685,7 +697,7 @@ def details():
     log('building details imported')
 
 
-SALMON_TINT = tuple(0.85 * a / b for a, b in zip((0.5972, 0.3325, 0.2502), BRICK_AVG))
+SALMON_TINT = tuple(0.85 * a / b for a, b in zip((0.3050, 0.1221, 0.0802), BRICK_AVG))   # the real red-brown brick (150, 98, 80)
 
 import_all()
 reparent('MI_brick', brick_photo(), vectors={'UVScale': (2.4 / 2.01, 2.4 / 2.01, 0, 0), 'Color': (*SALMON_TINT, 1)})

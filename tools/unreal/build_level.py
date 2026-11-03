@@ -98,6 +98,40 @@ def place_static():
     log(f'{count} static mesh actors placed')
 
 
+def street_captures():
+    """Reflection captures 2.5 m above the streets within 350 m of home, about every 45 m (realism pass, 2 Nov 2026):
+    car paint and windows there reflect the houses, trees and street around them, not only the sky."""
+    import base64
+    s = json.load(open(os.path.join(DATA, 'surroundings.json'), encoding='utf-8'))
+    ter = s['terrain']
+    n, half, step = ter['n'], ter['half'], ter['step']
+    raw = base64.b64decode(ter['dm'])
+    grid = [int.from_bytes(raw[2 * i:2 * i + 2], 'little', signed=True) / 10.0 for i in range(n * n)]
+
+    def height(x, z):                                      # surroundings.js relLocal (bilinear on the 4 m grid)
+        fi = min(n - 1.001, max(0.0, (x + half) / step)); fj = min(n - 1.001, max(0.0, (z + half) / step))
+        i, j = int(fi), int(fj); u, v = fi - i, fj - j
+        g = lambda a, b: grid[b * n + a]
+        return s['ground'] + g(i, j) * (1 - u) * (1 - v) + g(i + 1, j) * u * (1 - v) + g(i, j + 1) * (1 - u) * v + g(i + 1, j + 1) * u * v
+    th, gx, gz = s['geo']['theta'], s['geo']['x'], s['geo']['z']
+    cT, sT = math.cos(th), math.sin(th)
+    pts = []
+    for r in s['roads']:
+        if r['k'] not in ('residential', 'tertiary', 'secondary', 'unclassified', 'service', 'living_street', 'primary'):
+            continue
+        p = r['p']
+        for k in range(0, len(p) - 2, 2):
+            ax, az, bx, bz = p[k], p[k + 1], p[k + 2], p[k + 3]
+            L = math.hypot(bx - ax, bz - az)
+            for t in [i / max(1, int(L / 45)) for i in range(int(L / 45) + 1)]:
+                x, z = ax + (bx - ax) * t, az + (bz - az) * t
+                if math.hypot(x, z) < 350 and all(math.hypot(x - q[0], z - q[1]) > 38 for q in pts):
+                    pts.append((x, z))
+    caps = [(x * cT + z * sT + gx, height(x, z) + 2.5, -x * sT + z * cT + gz, 3000.0) for x, z in pts]
+    log(f'{len(caps)} street reflection captures')
+    return caps
+
+
 def lights():
     game = json.load(open(os.path.join(DATA, 'game.json'), encoding='utf-8'))
     sd = game['meta']['sunDir']
@@ -186,6 +220,7 @@ def lights():
     # Realism pass: reflection captures, so glass, paint and metal reflect the buildings around them, not only the sky.
     caps = [(x, -8.0, z, 2600.0) for x in (-40.0, 0.0, 40.0) for z in (-20.0, 20.0, 60.0)]
     caps += [(1.6, 1.4, 3.0, 450.0), (4.0, 1.4, 7.6, 400.0), (0.1, -5.0, 8.0, 500.0)]   # living room, kitchen, stairwell
+    caps += street_captures()
     for i, (x, y, z, r) in enumerate(caps):
         rc = spawn(unreal.SphereReflectionCapture, f'Reflection {i}', unreal.Transform(ue_loc([x, y, z]), unreal.Rotator(0, 0, 0), unreal.Vector(1, 1, 1)), 'Generated/Lighting')
         try:

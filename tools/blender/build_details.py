@@ -475,7 +475,10 @@ def main():
                             lists['SM_BalconyRail'].append(ue(p[0], y, p[1], yaw))
             u += L
         # Cornice under the roof edge and a ledge on top of the plinth, along every wall (pieces overlap at the
-        # corners by their projection, so outside corners close).
+        # corners by their projection, so outside corners close). Neighbouring pieces differ in depth and height by a
+        # few millimetres (1.004 / 1.010, 1.016 for the last of an odd count): equal faces in the overlap at a corner
+        # flickered against each other as the camera moved.
+        first = (len(lists['SM_Cornice']), len(lists['SM_Ledge']))
         for k in range(len(world)):
             a, c = world[k], world[(k + 1) % len(world)]
             L = float(np.hypot(*(c - a)))
@@ -494,6 +497,12 @@ def main():
             lists['SM_Cornice'].append(ue(mid[0], top, mid[1], yaw, L + 0.64, 1, 1))
             if b['s'] == 'brick' and top > g0 + PLINTH + 1:
                 lists['SM_Ledge'].append(ue(mid[0], g0 + PLINTH, mid[1], yaw, L + 0.12, 1, 1))
+        for key, start in zip(('SM_Cornice', 'SM_Ledge'), first):
+            pieces = lists[key][start:]
+            for j, xf in enumerate(pieces):
+                n = 2 if (j == len(pieces) - 1 and len(pieces) % 2 == 1 and j > 0) else j % 2
+                xf[8], xf[9] = 1.004 + 0.006 * n, 1.004 + 0.006 * n   # depth (UE y) and height (UE z) of the piece
+                xf[2] += 0.2 * n                                      # and its top, by 2 mm (UE cm)
         # Downpipes at outside corners (about half of them).
         if storeys >= 2:
             m = len(world)

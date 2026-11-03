@@ -133,10 +133,12 @@ namespace
 				Sweep(TEXT("park"), FHKData::Get().ToWorld(110, 40).X, FHKData::Get().HeightWorld(FHKData::Get().ToWorld(110, 40).X, FHKData::Get().ToWorld(110, 40).Y) + 1.65, FHKData::Get().ToWorld(110, 40).Y, 0);
 				Sweep(TEXT("street"), 2, -8.3, 22, 0);
 				Sweep(TEXT("flying"), 30, 110, 60, -.35);
-				// The construction site (machines, soil, crane): from the middle of its pad.
-				Sweep(TEXT("site"), -161.9, FHKData::Get().GroundWorld(-161.9, -287.9) + 1.65, -287.9, -.05);
-				// The paintball course: from the middle of the play area.
-				Sweep(TEXT("paintball"), -173.12, -31.43 + 1.65, -356.75, -.05);
+				// The construction site (machines, soil, crane): from the middle of its pad (local x -88, s 416 since the move
+				// of 29 Oct 2026; the old spot is now the paintball yard).
+				const FVector2D SiteC = FHKData::Get().ToWorld(-88, 416), PbC = FHKData::Get().ToWorld(-40, 318);
+				Sweep(TEXT("site"), SiteC.X, FHKData::Get().GroundWorld(SiteC.X, SiteC.Y) + 1.65, SiteC.Y, -.05);
+				// The paintball course: from the middle of the play area (local x -40, s 318, floor -27.05 m).
+				Sweep(TEXT("paintball"), PbC.X, -27.05 + 1.65, PbC.Y, -.05);
 				T.FreeCamera();
 			});
 
