@@ -188,6 +188,14 @@ The user: buildings "twitch" or flicker when you look at them; then make it look
     centimetres above the terrain, a 1 cm staircase; smoothing it for drawing changed nothing, so it was left as is.)
   - The `fps` and `look` play-throughs looked at the paintball course and the site from their places before the move
     of 29 Oct (the paintball view was 2.7 m under the new yard): fixed.
+- **Street parking** (3 Nov 2026, off unless `-HKParkedCars`, waits for the user's OK): `HKParking::Create` parks up
+  to 220 `FHKCar`s nose to tail (5.3-7 m apart, 12 % gaps) along residential, tertiary, secondary, unclassified,
+  service and living streets within 400 m, nearest first, with the web parking's checks (10 m from other roads, level,
+  `CanStand`, clear of the web's vehicles, helipad, firepit and runway) plus 4 m clear of footpath crossings. On the
+  asphalt by the kerb on streets 7 m or wider, else beside the street like the web's. They are not in `VehicleList`
+  (online numbering unchanged): `AHKGame::ParkedCars`, still models (`AHKRigActor` synced once, no tick), footprints
+  once into `ParkedObstacles`, which `UpdateDynamic` adds for walking and driving. Check: `look` with
+  `-Extra "-HKParkedCars -hkout=..."` ("parked cars block walking").
 - **Reflections:** 67 sphere reflection captures 2.5 m over the streets within 350 m (`build_level.py
   street_captures()`), so paint and glass reflect the houses and trees around them, not only the sky photo.
 - **Brick:** Street View shows red-brown brick with dark, recessed mortar; the scan's mortar was light beige and

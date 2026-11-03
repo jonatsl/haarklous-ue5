@@ -10,6 +10,7 @@
 #include "HKMinigames.h"
 #include "HKMission.h"
 #include "HKMissionFx.h"
+#include "HKParking.h"
 #include "HKRigActor.h"
 #include "HKUi.h"
 #include "HKVehicles.h"
@@ -102,6 +103,26 @@ void AHKGame::SetupModules()
 			// (The first pile is in the level geometry already: the web's scene export carries it.)
 			V->OnDump = [this](double X, double Z) { AddDirtPile(X, Z, .55); };
 		}
+	}
+	// ---- Street parking (HKParking.h; off unless -HKParkedCars): still models, only their footprints count ----
+	if (HKParking::Enabled())
+	{
+		HKParking::Create(Vehicles, ParkedCars);
+		for (TUniquePtr<FHKVehicle>& V : ParkedCars)
+		{
+			AHKRigActor* A = GetWorld()->SpawnActor<AHKRigActor>(AHKRigActor::StaticClass(), FTransform::Identity, SP);
+			const int32 M = ((static_cast<FHKCar*>(V.Get())->Model % 7) + 7) % 7;
+			if (M == 2 || M == 3 || M == 4) A->MeshVariant = TEXT("_B");
+			A->Init(&V->Rig, TEXT("car"));
+			A->SetPaint(V->PaintColor);
+			A->SetCullDistance(15000);
+			A->Sync();
+			A->bAutoSync = false;
+			A->SetActorTickEnabled(false);
+			ParkedActors.Add(A);
+			ParkedObstacles.Append(V->Footprint());
+		}
+		UE_LOG(LogHaarklous, Display, TEXT("HK: %d cars parked along the streets"), ParkedCars.Num());
 	}
 	Drone = MakeUnique<FHKDrone>();
 	StartDrone = [this]() { StartDroneNow(); };

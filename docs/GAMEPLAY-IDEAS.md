@@ -27,3 +27,8 @@ gap on the concave profile; `site_geometry.prism()` now uses ear clipping (`tool
   More cars would be obstacles (and, if drivable, new vehicle numbers online), so they change gameplay: they wait
   for your OK. Two ways: more drivable cars in the web's generator (both games, same numbers), or parked-only cars
   that block like lamp posts (Unreal and web).
+  Built for you to try (3 Nov 2026), off unless the game starts with `-HKParkedCars` (`HKParking.h`): 220 parked-only
+  cars within 400 m (nearest streets first; on the asphalt by the kerb where the street is 7 m or wider, else beside
+  it like the web's; gaps at junctions, footpath crossings and now and then). They block walking and driving; online,
+  web players would not see them. Cost: about 2-3 fps at the firepit and on the street (packaged, 2240 x 1400).
+  To make them the default, flip `HKParking::Enabled()`.

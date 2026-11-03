@@ -54,6 +54,15 @@ namespace
 				T.Press(0);
 				T.Wait(2);
 				T.WaitShaders();
+				// Street parking (-HKParkedCars, HKParking.h): a parked car is solid to walk into.
+				T.Expect(TEXT("parked cars block walking"), [&T]()
+				{
+					const AHKGame* G = T.Game();
+					const FHKData& D = FHKData::Get();
+					for (int32 i = 0; i < FMath::Min(10, G->ParkedCars.Num()); i++)
+						if (D.WalkWorld.CanStand(FHKPt(G->ParkedCars[i]->X, G->ParkedCars[i]->Z), 1.6, G->ParkedCars[i]->Y)) return false;
+					return true;
+				});
 				// ---- Flicker ----
 				Triple(T, TEXT("f1-front-of-17A"), 6, 1.7, 24, 1, 8, 6);
 				Triple(T, TEXT("f2-street-view-spot"), -31.42, 2.2, -2.52, -21.78, 5, .15);

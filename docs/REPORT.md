@@ -665,9 +665,13 @@ now and then (flying once had its slowest 1 % at 17.7). After the Street View co
 
 ## What still needs you
 
-- **More parked cars?** Street View shows the streets lined with parked cars on both sides; the game has the web's 32
-  cars and 7 motorcycles. More cars would be obstacles (and new vehicle numbers online), so that waits for your OK
-  (`docs/GAMEPLAY-IDEAS.md`).
+- **Parked cars along the streets?** Street View shows the streets lined with parked cars; the game has the web's 32
+  cars and 7 motorcycles. They are built and ready to try: start the game with `-HKParkedCars` and 220 more Golfs and
+  ID.3s stand nose to tail along the streets and lanes within 400 m (they block walking and driving, cannot be driven,
+  and cost about 2-3 fps at the firepit and on the street in the packaged game). They are off by default because they change gameplay and
+  web players online would not see them; say yes and they are on for everyone in this game.
+
+  ![With -HKParkedCars: the lane by Sigurd Lies gate 21](img/look-parked--s4-sigurd-lies-gate-21.jpg)
 - **The web game moved on:** web PR #48 (a Gamle Oslo district, landmarks, sea) was merged on 2 Nov 2026. The
   Unreal snapshot is still web `main` at d4ec404; say the word and I refresh it and port the new district.
 - **Online for everyone:** a lobby holds 12 players (your decision, the whole lobby). The test server already does,

@@ -254,6 +254,8 @@ public:
 
 	// ---- Vehicles, aircraft, drone, minigames, firepit (HKGameModules.cpp) ----
 	TArray<TUniquePtr<FHKVehicle>> Vehicles;
+	TArray<TUniquePtr<FHKVehicle>> ParkedCars;       // street parking (HKParking.h; off unless -HKParkedCars), not in VehicleList
+	TArray<FHKObstacle> ParkedObstacles;             // their footprints (they never move)
 	TUniquePtr<class FHKDrone> Drone;
 	TUniquePtr<struct FHKMinigames> Mini;
 	TUniquePtr<class FHKFire> FirePit;
@@ -437,6 +439,7 @@ private:
 	void SyncModuleVisuals();
 	void DrawModuleHud(UCanvas* C);
 	UPROPERTY() TArray<TObjectPtr<AHKRigActor>> VehicleActors;
+	UPROPERTY() TArray<TObjectPtr<AHKRigActor>> ParkedActors;
 	UPROPERTY() TObjectPtr<AHKRigActor> DiscActor;
 	UPROPERTY() TObjectPtr<AHKRigActor> MuselundenActor;
 	UPROPERTY() TObjectPtr<AHKRigActor> PetanqueActor;

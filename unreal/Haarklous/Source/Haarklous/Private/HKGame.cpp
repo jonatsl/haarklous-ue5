@@ -441,6 +441,7 @@ void AHKGame::UpdateDynamic()
 	TArray<FHKObstacle> VList;
 	for (FHKVehicle* V : VehicleList)
 		if (V && V != Player.Vehicle) for (const FHKObstacle& O : V->Footprint()) { List.Add(O); VList.Add(O); }
+	List.Append(ParkedObstacles); VList.Append(ParkedObstacles);
 	if (ExtraDynamic) List.Append(ExtraDynamic());
 	// The construction site's fence and the paintball yard's walls, net and cover stop people and vehicles alike.
 	List.Append(SiteObstacles); VList.Append(SiteObstacles);

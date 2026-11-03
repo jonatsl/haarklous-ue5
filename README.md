@@ -33,6 +33,9 @@ Refresh after changes in the web game: `powershell -File tools\refresh-reference
   a bigger world (±760 m). The construction site moved 96 m south / 72 m west and the paintball course into the old
   site area.
 - The real DualShock 4 works (tested by the user on 28 Oct 2026).
+- **Street parking (to try, waits for your OK):** start with `-HKParkedCars` and up to 220 more cars stand nose to tail
+  along the streets and lanes within 400 m, as in Street View. They block walking and driving, cannot be driven, are
+  not in the online vehicle list, and web players in the same lobby do not have them (`HKParking.h`).
 - **Online is off.** To play online on the test server: start with `-HKOnline` (12 players a lobby; share the 4-letter
   code, friends join with `-HKOnline -HKLobby=CODE` or the code pad, or in the web game at the test server's address) (server
   `wss://haarklous-ue5-test.server-smoke.workers.dev`, see `docs/ONLINE.md`). Never point it at the live game.
