@@ -593,7 +593,9 @@ Street View from the nearest street: about 70 % are plaster (pale yellow, sand, 
 windows, and white 1930s blocks with blue or dark frames along Åsengata, Carl Jeppesens gate and Lilleborggata),
 17 % red-brown brick (Sinsen, Knut Alvssons vei, Siloveien) and a few new dark brick blocks. Even the block right
 next to home (Sigurd Lies gate 17 and 21) is yellow plaster, not brick. Each block now has the look it has in
-Street View, and the guesses further out follow the same mix. The yellow blocks first looked khaki: the camera's colour
+Street View, and the guesses further out follow the same mix. Blocks hidden behind trees or with no picture from the
+nearest street were looked at again from another street: 50 of the 54 blocks are now seen (the other 4 have only
+indoor photos or no coverage at all). The yellow blocks first looked khaki: the camera's colour
 grade was set cool (white balance 6100 K, less saturation, cool shadows), which turned walls in the shade bluish; it is
 now close to neutral like a photo (6600 K), so grey concrete is grey again and yellow plaster yellow.
 
@@ -633,7 +635,9 @@ glass balconies; granite kerbs, narrow asphalt streets, parked hatchbacks, vans 
   different, each car keeps its own). The silver, white and blue cars are a second real car, a VW ID.3 (short bonnet,
   big rear quarter windows, light bars joined by black bands). Paint is a clear-coated metallic with a very smooth
   lacquer, so the sun and sky glare off it; the lowest 30 cm carry a little road dust. Interiors, sizes, wheels and
-  driving are unchanged.
+  driving are unchanged. Checked against a photo of a real Mk7 (Wikipedia): length, wheelbase, where the bonnet
+  meets the windscreen, the short rear with the upright tailgate and the 16-inch wheels match; seen from 6 m in the
+  shade a black one reads as a modern hatchback, its sharp shoulder line and thick rear pillar show up close.
 
 Checked: the play-through `look` (0 failures), 54 automation tests, the `vehicles` play-through (every vehicle, the
 car's jump, now in a Golf and an ID.3), a new lighting bake (21.7 min).

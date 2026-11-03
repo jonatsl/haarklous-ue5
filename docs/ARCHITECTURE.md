@@ -206,7 +206,8 @@ The user: buildings "twitch" or flicker when you look at them; then make it look
   tile roofs (`TILE`).
 - **Street View survey of the unknown blocks** (3 Nov 2026): 178 buildings within 400 m have no colour in OSM and
   were a dice roll, half of them brick. Each of their 54 blocks was looked at in Street View from the nearest street
-  (47 clear views; spot, heading and the buildings in view worked out from `surroundings.json`): about 70 % are
+  (47 clear views, 3 more from a second street; spot, heading and the buildings in view worked out from
+  `surroundings.json`): about 70 % are
   plaster, mostly pale yellow, sand, cream and yellow-ochre with white windows, some white functionalist blocks with
   blue or dark frames (Åsengata, Carl Jeppesens gate, Lilleborggata); 17 % red-brown brick (Sinsen, Knut Alvssons
   vei, Siloveien, Kyrre Grepps gate 19); 8 % new dark brick blocks. Even the block next to home, Sigurd Lies gate 17

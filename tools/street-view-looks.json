@@ -1540,6 +1540,69 @@
     10.780407,
     286
    ]
+  },
+  {
+   "place": "Kyrre Grepps gate 28",
+   "style": "plaster",
+   "rgb": [
+    225,
+    210,
+    160
+   ],
+   "white": true,
+   "at": [
+    [
+     -62.6,
+     -132.8
+    ]
+   ],
+   "from": [
+    59.937592,
+    10.775842,
+    300
+   ]
+  },
+  {
+   "place": "Asengata, behind the trees",
+   "style": "plaster",
+   "rgb": [
+    234,
+    234,
+    228
+   ],
+   "white": false,
+   "at": [
+    [
+     -158.8,
+     -275.9
+    ]
+   ],
+   "from": [
+    59.938784,
+    10.773653,
+    41
+   ]
+  },
+  {
+   "place": "Sinsen, white high block",
+   "style": "plaster",
+   "rgb": [
+    220,
+    220,
+    216
+   ],
+   "white": false,
+   "at": [
+    [
+     301.2,
+     160.9
+    ]
+   ],
+   "from": [
+    59.935154,
+    10.782063,
+    207
+   ]
   }
  ]
 }
