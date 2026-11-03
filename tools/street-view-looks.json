@@ -1,5 +1,5 @@
 {
- "about": "Facade looks seen in Google Street View on 3 Nov 2026 for buildings within 400 m of home that OpenStreetMap gives no colour. at = building centres in the map frame (x east, s = -north, metres); white = white window frames (else dark). Used by tools/make-building-map.py. from = the Street View spot looked from: latitude, longitude, compass heading (the play-through streetview shoots the game from there).",
+ "about": "Facade looks seen in Google Street View on 3 Nov 2026 for buildings within 400 m of home that OpenStreetMap gives no colour. at = building centres in the map frame (x east, s = -north, metres); white = white window frames (else dark). Used by tools/make-building-map.py. from = the Street View spot looked from: latitude, longitude, compass heading (the play-through streetview shoots the game from there). ground = brick: a red-brick ground floor under the plaster.",
  "looks": [
   {
    "place": "Sigurd Lies gate 17",
@@ -120,7 +120,8 @@
     59.935211,
     10.775859,
     222
-   ]
+   ],
+   "ground": "brick"
   },
   {
    "place": "Roveruds gate 11",
@@ -202,7 +203,8 @@
     59.934579,
     10.77493,
     15
-   ]
+   ],
+   "ground": "brick"
   },
   {
    "place": "Agathe Grondahls gate 34",
@@ -1000,9 +1002,9 @@
    "place": "Siloveien, tan brick",
    "style": "brick",
    "rgb": [
-    160,
-    110,
-    80
+    172,
+    126,
+    90
    ],
    "white": true,
    "at": [

@@ -593,18 +593,17 @@ Street View from the nearest street: about 70 % are plaster (pale yellow, sand, 
 windows, and white 1930s blocks with blue or dark frames along Åsengata, Carl Jeppesens gate and Lilleborggata),
 17 % red-brown brick (Sinsen, Knut Alvssons vei, Siloveien) and a few new dark brick blocks. Even the block right
 next to home (Sigurd Lies gate 17 and 21) is yellow plaster, not brick. Each block now has the look it has in
-Street View, and the guesses further out follow the same mix. Two things made the yellow blocks look khaki and had to
-be fixed on the way: the 3D walls clipped bright colours (pale yellow lost its red), and the camera's colour grade was
-set cool (white balance 6100 K, less saturation, cool shadows), which turned walls in the shade bluish; it is now close
-to neutral like a photo (6600 K), so grey concrete is grey again and yellow plaster yellow.
+Street View, and the guesses further out follow the same mix. The yellow blocks first looked khaki: the camera's colour
+grade was set cool (white balance 6100 K, less saturation, cool shadows), which turned walls in the shade bluish; it is
+now close to neutral like a photo (6600 K), so grey concrete is grey again and yellow plaster yellow.
 
 **Side by side with Street View.** A new play-through, `streetview`, shoots the game from each of the 50 survey spots
 with Street View's heading and camera height. Compared one by one with what Street View shows there: about 40 match
 in colour, material and window frames (the yellow, cream and sand blocks, the ochre of Roveruds gate, the white 1930s
 blocks with dark frames, the red brick of Knut Alvssons vei and Siloveien, the charcoal new blocks at Sinsen); the
 yellow-ochre of Johan Svendsens gate and Åsengata 19 first read a little olive in the shade, so that colour was made
-warmer, and now matches too. Still off: the tan brick by Siloveien comes out red, and Nordkappgata 38 and Agathe
-Grøndahls gate 48 have a red-brick ground floor that the walls cannot show (one look per building); 3 are unclear (the new high-rise at Hans Nielsen Hauges gate 37 is a
+warmer, and now matches too. The tan brick by Siloveien and the red-brick ground floors of Nordkappgata 38 and Agathe
+Grøndahls gate 48 (under the plaster) came out wrong at first; the walls can now show both. 3 are unclear (the new high-rise at Hans Nielsen Hauges gate 37 is a
 different building in the map data, two views are blocked by a shed and a wall).
 
 ![streetview: Roveruds gate 11, ochre plaster as in Street View](img/streetview--sv-05-roveruds-gate-11.jpg)

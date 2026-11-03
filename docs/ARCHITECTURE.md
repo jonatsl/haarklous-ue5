@@ -215,10 +215,12 @@ The user: buildings "twitch" or flicker when you look at them; then make it look
   `make-building-map.py` uses it, snapped to the nearest colour of the mix (the palette holds 255 looks), and the
   mix for the rest is now the one seen there. After changing it: build_details.py, build_facades.py, then
   materials_photoreal.py, import_facades.py, material_usage.py, full_precision_uvs.py, build_level.py,
-  materials_sky.py, and bake the lighting. The 3D walls also clipped bright colours: their tint (vertex colour,
-  8-bit) and base colour (texture x tint x ColourScale 2.5) both stop at 1, so pale yellow lost its red and looked
-  olive, and orange brick lost its red; `facade_model.py` now scales a building's whole tint down until neither
-  clips, which keeps the hue.
+  materials_sky.py, and bake the lighting. The yellow blocks first looked khaki: the cause was the cool colour grade
+  (`look.py`, now white balance 6600 K), not the walls (a first guess that their colours clipped was wrong: the
+  vertex colour holds tint / ColourScale; `facade_model.py` keeps a guard that never triggers today). Two looks the
+  walls could not show: tan brick (Siloveien; a colour of the mix only the survey uses) and plaster over a red-brick
+  ground floor (Nordkappgata 38, Agathe Grøndahls gate 48: `ground: brick` in the survey, vertex alpha 0.5,
+  `M_HK_Wall3D` draws red brick up to the first floor's sills).
 - **3D walls** out to 400 m (`facade_model.RADIUS`, 793 walls instead of 433), with weathering in `M_HK_Wall3D`
   (rain streaks under the sills, darker near the plinth, large soft stains). Bug fixed on the way: facade_model.py
   read the building palette with PIL, which Blender's Python lacks, so every 3D wall had the fallback pink (0.8, 0.6,

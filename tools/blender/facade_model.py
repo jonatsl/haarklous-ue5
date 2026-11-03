@@ -98,11 +98,11 @@ def covered_walls():
         variant = look['variant']
         lin = np.power(np.array(colour), 2.2)
         tint = lin / PLASTER_AVG * 0.68 if plaster else lin / BRICK_AVG * (0.92 + 0.12 * variant)
-        # Keep the hue (3 Nov 2026): the vertex colour is 8-bit (clipped at 1), and so is the base colour M_HK_Wall3D
-        # makes of it (texture x tint x ColourScale 2.5). Pale yellow plaster wanted red 1.10 and green 1.02, both
-        # clipped to 1, so it turned olive; orange brick lost its red. The whole tint is scaled down until neither clips.
+        # Guard (3 Nov 2026): the vertex colour is tint / COLOUR_SCALE (8-bit, at most 1) and the base colour about the
+        # texture's average x tint (at most 1); a colour that would pass either is scaled down as a whole, keeping its
+        # hue. None of today's colours needs it.
         avg = np.array(PLASTER_AVG if plaster else BRICK_AVG)
-        cap = np.minimum(1.0, 0.95 / (avg * 2.5))
+        cap = np.minimum(COLOUR_SCALE, 0.95 / avg)
         tint = tint * min(1.0, float((cap / np.maximum(tint, 1e-6)).min()))
         # The web's walls(): ring reversed when its signed area (map frame) is positive; u runs along that order.
         ring = np.array(b['r']['o'], float).reshape(-1, 2)
@@ -124,7 +124,8 @@ def covered_walls():
             ok = L >= 3.4 and not near_tower and not inside(world, mid + n * 0.3) and not in_other(mid + n * 0.3, i)
             if ok:
                 walls.append({'b': i, 'a': a, 'c': c, 'd': d, 'n': n, 'L': L, 'u0': u, 'y0': y0, 'y1': top,
-                              'tint': tuple(np.clip(tint / COLOUR_SCALE, 0, 1)), 'plaster': plaster, 'white': white})
+                              'tint': tuple(np.clip(tint / COLOUR_SCALE, 0, 1)), 'plaster': plaster, 'white': white,
+                              'brick_ground': plaster and look.get('ground') == 'brick'})
             u += L
     return walls
 
@@ -176,7 +177,8 @@ def shell(walls):
     for w in walls:
         a, d, n, L = w['a'], w['d'], w['n'], w['L']
         y0, y1 = w['y0'], w['y1']
-        col = (*w['tint'], 1.0 if w['plaster'] else 0.0)
+        # Alpha: 0 brick, 1 plaster, 0.5 plaster over a red-brick ground floor (M_HK_Wall3D, Street View 3 Nov 2026).
+        col = (*w['tint'], 0.5 if w.get('brick_ground') else 1.0 if w['plaster'] else 0.0)
         D = 0.10 if w['plaster'] else 0.13
         P = lambda t, y, depth=0.0: np.array([a[0] + d[0] * t - n[0] * depth, y, a[1] + d[1] * t - n[1] * depth])
         nw = np.array([n[0], 0.0, n[1]])

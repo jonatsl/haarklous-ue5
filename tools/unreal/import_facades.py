@@ -80,12 +80,17 @@ class G:
 
 
 WALL_HLSL = r'''
-float3 c = lerp(BD, PD, VA) * VC.rgb * Scale;
-Rough = lerp(BR, PR, VA);
-Nrm = normalize(lerp(BN, PN, VA));
-// Weathering (realism pass, 2 Nov 2026; real walls are never evenly clean). UV = metres along the wall (the web's
-// 3 m window bays) and up from the plinth top (the FBX import turned v over: height = 1 - UV.y).
+// UV = metres along the wall (the web's 3 m window bays) and up from the plinth top (the FBX import turned v over).
 float u = UV.x, h = 1.0 - UV.y;
+// Vertex alpha: 0 brick, 1 plaster, 0.5 plaster over a red-brick ground floor (up to the first floor's sills, 3.55 m;
+// Nordkappgata, Agathe Grondahls gate in Street View, 3 Nov 2026): that brick has its own red, not the plaster's tint.
+float two = 1.0 - step(0.25, abs(VA - 0.5));
+float pl = lerp(VA, step(3.55, h), two);
+float3 tb = lerp(VC.rgb * Scale, float3(1.21, 0.47, 0.38), two);
+float3 c = lerp(BD * tb, PD * VC.rgb * Scale, pl);
+Rough = lerp(BR, PR, pl);
+Nrm = normalize(lerp(BN, PN, pl));
+// Weathering (realism pass, 2 Nov 2026; real walls are never evenly clean).
 float s = h - floor(h / 2.85) * 2.85;                                   // height within the storey (sill at 0.876 m)
 float bay = abs(frac(u / 3.0) - 0.5) * 3.0;                              // distance from the bay's centre line
 float col = frac(sin(floor(u * 28.0) * 12.9898 + floor(h / 2.85) * 78.233) * 43758.5453);

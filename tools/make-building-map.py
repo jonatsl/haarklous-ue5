@@ -42,6 +42,7 @@ STREET_VIEW = os.path.join(ROOT, 'tools', 'street-view-looks.json')
 RANDOM_LOOKS = [                  # (weight, style, colour, white window frames)
     (0.12, 'brick', BRICK, True),
     (0.06, 'brick', ORANGE, True),
+    (0.00, 'brick', (176, 128, 92), True),     # tan brick (Siloveien): only for the Street View look, never rolled
     (0.20, 'plaster', (229, 211, 165), True),   # pale yellow (OSM #e5d3aa)
     (0.16, 'plaster', (222, 202, 150), True),   # sand
     (0.13, 'plaster', (228, 214, 178), True),   # cream
@@ -116,6 +117,7 @@ def main():
         r = hash01(cell[0], cell[1], 3.1)
         variant = int(hash01(cx, cz, 1.7) * 8)
         colour = b.get('c') or tags.get('building:colour')
+        ground = ''
         if b['s'] == 'plaster':
             # The web's own plaster buildings (no windows in the web): keep their colour.
             pc = [0xe3dccb, 0xd8cfbd, 0xcdd2cb, 0xe6e0d4, 0xd9c7a8][i % 5]
@@ -128,7 +130,7 @@ def main():
         elif street_view(cx, cz):
             # The colour seen, snapped to the nearest of the mix's (the palette holds 255 looks of 8 variants each).
             e = street_view(cx, cz)
-            style, white = e['style'], e['white']
+            style, white, ground = e['style'], e['white'], e.get('ground', '')
             rgb = min({c for _, st, c, _ in RANDOM_LOOKS if st == style}, key=lambda c: sum((a - b) ** 2 for a, b in zip(c, e['rgb'])))
         else:
             acc = 0
@@ -145,7 +147,8 @@ def main():
             tile = hash01(cell[0], cell[1], 9.3) < TILE.get(rgb, 0.55)
         lid = look_id(style, rgb, tile, white, variant)
         polys.append(([to_world(x, z) for x, z in ring], lid))
-        per_building[i] = {'style': style, 'web': b['s'], 'tile': tile, 'look': lid, 'rgb': list(rgb), 'white': white, 'variant': variant * 32 / 255.0}
+        per_building[i] = {'style': style, 'web': b['s'], 'tile': tile, 'look': lid, 'rgb': list(rgb), 'white': white, 'variant': variant * 32 / 255.0,
+                           'ground': ground}   # 'brick': a red-brick ground floor under the plaster (3D walls only)
     # The shops (game-shops.js) are cut out of their buildings' outlines; the wall the web rebuilds above each shop
     # front (on the old outline) takes its look from here, so the shop's rectangle gets its building's look too.
     game_path = os.path.join(DATA, 'game.json')
