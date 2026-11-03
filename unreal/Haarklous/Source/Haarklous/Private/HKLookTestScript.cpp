@@ -186,6 +186,40 @@ namespace
 				T.Shot(TEXT("c9-driver-seat"));
 				T.FreeCamera();
 			});
+
+			// "streetview" (3 Nov 2026): the game from every spot of the Street View survey of the blocks OSM gives no
+			// colour (tools/street-view-looks.json: latitude, longitude, compass heading), camera 2.4 m up like Street
+			// View's, looking 8 degrees up, to compare with Street View side by side. Editor builds only (reads tools/).
+			FHKTestScripts::All().Add(TEXT("streetview"), [](AHKTestDriver& T)
+			{
+				T.Wait(3);
+				T.Press(0);
+				T.Wait(2);
+				T.WaitShaders();
+				const TSharedPtr<FJsonObject> J = HKJson::LoadFile(FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() / TEXT("../../tools/street-view-looks.json")));
+				T.Expect(TEXT("street-view-looks.json read"), [J]() { return J.IsValid(); });
+				if (!J) return;
+				FHKData& D = FHKData::Get();
+				const TSharedPtr<FJsonObject> O = HKJson::Obj(D.D, TEXT("origin"));
+				const double Lat0 = HKJson::Num(O, TEXT("lat")), Lon0 = HKJson::Num(O, TEXT("lon")), Kx = 111320 * FMath::Cos(FMath::DegreesToRadians(Lat0));
+				int32 k = 0;
+				for (const TSharedPtr<FJsonValue>& V : HKJson::Arr(J, TEXT("looks")))
+				{
+					const TSharedPtr<FJsonObject> E = V->AsObject();
+					const TArray<double> F = HKJson::Nums(E, TEXT("from"));
+					if (F.Num() < 3) continue;
+					// Map frame: x east, s = -north (as tools/make-building-map.py).
+					const double X = (F[1] - Lon0) * Kx, S = -(F[0] - Lat0) * 111320, H = FMath::DegreesToRadians(F[2]);
+					const FVector2D P = D.ToWorld(X, S), Q = D.ToWorld(X + FMath::Sin(H) * 30, S - FMath::Cos(H) * 30);
+					const double Y = D.HeightWorld(P.X, P.Y) + 2.4;
+					LookFrom(T, P.X, Y, P.Y, Q.X, Y + 30 * FMath::Tan(FMath::DegreesToRadians(8.0)), Q.Y);
+					FString Place;
+					for (const TCHAR C : HKJson::Str(E, TEXT("place"))) if (FChar::IsAlnum(C) || C == ' ') Place.AppendChar(C == ' ' ? '-' : FChar::ToLower(C));
+					T.Wait(1.2);
+					T.Shot(FString::Printf(TEXT("sv-%02d-%s"), k++, *Place));
+				}
+				T.FreeCamera();
+			});
 		}
 	} GRegisterLook;
 }

@@ -48,7 +48,8 @@ A local exploration (started 26 Oct 2026): rebuild the **graphics** of the Haark
   seat), `mouseflight` (helicopter, drone and plane flown with the mouse, free look with Shift or the right mouse
   button), `places` (the checks of GitHub issues #1-#14: the moved site and paintball course, HODET N.N., street
   lamps, Muselunden, the bike's first ride, petanque at 13, the stashes and boosts, the shops and money, the distant
-  land), `look` (flicker checks, the Street View spots, the real car up close); tests also write `results.txt` in their shots folder, so they can be checked in the packaged build (no log):
+  land), `look` (flicker checks, the Street View spots, the real car up close), `streetview` (the game from the 50 spots
+  of the Street View survey in `tools/street-view-looks.json`, editor only); tests also write `results.txt` in their shots folder, so they can be checked in the packaged build (no log):
   `dist\...\Haarklous.exe -hktest=<name> -hkout=<folder>`;
   `tools\net-test\run-paintball.ps1` (the real game and seven bot clients on the test server). Scripted tests ignore the
   real keyboard and mouse.

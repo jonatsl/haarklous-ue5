@@ -598,6 +598,18 @@ be fixed on the way: the 3D walls clipped bright colours (pale yellow lost its r
 set cool (white balance 6100 K, less saturation, cool shadows), which turned walls in the shade bluish; it is now close
 to neutral like a photo (6600 K), so grey concrete is grey again and yellow plaster yellow.
 
+**Side by side with Street View.** A new play-through, `streetview`, shoots the game from each of the 50 survey spots
+with Street View's heading and camera height. Compared one by one with what Street View shows there: about 40 match
+in colour, material and window frames (the yellow, cream and sand blocks, the ochre of Roveruds gate, the white 1930s
+blocks with dark frames, the red brick of Knut Alvssons vei and Siloveien, the charcoal new blocks at Sinsen); the
+yellow-ochre of Johan Svendsens gate and Åsengata 19 first read a little olive in the shade, so that colour was made
+warmer, and now matches too. Still off: the tan brick by Siloveien comes out red, and Nordkappgata 38 and Agathe
+Grøndahls gate 48 have a red-brick ground floor that the walls cannot show (one look per building); 3 are unclear (the new high-rise at Hans Nielsen Hauges gate 37 is a
+different building in the map data, two views are blocked by a shed and a wall).
+
+![streetview: Roveruds gate 11, ochre plaster as in Street View](img/streetview--sv-05-roveruds-gate-11.jpg)
+![streetview: Åsengata 30, white 1930s block with dark frames](img/streetview--sv-37-asengata-30.jpg)
+![streetview: Knut Alvssons vei 4, brown brick beside yellow plaster](img/streetview--sv-25-knut-alvssons-vei-4.jpg)
 ![Sigurd Lies gate 21, from the Street View spot: yellow plaster, as in Street View (it was brick)](img/look--s4-sigurd-lies-gate-21.jpg)
 ![Nordkappgata 38: cream plaster](img/look--s5-nordkappgata-38.jpg)
 ![Sigurd Lies gate 17 next to 17A: yellow plaster beside the brick](img/look--s2-sigurd-lies-gate-south.jpg)

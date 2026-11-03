@@ -45,7 +45,7 @@ RANDOM_LOOKS = [                  # (weight, style, colour, white window frames)
     (0.20, 'plaster', (229, 211, 165), True),   # pale yellow (OSM #e5d3aa)
     (0.16, 'plaster', (222, 202, 150), True),   # sand
     (0.13, 'plaster', (228, 214, 178), True),   # cream
-    (0.11, 'plaster', (220, 192, 115), True),   # Torshov yellow-ochre
+    (0.11, 'plaster', (226, 190, 104), True),   # Torshov yellow-ochre (warmer after the side-by-side check: it read olive in shade)
     (0.08, 'plaster', (236, 234, 228), False),  # white functionalist, dark frames
     (0.06, 'plaster', (226, 210, 168), False),  # beige with dark frames
     (0.08, 'plaster', (82, 82, 86), False),     # new dark brick blocks and grey panels
