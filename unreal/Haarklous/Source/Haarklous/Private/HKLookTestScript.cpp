@@ -122,6 +122,12 @@ namespace
 				T.Wait(1); T.Shot(TEXT("s2-sigurd-lies-gate-south"));
 				LookFrom(T, 18, FHKData::Get().HeightWorld(18, 2) + 1.7, 2, -20, FHKData::Get().HeightWorld(-20, 30) + 6, 30);
 				T.Wait(1); T.Shot(TEXT("s3-haarklous-plass"));
+				// Two blocks OSM gives no colour, from the Street View spots of the survey of 3 Nov 2026
+				// (tools/street-view-looks.json): Sigurd Lies gate 21 (yellow plaster), Nordkappgata 38 (cream plaster).
+				LookFrom(T, -67.42, FHKData::Get().HeightWorld(-67.42, -26.83) + 2.2, -26.83, -42.7, FHKData::Get().HeightWorld(-42.7, -43.84) + 4, -43.84);
+				T.Wait(1); T.Shot(TEXT("s4-sigurd-lies-gate-21"));
+				LookFrom(T, -43.8, FHKData::Get().HeightWorld(-43.8, -122.52) + 2.2, -122.52, -40.94, FHKData::Get().HeightWorld(-40.94, -152.38) + 4, -152.38);
+				T.Wait(1); T.Shot(TEXT("s5-nordkappgata-38"));
 
 				// ---- The real cars: the first Golf (Pick 0) and the first ID.3 (Pick 1, silver / white / blue) ----
 				for (int32 Pick = 0; Pick < 2; Pick++)

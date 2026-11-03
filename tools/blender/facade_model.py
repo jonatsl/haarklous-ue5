@@ -98,6 +98,12 @@ def covered_walls():
         variant = look['variant']
         lin = np.power(np.array(colour), 2.2)
         tint = lin / PLASTER_AVG * 0.68 if plaster else lin / BRICK_AVG * (0.92 + 0.12 * variant)
+        # Keep the hue (3 Nov 2026): the vertex colour is 8-bit (clipped at 1), and so is the base colour M_HK_Wall3D
+        # makes of it (texture x tint x ColourScale 2.5). Pale yellow plaster wanted red 1.10 and green 1.02, both
+        # clipped to 1, so it turned olive; orange brick lost its red. The whole tint is scaled down until neither clips.
+        avg = np.array(PLASTER_AVG if plaster else BRICK_AVG)
+        cap = np.minimum(1.0, 0.95 / (avg * 2.5))
+        tint = tint * min(1.0, float((cap / np.maximum(tint, 1e-6)).min()))
         # The web's walls(): ring reversed when its signed area (map frame) is positive; u runs along that order.
         ring = np.array(b['r']['o'], float).reshape(-1, 2)
         order = ring[::-1] if _area(ring) > 0 else ring

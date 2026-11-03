@@ -7,8 +7,8 @@ The web draws every apartment block in the same dark brick. The real ones differ
 windows and grey concrete plinths (OSM tags them #cb9c89, a pale salmon that looked pink in the game: the brick
 is darker), some blocks are orange-red brick with white windows and red tile roofs, their neighbours pale yellow or
 red plaster with white windows; roofs dark grey slate or red clay tile. OSM gives building:colour for about 90
-buildings (all those around home) and roof:colour for some; the others get a believable Torshov mix, the same for
-buildings of one block.
+buildings (all those around home) and roof:colour for some; 172 more were looked at in Street View on 3 Nov 2026
+(tools/street-view-looks.json); the others get the mix seen there, the same for buildings of one block.
 
 Writes tools/out/textures/
   T_BuildingId.png       top-down map of the district in the Unreal world frame, one palette index per building
@@ -34,17 +34,24 @@ SIZE = 2048
 SALMON = (203, 156, 137)          # OSM #cb9c89, the tag of the real brick blocks around Haarklous plass
 BRICK = (150, 98, 80)             # their real brick (the average of brick and dark mortar, Street View 2 Nov 2026)
 ORANGE = (178, 98, 70)            # the orange-red brick blocks with white windows (Haarklous plass, north side)
-RANDOM_LOOKS = [                  # (weight, style, colour, white window frames) for buildings without an OSM colour
-    (0.38, 'brick', BRICK, False),
-    (0.12, 'brick', ORANGE, True),
-    (0.14, 'plaster', (229, 211, 170), True),   # pale yellow (OSM #e5d3aa)
-    (0.08, 'plaster', (214, 180, 112), True),   # ochre
-    (0.07, 'plaster', (196, 116, 92), True),    # oxide red
-    (0.06, 'plaster', (226, 174, 165), True),   # pink (OSM #e2aea5)
-    (0.08, 'plaster', (221, 207, 172), True),   # beige (OSM #ddcfac)
-    (0.07, 'plaster', (174, 169, 149), True),   # grey (OSM #aea995)
-]
-TILE = {BRICK: 0.3, ORANGE: 0.85}  # share of red clay tile roofs by look (plaster 0.55), where OSM has no roof colour
+# Buildings without an OSM colour: the look seen in Street View (tools/street-view-looks.json, 3 Nov 2026: 172
+# buildings within 400 m of home), else a dice roll from the mix seen there. Of 47 blocks looked at, about 70 % were
+# plaster (mostly pale yellow, sand and cream, some ochre and white functionalist blocks with dark frames), 17 % brick
+# (red-brown, around Sinsen and Knut Alvssons vei) and 8 % new dark brick blocks.
+STREET_VIEW = os.path.join(ROOT, 'tools', 'street-view-looks.json')
+RANDOM_LOOKS = [                  # (weight, style, colour, white window frames)
+    (0.12, 'brick', BRICK, True),
+    (0.06, 'brick', ORANGE, True),
+    (0.20, 'plaster', (229, 211, 165), True),   # pale yellow (OSM #e5d3aa)
+    (0.16, 'plaster', (222, 202, 150), True),   # sand
+    (0.13, 'plaster', (228, 214, 178), True),   # cream
+    (0.11, 'plaster', (220, 192, 115), True),   # Torshov yellow-ochre
+    (0.08, 'plaster', (236, 234, 228), False),  # white functionalist, dark frames
+    (0.06, 'plaster', (226, 210, 168), False),  # beige with dark frames
+    (0.08, 'plaster', (82, 82, 86), False),     # new dark brick blocks and grey panels
+]   # (oxide red, pink and grey plaster: OSM-tagged ones keep theirs; none was seen untagged)
+TILE = {BRICK: 0.3, ORANGE: 0.85,  # share of red clay tile roofs by look (plaster 0.55), where OSM has no roof colour
+        (236, 234, 228): 0, (82, 82, 86): 0}   # functionalist and new blocks: flat roofs
 
 
 def hexrgb(h):
@@ -85,6 +92,15 @@ def main():
             looks.append(key)
         return index[key]
 
+    seen = [(e, p) for e in json.load(open(STREET_VIEW, encoding='utf-8'))['looks'] for p in e['at']]
+
+    def street_view(cx, cz):     # the last entry wins (a single building after its block)
+        hit = None
+        for e, (x, z) in seen:
+            if abs(x - cx) < 1 and abs(z - cz) < 1:
+                hit = e
+        return hit
+
     polys, per_building = [], {}
     for i, b in enumerate(s['buildings']):
         ring = np.array(b['r']['o'], dtype=float).reshape(-1, 2)
@@ -109,6 +125,11 @@ def main():
             rgb = hexrgb(colour)
             style = 'brick' if rgb == SALMON else 'plaster'
             rgb, white = (BRICK, False) if rgb == SALMON else (rgb, True)
+        elif street_view(cx, cz):
+            # The colour seen, snapped to the nearest of the mix's (the palette holds 255 looks of 8 variants each).
+            e = street_view(cx, cz)
+            style, white = e['style'], e['white']
+            rgb = min({c for _, st, c, _ in RANDOM_LOOKS if st == style}, key=lambda c: sum((a - b) ** 2 for a, b in zip(c, e['rgb'])))
         else:
             acc = 0
             for w, st, c, wh in RANDOM_LOOKS:

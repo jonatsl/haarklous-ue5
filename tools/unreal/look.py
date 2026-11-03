@@ -6,6 +6,9 @@ softer sky (more contrast), light shafts through trees and between buildings, sc
 window reveals, kerbs), bloom and lens flares off bright sky and glass, screen-space reflections in windows and car
 paint, tighter ambient occlusion, cool shadows and warm highlights with a filmic curve, a touch of colour fringing
 and vignette. The render switches that pay for it are set per quality level in AHKGame::ApplyQuality.
+3 Nov 2026 ("look like real life", Street View): white balance 6600 K instead of 6100, saturation 0.96 instead of
+0.92, neutral instead of cool shadows: walls in shade are lit by the blue sky alone, and the cool grade turned the
+yellow plaster blocks khaki and grey concrete blue, where photos (white-balanced) show them yellow and grey.
 """
 import unreal
 
@@ -48,13 +51,13 @@ def post(s):
              ('override_ambient_occlusion_intensity', True), ('ambient_occlusion_intensity', 0.85),
              ('override_ambient_occlusion_radius', True), ('ambient_occlusion_radius', 110.0),
              ('override_ambient_occlusion_power', True), ('ambient_occlusion_power', 1.6),
-             ('override_color_saturation', True), ('color_saturation', unreal.Vector4(0.92, 0.92, 0.92, 1.0)),
+             ('override_color_saturation', True), ('color_saturation', unreal.Vector4(0.96, 0.96, 0.96, 1.0)),
              ('override_color_contrast', True), ('color_contrast', unreal.Vector4(1.1, 1.1, 1.1, 1.0)),
-             ('override_color_gain_shadows', True), ('color_gain_shadows', unreal.Vector4(1.0, 1.0, 1.0, 1.0)),
+             ('override_color_gain_shadows', True), ('color_gain_shadows', unreal.Vector4(1.02, 1.0, 0.96, 1.0)),
              ('override_color_gain_highlights', True), ('color_gain_highlights', unreal.Vector4(1.04, 1.01, 0.95, 1.0)),
              ('override_film_slope', True), ('film_slope', 0.9),
              ('override_film_toe', True), ('film_toe', 0.57),
-             ('override_white_temp', True), ('white_temp', 6100.0),
+             ('override_white_temp', True), ('white_temp', 6600.0),
              ('override_scene_fringe_intensity', True), ('scene_fringe_intensity', 0.35),
              ('override_vignette_intensity', True), ('vignette_intensity', 0.32)], 'post')
     return s

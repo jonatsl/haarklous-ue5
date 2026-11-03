@@ -196,6 +196,21 @@ The user: buildings "twitch" or flicker when you look at them; then make it look
   materials_photoreal.py and facade_model.py is its new average. `make-building-map.py`: OSM-salmon blocks get
   `BRICK` (150, 98, 80); the mix for untagged blocks adds orange-red brick with white windows (`ORANGE`) and more red
   tile roofs (`TILE`).
+- **Street View survey of the unknown blocks** (3 Nov 2026): 178 buildings within 400 m have no colour in OSM and
+  were a dice roll, half of them brick. Each of their 54 blocks was looked at in Street View from the nearest street
+  (47 clear views; spot, heading and the buildings in view worked out from `surroundings.json`): about 70 % are
+  plaster, mostly pale yellow, sand, cream and yellow-ochre with white windows, some white functionalist blocks with
+  blue or dark frames (Åsengata, Carl Jeppesens gate, Lilleborggata); 17 % red-brown brick (Sinsen, Knut Alvssons
+  vei, Siloveien, Kyrre Grepps gate 19); 8 % new dark brick blocks. Even the block next to home, Sigurd Lies gate 17
+  and 21, is yellow plaster (it was brick). `tools/street-view-looks.json` keeps each observation (place, style,
+  colour, frames, building centres in the map frame, so a re-export cannot mix them up);
+  `make-building-map.py` uses it, snapped to the nearest colour of the mix (the palette holds 255 looks), and the
+  mix for the rest is now the one seen there. After changing it: build_details.py, build_facades.py, then
+  materials_photoreal.py, import_facades.py, material_usage.py, full_precision_uvs.py, build_level.py,
+  materials_sky.py, and bake the lighting. The 3D walls also clipped bright colours: their tint (vertex colour,
+  8-bit) and base colour (texture x tint x ColourScale 2.5) both stop at 1, so pale yellow lost its red and looked
+  olive, and orange brick lost its red; `facade_model.py` now scales a building's whole tint down until neither
+  clips, which keeps the hue.
 - **3D walls** out to 400 m (`facade_model.RADIUS`, 793 walls instead of 433), with weathering in `M_HK_Wall3D`
   (rain streaks under the sills, darker near the plinth, large soft stains). Bug fixed on the way: facade_model.py
   read the building palette with PIL, which Blender's Python lacks, so every 3D wall had the fallback pink (0.8, 0.6,

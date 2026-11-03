@@ -24,7 +24,7 @@ drawn twice in the same place), and the world within 400 m looks like the real s
 red-brown brick with dark mortar, weathered 3D walls, and two real cars, a VW Golf and a VW ID.3, with glossy
 clear-coated paint, real lights and Norwegian number plates. 3 November: no more flicker inside the flat, on the
 paintball course or on the construction site, the kitchen fronts have their own finish again, the site's ground has
-no streaks, and textures keep their shape on every mesh laid out in world metres. The packaged game runs at 35–54 fps
+no streaks, textures keep their shape on every mesh laid out in world metres, and every block within 400 m has the colour it has in Street View (most of them yellow or cream plaster, not brick). The packaged game runs at 35–54 fps
 on average at 2240 × 1400.
 
 ## How to start the game
@@ -587,6 +587,21 @@ soil now takes its texture position from the world, and the same rounding was fo
 street-and-ground tile near home, all 3D walls, the stairwells, the site's gravel track, the paintball walls); they
 now keep full precision, so bricks and paving no longer bend between vertices.
 
+**Every block within 400 m, checked in Street View** (3 Nov). OpenStreetMap gives the real colour of only 92 of the
+270 buildings within 400 m; the other 178 were a guess, half of them brick. I looked at each of their 54 blocks in
+Street View from the nearest street: about 70 % are plaster (pale yellow, sand, cream and yellow-ochre with white
+windows, and white 1930s blocks with blue or dark frames along Åsengata, Carl Jeppesens gate and Lilleborggata),
+17 % red-brown brick (Sinsen, Knut Alvssons vei, Siloveien) and a few new dark brick blocks. Even the block right
+next to home (Sigurd Lies gate 17 and 21) is yellow plaster, not brick. Each block now has the look it has in
+Street View, and the guesses further out follow the same mix. Two things made the yellow blocks look khaki and had to
+be fixed on the way: the 3D walls clipped bright colours (pale yellow lost its red), and the camera's colour grade was
+set cool (white balance 6100 K, less saturation, cool shadows), which turned walls in the shade bluish; it is now close
+to neutral like a photo (6600 K), so grey concrete is grey again and yellow plaster yellow.
+
+![Sigurd Lies gate 21, from the Street View spot: yellow plaster, as in Street View (it was brick)](img/look--s4-sigurd-lies-gate-21.jpg)
+![Nordkappgata 38: cream plaster](img/look--s5-nordkappgata-38.jpg)
+![Sigurd Lies gate 17 next to 17A: yellow plaster beside the brick](img/look--s2-sigurd-lies-gate-south.jpg)
+
 **Street View.** Around Haarklous plass the blocks are red-brown brick with dark, slightly sunken mortar, dark-brown
 wooden windows with white curtains, thin concrete balconies with steel railings, grey plinths; some blocks are
 orange-red brick with white windows and red tile roofs; the neighbours are pale yellow plaster with frosted green
@@ -646,7 +661,7 @@ In **the packaged game you start** (3 Nov 2026, after all of the above; full scr
 
 Every place is well above the 20–30 fps goal on average, and faster than on 28 Oct (26–32 fps), probably because
 the far copies of the buildings and trees are no longer drawn a second time; single frames still dip to 12–19 fps
-now and then (flying once had its slowest 1 % at 17.7).
+now and then (flying once had its slowest 1 % at 17.7). After the Street View colours and the neutral white balance, a third run gave the same: home 53.4, firepit 41.7, park 42.0, street 43.0, flying 35.9, site 39.6, paintball 44.5 fps.
 
 ## What still needs you
 
@@ -660,9 +675,9 @@ now and then (flying once had its slowest 1 % at 17.7).
   friends with the same build join it (`-HKOnline -HKLobby=CODE` or the code pad); the web game at
   https://haarklous-ue5-test.server-smoke.workers.dev joins the same lobbies (without the site and paintball). The
   live server (haarklous-online) still holds 5; changing it is yours to do, I never touch it.
-- **Buildings further away:** the blocks around 17A have their real colour in OpenStreetMap; most others do not,
-  so their brick or plaster colour is a believable Torshov guess, the same for one block. If one you know looks
-  wrong, tell me its street and colour (one line in `tools/make-building-map.py`).
+- **Buildings further away:** within 400 m every block now has the colour OpenStreetMap gives it or the one seen in
+  Street View (a few hidden behind trees keep a guess); further out the colours are a guess from the same mix. If one
+  you know looks wrong, tell me its street and colour (one line in `tools/street-view-looks.json`).
 - Web pull requests #18 (distant land) and #19 (mouse flying) were still open; they are ported from their branches.
   Refresh the snapshot once they are merged (`tools
 efresh-reference.ps1`).
